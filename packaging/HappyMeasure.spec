@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for HappyMeasure portable Windows folder builds.
+r"""PyInstaller spec for HappyMeasure portable Windows folder builds.
 
 Build on Windows from the project root with:
     pyinstaller --noconfirm --clean packaging\HappyMeasure.spec
