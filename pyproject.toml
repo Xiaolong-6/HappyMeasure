@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "HappyMeasure"
+version = "0.7a1"
+description = "HappyMeasure 0.7a1 pre-hardware validation alpha"
+requires-python = ">=3.11"
+dependencies = [
+  "matplotlib>=3.8",
+  "pyserial>=3.5",
+  "pydantic>=2.0",
+]
+
+[project.scripts]
+HappyMeasure = "keith_ivt.ui.simple_app:main"
+happymeasure = "keith_ivt.ui.simple_app:main"
+happymeasure-preflight = "keith_ivt.hardware_preflight:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "ruff>=0.1.0",
+  "black>=23.0",
+  "mypy>=1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.coverage.run]
+omit = [
+  "src/keith_ivt/hardware_preflight.py",
+  "src/keith_ivt/diagnostics/*",
+  "src/keith_ivt/ui/*",
+  "src/keith_ivt/sweeps/*",
+  "src/keith_ivt/core/adaptive_logic.py",
+  "src/keith_ivt/core/adaptive_rules.py",
+  "src/keith_ivt/data/importers.py",
+  "src/keith_ivt/logging_config.py",
+  "src/keith_ivt/app_config.py",
+  "src/keith_ivt/__main__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 95
