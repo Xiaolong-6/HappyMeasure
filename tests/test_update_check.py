@@ -154,10 +154,12 @@ def test_invalid_version_rejected() -> None:
 
 def test_ui_update_check_cache_contract() -> None:
     ui_source = (SRC / "keith_ivt" / "ui" / "simple_app.py").read_text(encoding="utf-8")
+    update_source = (SRC / "keith_ivt" / "ui" / "update_controller.py").read_text(encoding="utf-8")
     panel_source = (SRC / "keith_ivt" / "ui" / "panels.py").read_text(encoding="utf-8")
 
     assert "_update_check_in_progress" in ui_source
     assert "_last_update_check_result" in ui_source
     assert "_last_update_check_timestamp" in ui_source
-    assert "UPDATE_CHECK_CACHE_SECONDS = 30 * 60" in ui_source
+    assert "UPDATE_CHECK_CACHE_SECONDS = 30 * 60" in update_source
+    assert "_has_fresh_update_check_result" in update_source
     assert "_show_cached_update_check_result()" in panel_source

@@ -25,6 +25,7 @@ def test_alpha4_engineering_modules_are_wired() -> None:
         "SweepControllerMixin",
         "DataActionMixin",
         "SettingsPresetMixin",
+        "UpdateControllerMixin",
     ]
     for name in expected:
         assert name in mixins

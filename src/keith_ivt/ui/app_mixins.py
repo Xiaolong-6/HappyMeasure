@@ -25,6 +25,7 @@ from keith_ivt.ui.sweep_controller import SweepControllerMixin
 from keith_ivt.ui.theme import ThemeMixin
 from keith_ivt.ui.trace_controls import TraceInteractionMixin
 from keith_ivt.ui.trace_panel import TracePanelMixin
+from keith_ivt.ui.update_controller import UpdateControllerMixin
 from keith_ivt.ui.ui_scaffold import UiScaffoldMixin
 from keith_ivt.ui.widget_helpers import WidgetHelperMixin
 
@@ -49,6 +50,7 @@ class AppWorkflowMixin(
     SweepControllerMixin,
     DataActionMixin,
     SettingsPresetMixin,
+    UpdateControllerMixin,
 ):
     """State bridge, sweep/hardware workflow, persistence, and settings actions."""
 

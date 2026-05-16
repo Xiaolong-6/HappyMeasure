@@ -104,6 +104,10 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - The bottom status-bar connection/debug indicators are fixed-size Canvas drawings, so they do not depend on Windows emoji fallback or scale with the app UI font setting.
 - Start is valid from `idle`, `stopped`, `completed`, and `aborted` ready states; repeated simulator runs should not require restarting the app.
 
+## Developer architecture note
+
+`src/keith_ivt/ui/simple_app.py` is intentionally kept as a compact composition root. Feature behavior should live in focused UI mixins/modules such as `update_controller.py`, `sweep_controller.py`, `hardware_controller.py`, and `trace_panel.py`. This keeps the Tkinter shell easier to validate and prevents the old monolithic UI file from growing back.
+
 ## Manual update checks
 
 App only checks GitHub release metadata. It does not auto-download, auto-install, or replace files. Users must upgrade manually from the Release page.

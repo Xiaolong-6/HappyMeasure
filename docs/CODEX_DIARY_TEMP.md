@@ -44,3 +44,10 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Confirmed error paths still attempt safety `output_off()` and preserve the original measurement/readback error when output-off also fails.
 - Aligned `AppState.can_start_sweep()` with UI Start gating so aborted-but-connected runs are restartable.
 - Added `tests/test_fault_injection_safety.py` covering simulator connect/read/non-finite faults, driver-service non-finite faults, output-off error preservation, and aborted-state restart gating.
+
+### Simple app composition-root size control
+
+- Extracted the non-blocking GitHub release reminder UI wiring from `ui/simple_app.py` into `ui/update_controller.py`.
+- Wired `UpdateControllerMixin` through `AppWorkflowMixin` so `SimpleKeithIVtApp` keeps the same public inheritance surface.
+- Reduced `ui/simple_app.py` from 381 lines / 15 function definitions to 290 lines / 8 function definitions, satisfying the engineering baseline contract.
+- Updated update-check and engineering-baseline tests to assert the new composition boundary.

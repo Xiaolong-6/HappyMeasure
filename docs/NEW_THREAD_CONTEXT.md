@@ -4,7 +4,7 @@ HappyMeasure is a Windows Tkinter + Matplotlib SMU sweep application. `happymeas
 
 Important current work:
 
-- Manual update reminder reads GitHub release metadata only; it does not download, install, or replace files.
+- Manual update reminder reads GitHub release metadata only through `ui/update_controller.py`; it does not download, install, or replace files.
 - AppState centralizes run and connection state transitions.
 - CSV import/export metadata round trips have been hardened.
 - Stop/Abort safety has been hardened so operator stop attempts output-off even when normal-completion settings would leave output enabled.
@@ -12,6 +12,7 @@ Important current work:
 - Status-bar connection/debug indicators are Canvas-rendered fixed-size icons, not emoji glyphs, so they do not follow user font size/family or Windows emoji fallback.
 - Start gating has been fixed to allow ready states after a run (`stopped`, `completed`, `aborted`) as well as initial `idle`, preventing repeated simulator starts from appearing unresponsive.
 - Fault-injection simulator tests now cover connect/read/non-finite/output-off failure paths before real hardware testing.
+- `ui/simple_app.py` has been trimmed back to a composition root; do not move feature logic back into it.
 
 Before release, run the normal tests, update version/release notes, then perform the Windows portable build validation as the final step.
 

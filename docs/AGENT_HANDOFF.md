@@ -4,7 +4,8 @@ This file is the machine-facing handoff note for future coding agents. Keep `REA
 
 ## Current architecture anchors
 
-- `src/keith_ivt/ui/simple_app.py` is the composition root and should stay small.
+- `src/keith_ivt/ui/simple_app.py` is the composition root and should stay small; keep feature logic in focused mixins/modules.
+- `src/keith_ivt/ui/update_controller.py` owns non-blocking GitHub release metadata checks and manual-upgrade status messages.
 - `src/keith_ivt/ui/hardware_controller.py` owns connection/disconnection and instrument profile rendering.
 - `src/keith_ivt/ui/sweep_controller.py` owns Start/Pause/Stop worker orchestration and queue draining.
 - `src/keith_ivt/ui/app_state.py` is the authoritative run/connection state gate.
