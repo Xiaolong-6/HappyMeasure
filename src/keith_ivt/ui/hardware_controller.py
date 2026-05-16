@@ -330,7 +330,6 @@ class HardwareControllerMixin:
 
     def _refresh_instrument_indicator(self) -> None:
         self._refresh_connection_status_from_state()
-        self._safe_configure("connection_light_label", style="ConnGreen.TLabel" if self._connected else "ConnRed.TLabel")
         self._safe_configure("connect_btn", text="Disconnect" if self._connected else "Connect", style="Connected.TButton" if self._connected else "TButton")
         self._set_hardware_fields_state()
         self._set_sweep_fields_state()

@@ -13,3 +13,8 @@ Important current work:
 - Start gating has been fixed to allow ready states after a run (`stopped`, `completed`, `aborted`) as well as initial `idle`, preventing repeated simulator starts from appearing unresponsive.
 
 Before release, run the normal tests, update version/release notes, then perform the Windows portable build validation as the final step.
+
+## Current UI/data hardening note
+
+Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
+

@@ -5,14 +5,29 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_status_light_uses_fixed_color_emoji_font_style() -> None:
+def test_status_icons_are_canvas_rendered_not_emoji_labels() -> None:
+    status_bar = (ROOT / "src" / "keith_ivt" / "ui" / "status_bar.py").read_text(encoding="utf-8")
     theme = (ROOT / "src" / "keith_ivt" / "ui" / "theme.py").read_text(encoding="utf-8")
+    bridge = (ROOT / "src" / "keith_ivt" / "ui" / "app_state_bridge.py").read_text(encoding="utf-8")
+
+    assert "tk.Canvas" in status_bar
+    assert "_draw_connection_status_icon" in status_bar
+    assert "_draw_status_gear" in status_bar
+    assert 'width=16' in status_bar
+    assert 'height=16' in status_bar
+    assert "Segoe UI Emoji" not in theme
+    assert "🔴" not in bridge
+    assert "🟢" not in bridge
+    assert "😈" not in bridge
+
+
+def test_canvas_status_icon_supports_connection_and_simulator_modes() -> None:
     status_bar = (ROOT / "src" / "keith_ivt" / "ui" / "status_bar.py").read_text(encoding="utf-8")
     bridge = (ROOT / "src" / "keith_ivt" / "ui" / "app_state_bridge.py").read_text(encoding="utf-8")
 
-    assert 'emoji_font = ("Segoe UI Emoji", 12)' in theme
-    assert 'self.style.configure("ConnRed.TLabel"' in theme
-    assert 'self.style.configure("ConnGreen.TLabel"' in theme
-    assert 'font=emoji_font' in theme
-    assert 'style="ConnRed.TLabel"' in status_bar
-    assert '"😈" if state is ConnectionState.SIMULATED else "🟢" if state is ConnectionState.CONNECTED else "🔴"' in bridge
+    for token in ('"connected"', '"disconnected"', '"connecting"', '"error"', '"simulated"'):
+        assert token in status_bar or token in bridge
+
+    assert "canvas.create_oval" in status_bar
+    assert "canvas.create_polygon" in status_bar
+    assert "self._set_connection_status_icon(icon_kind)" in bridge

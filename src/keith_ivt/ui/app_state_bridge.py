@@ -98,5 +98,31 @@ class AppStateBridgeMixin:
             }
             self.instrument_status.set(labels.get(state, "Not connected"))
         if hasattr(self, "connection_light_text"):
-            self.connection_light_text.set("😈" if state is ConnectionState.SIMULATED else "🟢" if state is ConnectionState.CONNECTED else "🔴")
+            # Retained for backward-compatible StringVar consumers only; the
+            # visible status icon is Canvas-rendered to avoid Windows/Tk emoji
+            # fallback problems.
+            self.connection_light_text.set(
+                "simulated"
+                if state is ConnectionState.SIMULATED
+                else "connected"
+                if state is ConnectionState.CONNECTED
+                else "connecting"
+                if state is ConnectionState.CONNECTING
+                else "error"
+                if state is ConnectionState.ERROR
+                else "disconnected"
+            )
+        if hasattr(self, "_set_connection_status_icon"):
+            icon_kind = (
+                "simulated"
+                if state is ConnectionState.SIMULATED
+                else "connected"
+                if state is ConnectionState.CONNECTED
+                else "connecting"
+                if state is ConnectionState.CONNECTING
+                else "error"
+                if state is ConnectionState.ERROR
+                else "disconnected"
+            )
+            self._set_connection_status_icon(icon_kind)
 

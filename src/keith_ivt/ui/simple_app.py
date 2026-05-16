@@ -161,14 +161,14 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
 
         # Status bar variables
         self.status = StringVar(value="Ready")
-        self.instrument_status = StringVar(value="🔴 Not connected")
+        self.instrument_status = StringVar(value="Not connected")
         self.version_text = StringVar(value=f"v{__version__}")
         self.backup_text = StringVar(value="Backup: --")  # retained for restore/legacy messages; not shown in the status bar
         self.last_save_text = StringVar(value="Last save: --")
         self.status_connection_text = StringVar(value="Instrument: --")
         self.update_status_text = StringVar(value="")
         self.update_notice_text = StringVar(value="")
-        self.connection_light_text = StringVar(value="●")
+        self.connection_light_text = StringVar(value="disconnected")
 
         self._build_layout()
         self._bind_variables()

@@ -31,3 +31,9 @@ This temporary diary records changes made during Codex-assisted turns so release
 
 - Fixed a Start-button regression where the worker was only allowed to start from the strict `idle` state even though the centralized AppState and button-state logic treat `stopped`, `completed`, and `aborted` as ready states.
 - Added a regression check so simulator runs can be started again after a completed/stopped/aborted run without restarting the app.
+### Trace/export, simulator start, and Canvas status icons
+
+- Hardened trace selection/export consistency and preserved renamed trace names in export paths.
+- Fixed simulator Start gating so ready states such as stopped/completed/aborted can start a new sweep.
+- Replaced emoji status lamps with fixed-size Canvas indicators and a Canvas gear for simulator/debug mode to avoid Windows/Tk emoji fallback rendering.
+

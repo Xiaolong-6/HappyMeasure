@@ -157,3 +157,8 @@ The output is `dist\HappyMeasure\HappyMeasure.exe`. Distribute the whole `dist\H
 ### Measurement safety note
 
 Operator Stop/Abort is treated as a safety path. If a sweep is interrupted by the operator, HappyMeasure attempts to turn the SMU output off even when the normal-completion option would leave output enabled. A completed sweep still respects the configured `output_off_after_run` behavior.
+
+### Status icon rendering
+
+The bottom status bar uses fixed-size Canvas icons for connection/debug indicators instead of emoji glyphs. This avoids Windows/Tk emoji fallback problems where red/green lamps can render as monochrome or striped symbols. Status text still follows the selected UI font, but the lamp and simulator gear icons keep fixed dimensions.
+

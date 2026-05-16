@@ -32,3 +32,8 @@ Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_st
 - Real hardware validation is still required before external release.
 - `keith_ivt` remains the implementation/legacy import namespace; `happymeasure` is the public package namespace.
 - Build validation is intentionally deferred until the version-number/release-prep step.
+
+## Current UI/data hardening note
+
+Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
+
