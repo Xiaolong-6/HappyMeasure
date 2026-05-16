@@ -134,6 +134,12 @@ class ThemeMixin:
         self.style.configure("Operator.TFrame", background=card, borderwidth=frame_border, relief=frame_relief, bordercolor=border)
         self.style.configure("Status.TFrame", background=bg, borderwidth=0)
         self.style.configure("StatusCell.TLabel", background=bg, foreground=muted, padding=(8, 5), relief="solid" if debug else "flat", borderwidth=status_border, bordercolor=border)
+        # Status-light emoji must stay rendered by a color emoji font and a fixed size,
+        # independent of the user-selected UI font family/size.
+        emoji_font = ("Segoe UI Emoji", 12)
+        self.style.configure("ConnectionLight.TLabel", background=bg, foreground=fg, padding=(2, 4), relief="flat", borderwidth=0, font=emoji_font)
+        self.style.configure("ConnRed.TLabel", background=bg, foreground=fg, padding=(2, 4), relief="flat", borderwidth=0, font=emoji_font)
+        self.style.configure("ConnGreen.TLabel", background=bg, foreground=fg, padding=(2, 4), relief="flat", borderwidth=0, font=emoji_font)
         self.style.configure("StatusPill.TLabel", background=bg if debug else panel, foreground=self._palette["forest"], padding=(8, 4), relief="solid", borderwidth=1, bordercolor=border)
         # Keep normal labels on the dominant content-card background.
         # The previous Light theme used a grey panel background for labels inside

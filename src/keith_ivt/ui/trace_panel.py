@@ -38,9 +38,18 @@ class TracePanelMixin:
         ids: list[int] = []
         for item in self.trace_tree.selection():
             trace_id = self._tree_item_to_trace.get(item)
-            if trace_id is not None:
+            if trace_id is not None and self._datasets.get(trace_id) is not None:
                 ids.append(trace_id)
         return ids
+
+    def _clear_trace_selection_state(self) -> None:
+        """Clear stale trace selection when the trace registry becomes empty."""
+        self._selected_trace_id = None
+        if hasattr(self, "trace_tree"):
+            try:
+                self.trace_tree.selection_set(())
+            except Exception:
+                pass
 
     def _ensure_trace_selection(self) -> None:
         """Trace list must always have at least one selected item when data exists."""
@@ -48,7 +57,7 @@ class TracePanelMixin:
             return
         items = list(self.trace_tree.get_children())
         if not items:
-            self._selected_trace_id = None
+            self._clear_trace_selection_state()
             return
         valid_selection = [item for item in self.trace_tree.selection() if item in items]
         if not valid_selection:
@@ -73,6 +82,10 @@ class TracePanelMixin:
         self._tree_item_to_trace.clear()
         trace_to_item: dict[int, str] = {}
         traces_all = self._datasets.all()
+        valid_trace_ids = {trace.trace_id for trace in traces_all}
+        previous_selection = {tid for tid in previous_selection if tid in valid_trace_ids}
+        if not traces_all:
+            self._clear_trace_selection_state()
         if hasattr(self, "trace_title_text"):
             try:
                 self.trace_title_text.set(f"Traces ({len(traces_all)})")
@@ -221,6 +234,7 @@ class TracePanelMixin:
         save_csv(self._result_with_trace_name(trace), path); self._mark_last_save("selected CSV"); self.log_event(f"Saved selected trace: {path}"); return True
 
     def save_all_traces(self):
+        """Export every trace, including hidden traces. Visibility is display-only."""
         traces = self._datasets.all()
         if not traces:
             messagebox.showinfo("No traces", "No device traces to save."); return False
@@ -231,7 +245,7 @@ class TracePanelMixin:
 
 
     def save_checked_traces(self):
-        """Export all visible (ticked) traces to a combined CSV file."""
+        """Export only visible traces to a combined CSV file."""
         traces = [t for t in self._datasets.all() if t.visible]
         if not traces:
             messagebox.showinfo("No visible traces", "No visible (ticked) traces to export."); return False

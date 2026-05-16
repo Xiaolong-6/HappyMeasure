@@ -17,6 +17,16 @@ Pause/Stop responsiveness depends on the bounded UI queue in `ui/sweep_controlle
 
 Stop/Abort safety now has explicit sweep-runner tests: an operator stop must attempt `output_off()` even when `output_off_after_run=False`. Normal completion still respects `output_off_after_run=False`, while measurement exceptions preserve the original error if the safety output-off command also fails.
 
+## Trace/export consistency contract
+
+`DatasetStore` remains the trace registry; `TracePanelMixin._refresh_trace_list()` is responsible for cleaning stale tree selections. If traces are deleted/import-replaced/cleared, `_selected_trace_id` must either point at an existing trace or be `None` for the empty state.
+
+Export semantics are intentional: **Export all traces** includes hidden traces; **Export visible** filters by the trace `visible` flag. Trace rename must be applied to exported `SweepResult.config.device_name` via `_result_with_trace_name()`.
+
+Status-bar connection lamps are fixed emoji indicators. Keep `ConnRed.TLabel`/`ConnGreen.TLabel` on the fixed `Segoe UI Emoji` style instead of the user-configurable UI font.
+
+Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_start_sweep()`: ready states are `idle`, `stopped`, `completed`, and `aborted`. Do not regress to an `idle`-only guard, or repeated simulator starts will appear unresponsive.
+
 ## Known limitations
 
 - Real hardware validation is still required before external release.

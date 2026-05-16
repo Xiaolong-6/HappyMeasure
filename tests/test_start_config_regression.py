@@ -14,6 +14,14 @@ def source_text(relative: str) -> str:
     return (SRC / "keith_ivt" / relative).read_text(encoding="utf-8")
 
 
+
+
+def test_start_sweep_allows_completed_stopped_and_aborted_ready_states() -> None:
+    sweep_controller = source_text("ui/sweep_controller.py")
+    assert 'ready_states = {"idle", "stopped", "completed", "aborted"}' in sweep_controller
+    assert 'if self._run_state not in ready_states:' in sweep_controller
+    assert 'if self._run_state != "idle":' not in sweep_controller
+
 def test_make_config_imports_model_enums_after_decomposition() -> None:
     """Start path must not lose model imports when simple_app is kept tiny."""
     app = source_text("ui/simple_app.py")

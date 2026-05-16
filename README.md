@@ -100,6 +100,9 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - Verdana is the preferred default UI font when installed. The font selector reads system-installed fonts.
 - During an active measurement, the plot shows live data only; stored traces return after completion.
 - Trace export/import/rename/delete actions live in the trace-list context menu. Plot right-click is for plot view/range/image actions.
+- Trace visibility is display-only. **Export all traces** includes hidden traces; **Export visible** filters to ticked/visible traces only. Renamed traces are exported with their edited names.
+- The bottom status-bar connection lamp uses fixed color emoji rendering (`🔴`, `🟢`, `😈`) and does not scale with the app UI font setting.
+- Start is valid from `idle`, `stopped`, `completed`, and `aborted` ready states; repeated simulator runs should not require restarting the app.
 
 ## Manual update checks
 

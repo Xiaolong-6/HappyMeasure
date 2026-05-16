@@ -18,7 +18,8 @@ class SweepControllerMixin:
             messagebox.showinfo("Not connected", "Connect a device before starting a sweep. Debug simulator also requires Connect.")
             self._update_run_button_states()
             return
-        if self._run_state != "idle":
+        ready_states = {"idle", "stopped", "completed", "aborted"}
+        if self._run_state not in ready_states:
             self._update_run_button_states()
             return
         try:
