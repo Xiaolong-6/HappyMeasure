@@ -159,7 +159,7 @@ class AppState:
     def can_start_sweep(self) -> bool:
         with self._lock:
             return (
-                self.run_state in {RunState.IDLE, RunState.STOPPED, RunState.COMPLETED}
+                self.run_state in {RunState.IDLE, RunState.STOPPED, RunState.COMPLETED, RunState.ABORTED}
                 and self.connection_state in {ConnectionState.CONNECTED, ConnectionState.SIMULATED}
                 and not self.stop_requested
             )

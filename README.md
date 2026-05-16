@@ -101,7 +101,7 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - During an active measurement, the plot shows live data only; stored traces return after completion.
 - Trace export/import/rename/delete actions live in the trace-list context menu. Plot right-click is for plot view/range/image actions.
 - Trace visibility is display-only. **Export all traces** includes hidden traces; **Export visible** filters to ticked/visible traces only. Renamed traces are exported with their edited names.
-- The bottom status-bar connection lamp uses fixed color emoji rendering (`🔴`, `🟢`, `😈`) and does not scale with the app UI font setting.
+- The bottom status-bar connection/debug indicators are fixed-size Canvas drawings, so they do not depend on Windows emoji fallback or scale with the app UI font setting.
 - Start is valid from `idle`, `stopped`, `completed`, and `aborted` ready states; repeated simulator runs should not require restarting the app.
 
 ## Manual update checks
@@ -157,6 +157,11 @@ The output is `dist\HappyMeasure\HappyMeasure.exe`. Distribute the whole `dist\H
 ### Measurement safety note
 
 Operator Stop/Abort is treated as a safety path. If a sweep is interrupted by the operator, HappyMeasure attempts to turn the SMU output off even when the normal-completion option would leave output enabled. A completed sweep still respects the configured `output_off_after_run` behavior.
+
+
+### Simulator fault-injection safety tests
+
+The debug simulator includes deterministic fault-injection hooks used by tests only. These hooks cover connect failures, read failures, non-finite readbacks, and output-off failures so the safety/error paths can be validated before real hardware testing. Normal UI simulator behavior is unchanged unless a test explicitly passes a `SimulatorFaultProfile`.
 
 ### Status icon rendering
 

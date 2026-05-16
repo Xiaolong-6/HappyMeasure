@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import time
 import sys
+import math
 from datetime import datetime
 
 from keith_ivt.instrument.base import SourceMeter
@@ -72,6 +73,7 @@ class SweepRunner:
                         break
                     index += 1
                     reported_source, measured = self.instrument.read_source_and_measure()
+                    reported_source, measured = self._validated_readback(reported_source, measured)
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -90,6 +92,7 @@ class SweepRunner:
                         break
                     self.instrument.set_source(config.source_scpi, source_value)
                     reported_source, measured = self.instrument.read_source_and_measure()
+                    reported_source, measured = self._validated_readback(reported_source, measured)
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -101,6 +104,22 @@ class SweepRunner:
                 self._safe_output_off_preserving_error()
 
         return SweepResult(config=config, points=points)
+
+
+    @staticmethod
+    def _validated_readback(source_value: float, measured_value: float) -> tuple[float, float]:
+        """Reject non-finite instrument readbacks before they enter datasets.
+
+        Real instruments and simulator fault-injection paths can surface NaN or
+        infinite values after timeouts, range failures, or parser errors.  Treat
+        those as measurement failures so the runner enters the normal error path
+        and still executes safety cleanup.
+        """
+        source = float(source_value)
+        measured = float(measured_value)
+        if not math.isfinite(source) or not math.isfinite(measured):
+            raise RuntimeError(f"Non-finite measurement readback: source={source!r}, measured={measured!r}")
+        return source, measured
 
     def _safe_output_off_preserving_error(self) -> None:
         """Turn output off without hiding the original measurement failure.

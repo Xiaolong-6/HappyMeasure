@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import random
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from keith_ivt.drivers.base import (
     ConnectionProfile,
@@ -14,6 +14,27 @@ from keith_ivt.drivers.base import (
 )
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.models import SweepConfig
+
+
+@dataclass(frozen=True)
+class SimulatorFaultProfile:
+    """Deterministic fault-injection switches for hardware-path tests.
+
+    The default profile is inert. Tests can opt into specific failures without
+    changing normal debug simulator behavior seen by users.  One-based call
+    indexes are used for read/set-source triggers because they map naturally to
+    sweep point numbers.
+    """
+
+    connect_error: str | None = None
+    reset_error: str | None = None
+    configure_error: str | None = None
+    output_on_error: str | None = None
+    output_off_error: str | None = None
+    set_source_error_at: int | None = None
+    read_error_at: int | None = None
+    nan_read_at: int | None = None
+    inf_read_at: int | None = None
 
 
 @dataclass(frozen=True)
@@ -40,36 +61,70 @@ def debug_model_names() -> list[str]:
 class SimulatedKeithley(SourceMeter):
     """Debug device for UI and workflow testing without hardware."""
 
-    def __init__(self, resistance_ohm: float = 10_000.0, noise_fraction: float = 0.002, model_name: str | None = None):
+    def __init__(
+        self,
+        resistance_ohm: float = 10_000.0,
+        noise_fraction: float = 0.002,
+        model_name: str | None = None,
+        fault_profile: SimulatorFaultProfile | None = None,
+    ):
         model = DEBUG_DEVICE_MODELS.get(model_name or "", DEBUG_DEVICE_MODELS["Linear resistor 10 kΩ"])
         self.model = model
         self.resistance_ohm = resistance_ohm if model_name is None else model.resistance_ohm
         self.noise_fraction = noise_fraction if model_name is None else model.noise_fraction
+        self.fault_profile = fault_profile or SimulatorFaultProfile()
+        self.events: list[str] = []
         self._last_source = 0.0
         self._config: SweepConfig | None = None
         self._is_open = False
         self._output = False
+        self._set_source_count = 0
+        self._read_count = 0
 
     def connect(self) -> None:
+        self.events.append("connect")
+        if self.fault_profile.connect_error:
+            raise RuntimeError(self.fault_profile.connect_error)
         self._is_open = True
 
     def close(self) -> None:
+        self.events.append("close")
         self._is_open = False
 
     def identify(self) -> str:
         return f"SIMULATED,KEITHLEY-2400,DEBUG,{self.model.name},0.1"
 
     def reset(self) -> None:
+        self.events.append("reset")
+        if self.fault_profile.reset_error:
+            raise RuntimeError(self.fault_profile.reset_error)
         self._last_source = 0.0
         self._output = False
+        self._set_source_count = 0
+        self._read_count = 0
 
     def configure_for_sweep(self, config: SweepConfig) -> None:
+        self.events.append("configure")
+        if self.fault_profile.configure_error:
+            raise RuntimeError(self.fault_profile.configure_error)
         self._config = config
 
     def set_source(self, source_cmd: str, value: float) -> None:
+        self._set_source_count += 1
+        self.events.append(f"set_source:{value}")
+        if self.fault_profile.set_source_error_at == self._set_source_count:
+            raise RuntimeError(f"simulated set_source failure at point {self._set_source_count}")
         self._last_source = self._apply_source_range(value)
 
     def read_source_and_measure(self) -> tuple[float, float]:
+        self._read_count += 1
+        self.events.append("read")
+        if self.fault_profile.read_error_at == self._read_count:
+            raise RuntimeError(f"simulated read failure at point {self._read_count}")
+        if self.fault_profile.nan_read_at == self._read_count:
+            return self._last_source, float("nan")
+        if self.fault_profile.inf_read_at == self._read_count:
+            return self._last_source, float("inf")
         nplc_delay = 0.03
         if self._config is not None:
             nplc_delay = min(0.25, max(0.005, float(self._config.nplc) / 50.0))
@@ -171,9 +226,15 @@ class SimulatedKeithley(SourceMeter):
         return current * self.resistance_ohm
 
     def output_on(self) -> None:
+        self.events.append("output_on")
+        if self.fault_profile.output_on_error:
+            raise RuntimeError(self.fault_profile.output_on_error)
         self._output = True
 
     def output_off(self) -> None:
+        self.events.append("output_off")
+        if self.fault_profile.output_off_error:
+            raise RuntimeError(self.fault_profile.output_off_error)
         self._output = False
 
     # === SMUDriver Protocol Compatibility Methods ===
@@ -197,7 +258,7 @@ class SimulatedKeithley(SourceMeter):
 
     def connect_profile(self, profile: ConnectionProfile) -> None:
         """SMUDriver compatibility: connect with profile (legacy connect() takes no args)."""
-        self._is_open = True
+        self.connect()
 
     def disconnect(self) -> None:
         """SMUDriver compatibility: disconnect without closing."""

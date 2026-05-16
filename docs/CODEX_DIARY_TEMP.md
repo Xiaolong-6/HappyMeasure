@@ -25,7 +25,7 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Hardened trace selection cleanup so deleting or externally removing the selected trace cannot leave `_selected_trace_id` pointing at a missing trace.
 - Added regression tests for deleting the last trace, stale selected trace IDs, rename/export name preservation, and hidden-vs-visible export semantics.
 - Documented that Export all includes hidden traces while Export visible filters to ticked traces.
-- Fixed the status-bar connection lamp to use fixed-size color emoji rendering (`🔴`, `🟢`, `😈`) independent of the user-selected UI font family/size.
+- Replaced status-bar emoji lamps with fixed-size Canvas-rendered connection/debug indicators independent of the user-selected UI font family/size.
 
 ### Simulator start-state regression fix
 
@@ -37,3 +37,10 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Fixed simulator Start gating so ready states such as stopped/completed/aborted can start a new sweep.
 - Replaced emoji status lamps with fixed-size Canvas indicators and a Canvas gear for simulator/debug mode to avoid Windows/Tk emoji fallback rendering.
 
+### Fault-injection simulator and error-path hardening
+
+- Added deterministic `SimulatorFaultProfile` hooks to the debug simulator for connect, reset/configure, output-on/off, set-source, read, NaN, and Inf fault paths used by tests.
+- Hardened `SweepRunner` and `MeasurementService` to reject non-finite source/measurement readbacks before they enter datasets.
+- Confirmed error paths still attempt safety `output_off()` and preserve the original measurement/readback error when output-off also fails.
+- Aligned `AppState.can_start_sweep()` with UI Start gating so aborted-but-connected runs are restartable.
+- Added `tests/test_fault_injection_safety.py` covering simulator connect/read/non-finite faults, driver-service non-finite faults, output-off error preservation, and aborted-state restart gating.

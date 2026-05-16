@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import sys
 import time
+import math
 
 from keith_ivt.drivers.base import DriverReadback, SMUDriver
 from keith_ivt.models import SweepPoint, SweepResult, SweepConfig
@@ -65,7 +66,7 @@ class MeasurementService:
                 if _should_stop():
                     break
                 self.driver.set_source(plan.source_mode, value)
-                read = self.driver.read()
+                read = self._validated_readback(self.driver.read())
                 reads.append(read)
                 if on_point is not None:
                     on_point(read, index, total)
@@ -76,6 +77,15 @@ class MeasurementService:
             # and failures all attempt to place the SMU in a safe output-off state.
             self._safe_output_off_preserving_error()
         return reads
+
+
+    @staticmethod
+    def _validated_readback(read: DriverReadback) -> DriverReadback:
+        source = float(read.source_value)
+        measured = float(read.measured_value)
+        if not math.isfinite(source) or not math.isfinite(measured):
+            raise RuntimeError(f"Non-finite measurement readback: source={source!r}, measured={measured!r}")
+        return DriverReadback(source_value=source, measured_value=measured, timestamp_s=read.timestamp_s)
 
     def _safe_output_off_preserving_error(self) -> None:
         active_exc = sys.exc_info()[1]

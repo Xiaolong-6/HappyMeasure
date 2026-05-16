@@ -9,8 +9,9 @@ Important current work:
 - CSV import/export metadata round trips have been hardened.
 - Stop/Abort safety has been hardened so operator stop attempts output-off even when normal-completion settings would leave output enabled.
 - Trace selection/export consistency has been hardened: deleting the last trace clears selection, stale selected IDs are repaired, renamed traces export with edited names, Export all includes hidden traces, and Export visible filters them.
-- Status-bar connection lights (`🔴`, `🟢`, `😈`) use a fixed color emoji font and should not follow the user-selected UI font size/family.
+- Status-bar connection/debug indicators are Canvas-rendered fixed-size icons, not emoji glyphs, so they do not follow user font size/family or Windows emoji fallback.
 - Start gating has been fixed to allow ready states after a run (`stopped`, `completed`, `aborted`) as well as initial `idle`, preventing repeated simulator starts from appearing unresponsive.
+- Fault-injection simulator tests now cover connect/read/non-finite/output-off failure paths before real hardware testing.
 
 Before release, run the normal tests, update version/release notes, then perform the Windows portable build validation as the final step.
 
