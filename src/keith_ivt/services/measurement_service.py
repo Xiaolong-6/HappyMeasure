@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+import sys
 import time
 
 from keith_ivt.drivers.base import DriverReadback, SMUDriver
@@ -43,16 +44,25 @@ class MeasurementService:
         )
         self.driver.output_on()
         reads: list[DriverReadback] = []
+        stopped_by_operator = False
+
+        def _should_stop() -> bool:
+            nonlocal stopped_by_operator
+            if should_stop is not None and should_stop():
+                stopped_by_operator = True
+                return True
+            return False
+
         try:
             total = plan.point_count
             for index, value in enumerate(plan.values, start=1):
-                if should_stop is not None and should_stop():
+                if _should_stop():
                     break
                 while should_pause is not None and should_pause():
-                    if should_stop is not None and should_stop():
+                    if _should_stop():
                         break
                     time.sleep(0.05)
-                if should_stop is not None and should_stop():
+                if _should_stop():
                     break
                 self.driver.set_source(plan.source_mode, value)
                 read = self.driver.read()
@@ -62,8 +72,22 @@ class MeasurementService:
                 if plan.execution_kind is SweepExecutionKind.CONSTANT_TIME and index < total:
                     time.sleep(max(0.0, plan.interval_s or 0.0))
         finally:
-            self.driver.output_off()
+            # The driver-level service is conservative: normal completion, user stop,
+            # and failures all attempt to place the SMU in a safe output-off state.
+            self._safe_output_off_preserving_error()
         return reads
+
+    def _safe_output_off_preserving_error(self) -> None:
+        active_exc = sys.exc_info()[1]
+        try:
+            self.driver.output_off()
+        except Exception as off_exc:
+            if active_exc is not None:
+                raise RuntimeError(
+                    "Measurement failed, and the safety output-off command also failed. "
+                    f"Original error: {active_exc}; output-off error: {off_exc}"
+                ) from active_exc
+            raise
 
     def run_legacy_config(
         self,

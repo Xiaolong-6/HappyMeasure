@@ -150,3 +150,7 @@ tools\build\Build_Portable_Windows_App.bat
 ```
 
 The output is `dist\HappyMeasure\HappyMeasure.exe`. Distribute the whole `dist\HappyMeasure` folder, not only the exe. See `docs/WINDOWS_PYTHON314_BUILD.md`.
+
+### Measurement safety note
+
+Operator Stop/Abort is treated as a safety path. If a sweep is interrupted by the operator, HappyMeasure attempts to turn the SMU output off even when the normal-completion option would leave output enabled. A completed sweep still respects the configured `output_off_after_run` behavior.

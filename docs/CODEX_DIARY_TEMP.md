@@ -11,10 +11,11 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Kept the existing `keith_ivt` implementation package and imports as a compatibility layer, so old imports and fallback launch paths continue to work.
 - Updated Windows launchers, PyInstaller entry points, README/docs, and namespace tests to prefer `happymeasure` while preserving `keith_ivt` fallback behavior.
 
-### Data import/export hardening
+### Stop / Abort / Pause safety hardening
 
-- Hardened CSV metadata import parsing so string values such as "False" no longer become truthy booleans.
-- Preserved additional sweep metadata across single and combined CSV round trips, including output-off policy, continuous-time settings, debug model, fixed ranges, and adaptive/time-sweep fields.
-- Added regression tests for boolean/range metadata, constant-time sweep metadata, and long-format combined CSV import/export.
-- Validation used: python -m py_compile src\keith_ivt\data\exporters.py src\keith_ivt\data\importers.py tests\test_data_import_export_store.py
-- Validation used: PYTHONPATH=src python -m pytest tests\test_data_import_export_store.py tests\test_simulator_behavior.py tests\test_app_state.py -q
+- Hardened `SweepRunner` so an operator stop attempts `output_off()` even when `output_off_after_run=False`.
+- Preserved the existing normal-completion behavior: a successful full sweep still respects `output_off_after_run=False`.
+- Added safe output-off error handling so a failed output-off command does not hide the original measurement exception.
+- Applied the same output-off error-preservation pattern to the newer `MeasurementService` boundary.
+- Added `tests/test_sweep_safety.py` covering operator stop, normal completion, measurement exception cleanup, and output-off failure context.
+- Added/updated agent-facing handoff context for the safety contract.
