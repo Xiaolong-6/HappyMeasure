@@ -16,7 +16,7 @@ if exist "%VENV_PY%" (
 ) else (
     set "PY=python"
 )
-"%PY%" -m keith_ivt.diagnostics
+"%PY%" -m happymeasure.diagnostics
 set "EXITCODE=%ERRORLEVEL%"
 popd >nul
 pause

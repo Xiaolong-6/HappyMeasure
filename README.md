@@ -7,7 +7,7 @@ Current version: `0.7a1` pre-hardware validation alpha.
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
 
-The product name is **HappyMeasure**. The internal Python package is still `keith_ivt` during alpha so existing imports and launch scripts keep working. The `PACKAGE_NAME = "keith_ivt"` legacy namespace cleanup is deliberately deferred to the next packaging-focused release.
+The product name and public Python package namespace are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains available as a compatibility layer, so existing imports and older local launch commands keep working during the alpha migration.
 
 ## Start the app
 
@@ -23,6 +23,15 @@ PowerShell alternative:
 .\Run_HappyMeasure.ps1
 ```
 
+CLI launchers also support the public package namespace:
+
+```text
+python -m happymeasure
+python -m happymeasure.hardware_preflight COM3 --baud 9600
+```
+
+The legacy `python -m keith_ivt` and `python -m keith_ivt.hardware_preflight` commands remain supported for compatibility.
+
 ## What changed in 0.7a1
 
 - Standardized the public version style to PEP 440 alpha form: `0.7a1`.
@@ -32,6 +41,7 @@ PowerShell alternative:
 - Added a coverage gate for the unit-testable core/hardware subset. Tk widgets and real hardware entrypoints remain covered by smoke/bench procedures instead of fake unit coverage.
 - Preserved the 0.6 live-plot, simulator diode, scroll, mixin, and logging fixes.
 - Hardened Windows launchers for project paths containing spaces, hyphens, and university/network-folder names; added launcher path-safety regression tests.
+- Promoted `happymeasure` to the public package/CLI namespace while retaining `keith_ivt` as a legacy compatibility namespace.
 
 ## Safe validation path
 

@@ -5,8 +5,8 @@ from package internals makes PyInstaller builds more predictable and avoids
 running package-level code during analysis.
 """
 
-from keith_ivt.ui.simple_app import main
+from happymeasure.__main__ import run
 
 
 if __name__ == "__main__":
-    main()
+    run()

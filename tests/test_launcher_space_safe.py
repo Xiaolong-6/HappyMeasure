@@ -15,6 +15,8 @@ def test_main_batch_launcher_quotes_project_paths():
         'set "PYTHONPATH=%PROJECT_DIR%\\src;%PYTHONPATH%"',
         'python -m venv "%PROJECT_DIR%\\.venv"',
         '"%VENV_PY%" -m pip install -e "%PROJECT_DIR%"',
+        '"%VENV_PY%" -m happymeasure',
+        '"%VENV_PY%" -m keith_ivt',
     ]
     for needle in required:
         assert needle in text
@@ -27,7 +29,7 @@ def test_main_powershell_launcher_uses_literal_paths():
         'Set-Location -LiteralPath $ProjectDir',
         'Test-Path -LiteralPath $VenvPy',
         '& $VenvPy -m pip install -e $ProjectDir',
-        '& $VenvPy -m keith_ivt',
+        '& $VenvPy -m happymeasure',
     ]
     for needle in required:
         assert needle in text
@@ -62,6 +64,8 @@ def test_launchers_detect_stale_virtualenv_python():
     main_bat = read("Run_HappyMeasure.bat")
     assert 'Existing virtual environment is stale' in main_bat
     assert '"%VENV_PY%" -c "import sys; print(sys.executable)"' in main_bat
+    assert '"%VENV_PY%" -m happymeasure' in main_bat
+    assert '"%VENV_PY%" -m keith_ivt' in main_bat
 
     main_ps1 = read("Run_HappyMeasure.ps1")
     assert 'Existing .venv is stale' in main_ps1

@@ -10,7 +10,7 @@
 - Added pre-hardware safety tests for output-off behavior on exceptions and early stop paths.
 - Added trace-list multi-select deletion using Delete/Backspace or the context menu while preserving multi-selection on right-click.
 - Added `docs/HARDWARE_VALIDATION_PROTOCOL.md` and made coverage >=95% a validation gate for the unit-testable core/hardware subset.
-- Deferred `PACKAGE_NAME = "keith_ivt"` namespace cleanup to the next packaging-focused release.
+- Promoted `PACKAGE_NAME` to `happymeasure` and added a public `happymeasure` command/module namespace while retaining `keith_ivt` compatibility imports and fallback launch paths.
 
 ## 0.6.0-alpha.5 — Architecture/logging consolidation
 

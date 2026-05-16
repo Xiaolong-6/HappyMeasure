@@ -29,8 +29,10 @@ Edit `tools\hardware\Real_Hardware_Preflight.bat` if your COM port is not `COM3`
 Equivalent command:
 
 ```powershell
-python -m keith_ivt.hardware_preflight COM3 --baud 9600
+python -m happymeasure.hardware_preflight COM3 --baud 9600
 ```
+
+Legacy equivalent remains supported during the alpha migration: `python -m keith_ivt.hardware_preflight COM3 --baud 9600`.
 
 Expected behavior:
 

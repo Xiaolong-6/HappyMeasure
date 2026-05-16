@@ -12,4 +12,4 @@ if (Test-Path -LiteralPath $Py) {
 } else {
     $Py = "python"
 }
-& $Py -m keith_ivt.diagnostics
+& $Py -m happymeasure.diagnostics

@@ -22,10 +22,13 @@ def test_validation_script_reads_runtime_version_not_stale_literal() -> None:
     assert "0.6.0-alpha.5" not in text
 
 
-def test_agent_docs_reference_current_version_and_package_cleanup_deferral() -> None:
-    for rel in ["README.md", "docs/AGENT_START_HERE.md", "docs/AGENT_HANDOFF.md", "docs/CHANGELOG.md"]:
+def test_docs_reference_current_version_and_namespace_migration() -> None:
+    for rel in ["README.md", "docs/CHANGELOG.md"]:
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert version.VERSION in text, rel
-    notes = (ROOT / "docs" / "TECH_DEBT_AGENT_NOTES.md").read_text(encoding="utf-8")
-    assert 'PACKAGE_NAME = "keith_ivt"' in notes
-    assert "next packaging/namespace cleanup" in notes
+
+    naming = (ROOT / "docs" / "NAMING.md").read_text(encoding="utf-8")
+    assert "Public Python package/CLI namespace: `happymeasure`" in naming
+    assert "Legacy implementation namespace: `keith_ivt`" in naming
+    assert version.PACKAGE_NAME == "happymeasure"
+    assert version.LEGACY_PACKAGE_NAME == "keith_ivt"

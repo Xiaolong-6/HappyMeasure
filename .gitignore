@@ -34,3 +34,6 @@ backups/
 *.bak
 Thumbs.db
 Desktop.ini
+
+# Local helper generated for one-off cleanup after overwriting a deployed folder.
+LOCAL_CLEANUP_AFTER_NAMESPACE_UPDATE.bat

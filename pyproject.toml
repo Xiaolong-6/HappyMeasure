@@ -14,9 +14,9 @@ dependencies = [
 ]
 
 [project.scripts]
-HappyMeasure = "keith_ivt.ui.simple_app:main"
-happymeasure = "keith_ivt.ui.simple_app:main"
-happymeasure-preflight = "keith_ivt.hardware_preflight:main"
+HappyMeasure = "happymeasure.__main__:run"
+happymeasure = "happymeasure.__main__:run"
+happymeasure-preflight = "happymeasure.hardware_preflight:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -60,6 +60,8 @@ omit = [
   "src/keith_ivt/logging_config.py",
   "src/keith_ivt/app_config.py",
   "src/keith_ivt/__main__.py",
+  "src/happymeasure/*",
+  "src/happymeasure/diagnostics/*",
 ]
 
 [tool.coverage.report]

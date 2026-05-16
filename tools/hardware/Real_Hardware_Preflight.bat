@@ -20,7 +20,7 @@ echo HappyMeasure real-hardware preflight: IDN query + output OFF only.
 echo Usage: edit COM port below if needed.
 set "PORT=COM3"
 set "BAUD=9600"
-"%PY%" -m keith_ivt.hardware_preflight "%PORT%" --baud "%BAUD%"
+"%PY%" -m happymeasure.hardware_preflight "%PORT%" --baud "%BAUD%"
 set "EXITCODE=%ERRORLEVEL%"
 pause
 exit /b %EXITCODE%

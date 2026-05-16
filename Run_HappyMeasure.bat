@@ -49,8 +49,13 @@ if errorlevel 1 (
 
 echo [1/3] Attempting to launch HappyMeasure...
 echo.
-"%VENV_PY%" -m keith_ivt
+"%VENV_PY%" -m happymeasure
 set "EXITCODE=%ERRORLEVEL%"
+if not "%EXITCODE%"=="0" (
+    echo [INFO] Public happymeasure entry failed. Trying legacy keith_ivt entry...
+    "%VENV_PY%" -m keith_ivt
+    set "EXITCODE=%ERRORLEVEL%"
+)
 
 if "%EXITCODE%"=="0" (
     echo.
@@ -79,8 +84,13 @@ if "%EXITCODE%"=="1" (
     echo.
     echo Retrying launch after repair...
     echo.
-    "%VENV_PY%" -m keith_ivt
+    "%VENV_PY%" -m happymeasure
     set "EXITCODE=%ERRORLEVEL%"
+    if not "%EXITCODE%"=="0" (
+        echo [INFO] Public happymeasure entry failed. Trying legacy keith_ivt entry...
+        "%VENV_PY%" -m keith_ivt
+        set "EXITCODE=%ERRORLEVEL%"
+    )
 
     if "%EXITCODE%"=="0" (
         echo.
@@ -93,8 +103,13 @@ if "%EXITCODE%"=="1" (
     echo.
 
     echo [FALLBACK] Launching with direct PYTHONPATH no venv...
-    python -m keith_ivt
+    python -m happymeasure
     set "EXITCODE=%ERRORLEVEL%"
+    if not "%EXITCODE%"=="0" (
+        echo [INFO] Public happymeasure entry failed. Trying legacy keith_ivt entry...
+        python -m keith_ivt
+        set "EXITCODE=%ERRORLEVEL%"
+    )
 
     if "%EXITCODE%"=="0" (
         echo.

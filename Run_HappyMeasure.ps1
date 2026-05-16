@@ -40,5 +40,9 @@ Write-Host "Installing/updating local package..."
 & $VenvPy -m pip install -e $ProjectDir
 
 Write-Host "Launching HappyMeasure..."
-& $VenvPy -m keith_ivt
+& $VenvPy -m happymeasure
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Public happymeasure entry failed. Trying legacy keith_ivt entry..."
+    & $VenvPy -m keith_ivt
+}
 Read-Host "Press Enter to close"

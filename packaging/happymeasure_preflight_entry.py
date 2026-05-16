@@ -1,6 +1,6 @@
-"""PyInstaller entry point for the hardware preflight console tool."""
+"""PyInstaller entry point for the HappyMeasure hardware preflight tool."""
 
-from keith_ivt.hardware_preflight import main
+from happymeasure.hardware_preflight import main
 
 
 if __name__ == "__main__":

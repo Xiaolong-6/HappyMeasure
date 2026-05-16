@@ -9,7 +9,7 @@ import sys
 from datetime import datetime
 
 from keith_ivt.app_config import AppPaths
-from keith_ivt.version import APP_NAME, VERSION
+from keith_ivt.version import APP_NAME, LEGACY_PACKAGE_NAME, PACKAGE_NAME, VERSION
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,8 @@ def collect_diagnostics(root: str | os.PathLike[str] | None = None) -> list[Chec
         Check("python", sys.version_info >= (3, 11), sys.version.replace("\n", " ")),
         Check("platform", True, platform.platform()),
         Check("working_directory", paths.root.exists(), str(paths.root)),
-        Check("src_package", (paths.root / "src" / "keith_ivt").exists(), str(paths.root / "src" / "keith_ivt")),
+        Check("public_package", (paths.root / "src" / PACKAGE_NAME).exists(), str(paths.root / "src" / PACKAGE_NAME)),
+        Check("legacy_package", (paths.root / "src" / LEGACY_PACKAGE_NAME).exists(), str(paths.root / "src" / LEGACY_PACKAGE_NAME)),
         Check("pyproject", (paths.root / "pyproject.toml").exists(), str(paths.root / "pyproject.toml")),
         Check("matplotlib", _module_available("matplotlib"), "required for plotting"),
         Check("serial", _module_available("serial"), "pyserial; required for real hardware"),

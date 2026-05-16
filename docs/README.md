@@ -12,3 +12,8 @@ Start with these public docs:
 
 Internal handoff notes, temporary agent context, legacy migration archives, and
 local runtime logs are intentionally not included in the public release tree.
+
+
+## Package namespace
+
+Use `happymeasure` for public launch commands and documentation. The legacy `keith_ivt` namespace remains available for existing imports while the implementation is migrated incrementally.

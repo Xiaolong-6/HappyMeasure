@@ -17,7 +17,7 @@ python -m pytest tests/test_ui_smoke.py -q
 ## Hardware gate before beta
 
 - Real Windows Tk smoke test.
-- Real serial preflight: `python -m keith_ivt.hardware_preflight COMx --baud 9600`.
+- Real serial preflight: `python -m happymeasure.hardware_preflight COMx --baud 9600`.
 - Dummy-load STEP sweep.
 - Constant-time stop test.
 - Error-path test with disconnected serial cable only after confirming output-off behavior on dummy load.
