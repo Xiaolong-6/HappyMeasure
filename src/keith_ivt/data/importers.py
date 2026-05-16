@@ -6,37 +6,125 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from keith_ivt.models import SenseMode, SweepConfig, SweepMode, SweepPoint, SweepResult, Terminal
+from keith_ivt.models import (
+    SenseMode,
+    SweepConfig,
+    SweepKind,
+    SweepMode,
+    SweepPoint,
+    SweepResult,
+    Terminal,
+)
 
 
 def _parse_float(text: str) -> float:
     return float(str(text).strip())
 
 
+def _float_or_default(value: Any, default: float) -> float:
+    if value is None:
+        return default
+    text = str(value).strip()
+    if text == "":
+        return default
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return default
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    if value is None:
+        return default
+    text = str(value).strip()
+    if text == "":
+        return default
+    try:
+        return int(float(text))
+    except (TypeError, ValueError):
+        return default
+
+
+def _bool_or_default(value: Any, default: bool) -> bool:
+    """Parse CSV/JSON booleans without treating the string 'False' as true."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def _sweep_mode_from_text(value: Any) -> SweepMode:
+    text = str(value or SweepMode.VOLTAGE_SOURCE.value).strip().upper()
+    if text in {"CURR", "CURRENT", "CURRENT_SOURCE", "I", "I-SRC", "I_SRC"}:
+        return SweepMode.CURRENT_SOURCE
+    return SweepMode.VOLTAGE_SOURCE
+
+
+def _sweep_kind_from_text(value: Any) -> SweepKind:
+    text = str(value or SweepKind.STEP.value).strip().upper()
+    for kind in SweepKind:
+        if text == kind.value or text == kind.name:
+            return kind
+    # Older exported files sometimes describe constant output as TIME.
+    if text in {"CONSTANT", "CONSTANT_TIME", "TIME_TRACE"}:
+        return SweepKind.CONSTANT_TIME
+    return SweepKind.STEP
+
+
+def _terminal_from_text(value: Any) -> Terminal:
+    text = str(value or Terminal.REAR.value).strip().upper()
+    return Terminal.FRONT if text.startswith("FR") else Terminal.REAR
+
+
+def _sense_mode_from_text(value: Any) -> SenseMode:
+    text = str(value or SenseMode.TWO_WIRE.value).strip().upper()
+    return SenseMode.FOUR_WIRE if text.startswith("4") or text.startswith("FOUR") else SenseMode.TWO_WIRE
+
+
+def _inferred_step(points: list[SweepPoint]) -> float:
+    if len(points) < 2:
+        return 1.0
+    return points[1].source_value - points[0].source_value
+
+
 def _config_from_metadata(metadata: dict[str, Any], fallback_name: str = "Imported_Device") -> SweepConfig:
-    mode_text = str(metadata.get("mode", "VOLT")).upper()
-    mode = SweepMode.CURRENT_SOURCE if mode_text == "CURR" else SweepMode.VOLTAGE_SOURCE
-    terminal_text = str(metadata.get("terminal", Terminal.REAR.value)).upper()
-    sense_text = str(metadata.get("sense_mode", SenseMode.TWO_WIRE.value)).upper()
+    mode = _sweep_mode_from_text(metadata.get("mode", "VOLT"))
+    autorange = _bool_or_default(metadata.get("autorange"), True)
     return SweepConfig(
         mode=mode,
-        start=float(metadata.get("start", 0.0)),
-        stop=float(metadata.get("stop", 0.0)),
-        step=float(metadata.get("step", 1.0)),
-        compliance=float(metadata.get("compliance", 0.0)),
-        nplc=float(metadata.get("nplc", 1.0)),
-        port=str(metadata.get("port", "")),
-        baud_rate=int(metadata.get("baud_rate", 9600)),
-        terminal=Terminal.FRONT if terminal_text.startswith("FR") else Terminal.REAR,
-        sense_mode=SenseMode.FOUR_WIRE if sense_text.startswith("4") else SenseMode.TWO_WIRE,
-        device_name=str(metadata.get("device_name", fallback_name)),
-        operator=str(metadata.get("operator", "")),
-        debug=bool(metadata.get("debug", False)),
-        autorange=bool(metadata.get("autorange", True)),
-        auto_source_range=bool(metadata.get("auto_source_range", metadata.get("autorange", True))),
-        auto_measure_range=bool(metadata.get("auto_measure_range", metadata.get("autorange", True))),
-        source_range=float(metadata.get("source_range", 0.0)),
-        measure_range=float(metadata.get("measure_range", 0.0)),
+        start=_float_or_default(metadata.get("start"), 0.0),
+        stop=_float_or_default(metadata.get("stop"), 0.0),
+        step=_float_or_default(metadata.get("step"), 1.0),
+        compliance=_float_or_default(metadata.get("compliance"), 0.0),
+        nplc=_float_or_default(metadata.get("nplc"), 1.0),
+        port=str(metadata.get("port") or ""),
+        baud_rate=_int_or_default(metadata.get("baud_rate"), 9600),
+        terminal=_terminal_from_text(metadata.get("terminal")),
+        sense_mode=_sense_mode_from_text(metadata.get("sense_mode")),
+        device_name=str(metadata.get("device_name") or fallback_name),
+        operator=str(metadata.get("operator") or ""),
+        debug=_bool_or_default(metadata.get("debug"), False),
+        output_off_after_run=_bool_or_default(metadata.get("output_off_after_run"), True),
+        sweep_kind=_sweep_kind_from_text(metadata.get("sweep_kind")),
+        constant_value=_float_or_default(metadata.get("constant_value"), 0.0),
+        duration_s=_float_or_default(metadata.get("duration_s"), 10.0),
+        continuous_time=_bool_or_default(metadata.get("continuous_time"), False),
+        interval_s=_float_or_default(metadata.get("interval_s"), 0.5),
+        autorange=autorange,
+        auto_source_range=_bool_or_default(metadata.get("auto_source_range"), autorange),
+        auto_measure_range=_bool_or_default(metadata.get("auto_measure_range"), autorange),
+        source_range=_float_or_default(metadata.get("source_range"), 0.0),
+        measure_range=_float_or_default(metadata.get("measure_range"), 0.0),
+        adaptive_logic=str(metadata.get("adaptive_logic") or "values = logspace(1e-3, 1, 31)"),
+        debug_model=str(metadata.get("debug_model") or "Linear resistor 10 kΩ"),
     )
 
 
@@ -120,7 +208,8 @@ def load_csv(path: str | Path) -> list[SweepResult]:
         for key, points in grouped.items():
             _, name = key.split("::", 1)
             meta = metas.get(key, {"device_name": name, "mode": "VOLT"})
-            # Prefer full comment metadata when trace_index lines are present.
+            # Prefer full comment metadata when trace_index lines are present, while
+            # keeping editable table values such as renamed device/operator labels.
             try:
                 trace_idx = int(key.split("::", 1)[0]) - 1
                 if 0 <= trace_idx < len(all_metadata):
@@ -129,7 +218,7 @@ def load_csv(path: str | Path) -> list[SweepResult]:
                 pass
             cfg = _config_from_metadata(meta, fallback_name=name)
             if points:
-                cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=(points[1].source_value - points[0].source_value if len(points) > 1 else 1.0))
+                cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=_inferred_step(points))
             out.append(SweepResult(cfg, points))
         return out
 
@@ -165,7 +254,7 @@ def load_csv(path: str | Path) -> list[SweepResult]:
                 if col_idx < len(row) and str(row[col_idx]).strip() != "":
                     points.append(SweepPoint(x, _parse_float(row[col_idx]), elapsed_s=elapsed[row_idx] if row_idx < len(elapsed) else 0.0))
             if points:
-                cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=(points[1].source_value - points[0].source_value if len(points) > 1 else 1.0))
+                cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=_inferred_step(points))
             out.append(SweepResult(cfg, points))
         return out
 
@@ -176,5 +265,5 @@ def load_csv(path: str | Path) -> list[SweepResult]:
     else:
         points = [SweepPoint(_parse_float(row[0]), _parse_float(row[1])) for row in data_rows if len(row) >= 2]
     if points:
-        cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=(points[1].source_value - points[0].source_value if len(points) > 1 else 1.0))
+        cfg = replace(cfg, start=points[0].source_value, stop=points[-1].source_value, step=_inferred_step(points))
     return [SweepResult(cfg, points)]

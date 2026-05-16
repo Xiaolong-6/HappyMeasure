@@ -35,5 +35,6 @@ backups/
 Thumbs.db
 Desktop.ini
 
-# Local helper generated for one-off cleanup after overwriting a deployed folder.
-LOCAL_CLEANUP_AFTER_NAMESPACE_UPDATE.bat
+# Local one-off maintenance scripts generated during agent handoff.
+LOCAL_*.bat
+LOCAL_*.ps1
