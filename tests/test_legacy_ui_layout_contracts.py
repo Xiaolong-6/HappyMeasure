@@ -159,7 +159,7 @@ def test_statusbar_connection_summary_and_click_outside_drawer():
     assert 'textvariable=self.status_connection_text' in status
     assert 'def _close_drawer_on_outside_click' in nav
     assert 'no longer auto-hides' in nav
-    assert 'self.status_connection_text.set("Instrument: debug simulator | Keithley 2400")' in ui_text()
+    assert 'self._refresh_connection_status_from_state()' in ui_text()
     assert 'self.connection_light_label' in status and 'ConnGreen.TLabel' in ui_text() and 'ConnRed.TLabel' in ui_text()
 
 

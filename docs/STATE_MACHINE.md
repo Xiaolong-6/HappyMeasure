@@ -1,25 +1,61 @@
 # State Machine Notes
 
-HappyMeasure 0.5.0-alpha.1 reduces the dual-state risk by backing legacy UI attributes with `AppState`.
+HappyMeasure keeps one authoritative application state source: `AppState`.
+UI code and worker callbacks must not infer or directly mutate run/connection
+labels. State changes go through `AppState.dispatch(action, **context)` and UI
+labels render from that state.
 
 ## Run states
 
 ```text
-idle -> running -> paused -> running
-idle -> running -> stopping -> idle
-running/paused/stopping -> error -> idle
+IDLE
+PREPARING
+SWEEPING
+PAUSED
+STOPPING
+STOPPED
+COMPLETED
+ERROR
+ABORTED
 ```
 
 ## Connection states
 
 ```text
-disconnected -> connecting -> connected -> disconnecting -> disconnected
+DISCONNECTED
+SIMULATED
+CONNECTING
+CONNECTED
+ERROR
 ```
 
-The existing mixins still use compatibility names such as `_run_state` and `_connected`, but these are now properties that read/write `AppState`. This avoids a risky one-shot rewrite before hardware bring-up while making `AppState` the effective source for run/connection state.
+## State discipline
+
+- `AppState` is the single authority for run and connection state.
+- Controllers dispatch actions such as `START_SWEEP`, `PAUSE_SWEEP`,
+  `CONNECT_SUCCESS`, and `SWEEP_COMPLETED`.
+- Worker threads communicate with the Tk thread by queue messages; they do not
+  directly mutate Tk widgets.
+- The status bar renders from `AppState.get_status_string()` and
+  `AppState.get_connection_status_string()`.
+- Legacy compatibility names such as `_run_state` and `_connected` remain as
+  properties during migration, but their setters dispatch state actions.
+
+## Typical transitions
+
+```text
+IDLE -> PREPARING -> SWEEPING -> COMPLETED
+IDLE -> PREPARING -> SWEEPING -> PAUSED -> SWEEPING
+SWEEPING/PAUSED -> STOPPING -> STOPPED
+SWEEPING/PAUSED/STOPPING -> ERROR -> IDLE
+DISCONNECTED -> CONNECTING -> CONNECTED
+DISCONNECTED -> CONNECTING -> SIMULATED
+CONNECTING/CONNECTED/SIMULATED -> ERROR -> DISCONNECTED
+CONNECTED/SIMULATED -> DISCONNECTED
+```
 
 ## Remaining work
 
-- Move run/connection transitions out of mixins and into dedicated controller services.
 - Replace string state checks with `RunState` and `ConnectionState` enum checks.
-- Add complete state-graph tests for invalid transitions and exception cleanup.
+- Continue shrinking legacy compatibility property usage in UI mixins.
+- Add complete state-graph tests for every invalid transition and exception cleanup path.

@@ -6,7 +6,7 @@ from keith_ivt.drivers.base import DriverCapabilities
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.instrument.simulator import SimulatedKeithley
 from keith_ivt.models import SweepKind, SweepMode
-from keith_ivt.ui.app_state import ConnectionState, RunState
+from keith_ivt.ui.app_state import AppAction, ConnectionState, RunState
 
 
 class HardwareControllerMixin:
@@ -169,40 +169,36 @@ class HardwareControllerMixin:
             setattr(self, attr, None)
 
     def _set_run_state(self, state: str) -> None:
-        if state not in {"idle", "running", "paused", "stopping"}:
+        if state not in {"idle", "preparing", "running", "paused", "stopping", "stopped", "completed", "error", "aborted"}:
             raise ValueError(f"Unknown run state: {state}")
         previous = getattr(self, "_run_state", "idle")
-        self._run_state = state
-        self._running = state in {"running", "paused", "stopping"}
-        self._paused = state == "paused"
-        # Entering stopping must release a paused runner so it can see should_stop().
-        self._stop_requested = state == "stopping"
-        try:
-            target = {
-                "idle": RunState.IDLE,
-                "running": RunState.RUNNING,
-                "paused": RunState.PAUSED,
-                "stopping": RunState.STOPPING,
-            }[state]
-            if getattr(self.app_state, "run_state", RunState.IDLE) != target:
-                self.app_state.set_run_state(target)
-        except Exception:
-            # Keep the legacy fields authoritative during the migration.
-            pass
+        action = {
+            "idle": AppAction.FORCE_IDLE,
+            "preparing": AppAction.PREPARE_SWEEP,
+            "running": AppAction.START_SWEEP,
+            "paused": AppAction.PAUSE_SWEEP,
+            "stopping": AppAction.REQUEST_STOP,
+            "stopped": AppAction.SWEEP_STOPPED,
+            "completed": AppAction.SWEEP_COMPLETED,
+            "error": AppAction.SWEEP_ERROR,
+            "aborted": AppAction.ABORT_SWEEP,
+        }[state]
+        self.app_state.dispatch(action)
         if previous != state:
             try:
                 self.log_event(f"Run state: {previous} -> {state}")
             except Exception:
                 pass
         self._safe_configure("pause_btn", text="▶ Resume" if state == "paused" else "⏸ Pause")
+        self._refresh_run_status_from_state()
         self._update_run_button_states()
 
     def _update_run_button_states(self) -> None:
         state = getattr(self, "_run_state", "idle")
-        can_start = bool(self._connected and state == "idle")
+        can_start = bool(self._connected and state in {"idle", "stopped", "completed", "aborted"})
         can_pause = bool(self._connected and state in {"running", "paused"})
         can_stop = bool(self._connected and state in {"running", "paused"})
-        can_connect_or_disconnect = bool(state == "idle")
+        can_connect_or_disconnect = bool(state in {"idle", "stopped", "completed", "aborted"})
         self._safe_configure("start_btn", state="normal" if can_start else "disabled")
         self._safe_configure("pause_btn", state="normal" if can_pause else "disabled")
         self._safe_configure("stop_btn", state="normal" if can_stop else "disabled")
@@ -212,7 +208,7 @@ class HardwareControllerMixin:
         self._set_operator_identity_state()
 
     def _set_hardware_fields_state(self) -> None:
-        busy = getattr(self, "_run_state", "idle") != "idle"
+        busy = getattr(self, "_run_state", "idle") not in {"idle", "stopped", "completed", "aborted"}
         state = "disabled" if (self._connected or busy) else "normal"
         for attr in ("port_combo", "baud_combo", "terminal_combo", "sense_combo"):
             widget = getattr(self, attr, None)
@@ -223,7 +219,7 @@ class HardwareControllerMixin:
                 pass
 
     def _set_sweep_fields_state(self) -> None:
-        editable = bool(self._connected and getattr(self, "_run_state", "idle") == "idle")
+        editable = bool(self._connected and getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"})
         state = "normal" if editable else "disabled"
         for attr in ("mode_combo", "sweep_kind_combo", "debug_model_row"):
             widget = getattr(self, attr, None)
@@ -255,7 +251,7 @@ class HardwareControllerMixin:
         self._update_range_state()
 
     def _set_operator_identity_state(self) -> None:
-        state = "normal" if getattr(self, "_run_state", "idle") == "idle" else "disabled"
+        state = "normal" if getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"} else "disabled"
         for attr in ("device_entry", "operator_entry"):
             self._safe_configure(attr, state=state)
 
@@ -285,26 +281,20 @@ class HardwareControllerMixin:
 
     def connect_or_check(self) -> None:
         try:
+            self.app_state.dispatch(AppAction.CONNECT_START)
+            self._refresh_connection_status_from_state()
             with self._make_instrument() as inst:
                 idn = inst.identify()
-            self._connected = True
             self._connected_idn = idn
             self._active_capabilities = self._detect_capabilities_from_idn(idn)
-            try:
-                self.app_state.set_connection_state(ConnectionState.CONNECTED, device_id=idn, device_model=self._active_capabilities.name)
-            except Exception:
-                pass
-            self.status.set("Ready")
+            action = AppAction.CONNECT_SIMULATED if self.debug.get() else AppAction.CONNECT_SUCCESS
+            self.app_state.dispatch(action, device_id=idn, device_model=self._active_capabilities.name)
+            self._refresh_run_status_from_state()
             self.log_event(f"Connected/detected: {idn}; profile={self._active_capabilities.name}")
         except Exception as exc:
-            self._connected = False
             self._connected_idn = ""
             self._active_capabilities = self._default_capabilities(connected=False)
-            try:
-                self.app_state.set_connection_state(ConnectionState.DISCONNECTED)
-            except Exception:
-                pass
-            self.status.set("Connection failed")
+            self.app_state.dispatch(AppAction.CONNECT_FAILED, error=str(exc))
             self.log_event(f"Connection failed: {exc}")
             messagebox.showerror("Connection failed", str(exc))
         self._refresh_port_choices()
@@ -314,14 +304,10 @@ class HardwareControllerMixin:
         self._update_run_button_states()
 
     def disconnect_hardware(self) -> None:
-        self._connected = False
         self._connected_idn = ""
         self._active_capabilities = self._default_capabilities(connected=False)
-        try:
-            self.app_state.set_connection_state(ConnectionState.DISCONNECTED)
-        except Exception:
-            pass
-        self.status.set("Ready")
+        self.app_state.dispatch(AppAction.DISCONNECT)
+        self._refresh_run_status_from_state()
         self.log_event("Instrument status set to disconnected.")
         self._refresh_instrument_indicator()
         self._refresh_capability_widgets()
@@ -331,14 +317,10 @@ class HardwareControllerMixin:
         # Changing debug/non-debug swaps the instrument backend. Any existing
         # connection profile is now stale, so force a fresh Connect.
         if self._connected:
-            self._connected = False
             self._connected_idn = ""
             self._active_capabilities = self._default_capabilities(connected=False)
-            try:
-                self.app_state.set_connection_state(ConnectionState.DISCONNECTED)
-            except Exception:
-                pass
-            self.status.set("Connection reset")
+            self.app_state.dispatch(AppAction.RESET_CONNECTION)
+            self._refresh_run_status_from_state()
             self.log_event("Connection reset after debug simulator toggle; re-detect required.")
         self._refresh_port_choices()
         self._refresh_instrument_indicator()
@@ -347,22 +329,7 @@ class HardwareControllerMixin:
             self._show_nav(self._active_nav)
 
     def _refresh_instrument_indicator(self) -> None:
-        if self.debug.get() and self._connected:
-            self.instrument_status.set("Debug simulator ready")
-            self.status_connection_text.set("Instrument: debug simulator | Keithley 2400")
-            self.connection_light_text.set("😈")
-        elif self.debug.get():
-            self.instrument_status.set("Debug simulator")
-            self.status_connection_text.set("Instrument: debug simulator selected")
-            self.connection_light_text.set("😈")
-        elif self._connected:
-            self.instrument_status.set("Ready")
-            self.status_connection_text.set(f"Instrument: {self.port.get()} | {self._detected_device_model()}")
-            self.connection_light_text.set("🟢")
-        else:
-            self.instrument_status.set("Not connected")
-            self.status_connection_text.set("Instrument: --")
-            self.connection_light_text.set("🔴")
+        self._refresh_connection_status_from_state()
         self._safe_configure("connection_light_label", style="ConnGreen.TLabel" if self._connected else "ConnRed.TLabel")
         self._safe_configure("connect_btn", text="Disconnect" if self._connected else "Connect", style="Connected.TButton" if self._connected else "TButton")
         self._set_hardware_fields_state()

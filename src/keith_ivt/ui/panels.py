@@ -256,6 +256,8 @@ class PanelBuilderMixin:
 
     def _build_about_panel(self, parent) -> None:
         self._section_title(parent, "About")
+        if not self._show_cached_update_check_result():
+            self._check_for_updates_async()
         
         import tkinter as tk
         
@@ -335,12 +337,17 @@ class PanelBuilderMixin:
                  ).grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
         
-        # Check for Updates button - full width, right below title
-        update_btn = ttk.Button(box, text="Check for Updates...", 
-                               command=self._check_for_updates,
+        ttk.Label(box, textvariable=self.update_notice_text, style="Muted.TLabel",
+                 wraplength=450, justify="left"
+                 ).grid(row=row, column=0, sticky="w", pady=(0, 6))
+        row += 1
+
+        # Manual release page button - full width, right below update notice
+        update_btn = ttk.Button(box, text="Open Latest Release Download Page", 
+                               command=self._open_update_release_page,
                                style="Soft.TButton")
         update_btn.grid(row=row, column=0, sticky="ew", pady=(0, 16))
-        add_tip(update_btn, "Check for the latest version of HappyMeasure")
+        add_tip(update_btn, "Open the latest HappyMeasure release page if known; otherwise open the project repository.")
         row += 1
         
         # What is HappyMeasure?
@@ -445,12 +452,7 @@ class PanelBuilderMixin:
             pass
     
     def _check_for_updates(self) -> None:
-        """Placeholder for update check functionality."""
-        from tkinter import messagebox
-        # TODO: Implement actual update check against release URL
-        messagebox.showinfo(
-            "Check for Updates",
-            "Update check feature coming soon.\n\n"
-            "Visit the project repository manually to check for the latest version."
-        )
+        """Compatibility hook for app classes that provide async update checks."""
+        if hasattr(self, "_check_for_updates_async"):
+            self._check_for_updates_async()
 

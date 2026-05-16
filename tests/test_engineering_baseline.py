@@ -44,13 +44,14 @@ def test_simple_app_is_composition_root_size_control() -> None:
 def test_app_state_is_synchronized_but_legacy_safe() -> None:
     hw = source_text("ui/hardware_controller.py")
     sw = source_text("ui/sweep_controller.py")
-    assert "self.app_state.set_connection_state(ConnectionState.CONNECTED" in hw
-    assert "self.app_state.set_connection_state(ConnectionState.DISCONNECTED" in hw
-    assert "self.app_state.set_run_state(target)" in hw
+    assert "AppAction.CONNECT_SUCCESS" in hw
+    assert "AppAction.CONNECT_SIMULATED" in hw
+    assert "self.app_state.dispatch(AppAction.DISCONNECT" in hw
+    assert "self.app_state.dispatch(action)" in hw
     assert "self.app_state.request_stop()" in sw
     assert "self.app_state.request_pause()" in sw
     assert "self.app_state.clear_pause_request()" in sw
-    assert "self._run_state = state" in hw  # legacy compatibility retained intentionally
+    assert "self._run_state = state" not in hw
 
 
 def test_thread_safe_xy_buffer_is_populated_by_live_points() -> None:

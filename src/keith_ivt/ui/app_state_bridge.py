@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from keith_ivt.ui.app_state import ConnectionState, RunState
+from keith_ivt.ui.app_state import AppAction, ConnectionState, RunState
 
 
 class AppStateBridgeMixin:
@@ -17,18 +17,20 @@ class AppStateBridgeMixin:
     @_run_state.setter
     def _run_state(self, value: str) -> None:
         target = {
-            "idle": RunState.IDLE,
-            "running": RunState.RUNNING,
-            "paused": RunState.PAUSED,
-            "stopping": RunState.STOPPING,
-            "error": RunState.ERROR,
+            "idle": AppAction.FORCE_IDLE,
+            "preparing": AppAction.PREPARE_SWEEP,
+            "running": AppAction.START_SWEEP,
+            "sweeping": AppAction.START_SWEEP,
+            "paused": AppAction.PAUSE_SWEEP,
+            "stopping": AppAction.REQUEST_STOP,
+            "stopped": AppAction.SWEEP_STOPPED,
+            "completed": AppAction.SWEEP_COMPLETED,
+            "error": AppAction.SWEEP_ERROR,
+            "aborted": AppAction.ABORT_SWEEP,
         }.get(str(value).lower())
         if target is None:
             raise ValueError(f"Unknown run state: {value}")
-        if target is RunState.IDLE:
-            self.app_state.force_idle()
-        elif self.app_state.run_state != target:
-            self.app_state.set_run_state(target)
+        self.app_state.dispatch(target)
 
     @property
     def _connected(self) -> bool:
@@ -38,7 +40,7 @@ class AppStateBridgeMixin:
     def _connected(self, value: bool) -> None:
         if value:
             if not self.app_state.is_connected:
-                self.app_state.set_connection_state(ConnectionState.CONNECTED)
+                self.app_state.dispatch(AppAction.CONNECT_SUCCESS)
         else:
             self.app_state.force_disconnected()
 
@@ -58,7 +60,7 @@ class AppStateBridgeMixin:
     @_paused.setter
     def _paused(self, value: bool) -> None:
         if value and self.app_state.run_state == RunState.RUNNING:
-            self.app_state.set_run_state(RunState.PAUSED)
+            self.app_state.dispatch(AppAction.PAUSE_SWEEP)
 
     @property
     def _stop_requested(self) -> bool:
@@ -66,5 +68,35 @@ class AppStateBridgeMixin:
 
     @_stop_requested.setter
     def _stop_requested(self, value: bool) -> None:
-        self.app_state.stop_requested = bool(value)
+        if value:
+            self.app_state.dispatch(AppAction.REQUEST_STOP)
+        else:
+            self.app_state.stop_requested = False
+
+    def _refresh_run_status_from_state(self) -> None:
+        """Render the run status label from AppState only."""
+        if hasattr(self, "status"):
+            self.status.set(self.app_state.get_status_string())
+
+    def _refresh_connection_status_from_state(self) -> None:
+        """Render connection labels from AppState only."""
+        debug_selected = bool(getattr(self, "debug", None) is not None and self.debug.get())
+        state = self.app_state.connection_state
+        text = self.app_state.get_connection_status_string(debug_selected=debug_selected)
+        if state is ConnectionState.CONNECTED and hasattr(self, "port"):
+            text = f"Instrument: {self.port.get()} | {self._detected_device_model()}"
+
+        if hasattr(self, "status_connection_text"):
+            self.status_connection_text.set(text)
+        if hasattr(self, "instrument_status"):
+            labels = {
+                ConnectionState.DISCONNECTED: "Debug simulator" if debug_selected else "Not connected",
+                ConnectionState.SIMULATED: "Debug simulator ready",
+                ConnectionState.CONNECTING: "Connecting",
+                ConnectionState.CONNECTED: "Ready",
+                ConnectionState.ERROR: "Connection error",
+            }
+            self.instrument_status.set(labels.get(state, "Not connected"))
+        if hasattr(self, "connection_light_text"):
+            self.connection_light_text.set("😈" if state is ConnectionState.SIMULATED else "🟢" if state is ConnectionState.CONNECTED else "🔴")
 

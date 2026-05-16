@@ -9,7 +9,7 @@ from tkinter import messagebox, simpledialog
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.backup import autosave_result
 from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
-from keith_ivt.ui.app_state import RunState
+from keith_ivt.ui.app_state import AppAction, RunState
 
 
 class SweepControllerMixin:
@@ -36,13 +36,12 @@ class SweepControllerMixin:
         except Exception as exc:
             messagebox.showerror("Invalid sweep configuration", str(exc))
             return
-        self._set_run_state("running")
+        self._set_run_state("preparing")
         try:
             self._stop_event.clear()
             self._pause_event.clear()
         except Exception:
             pass
-        self.status.set("Running")
         self._x_data.clear(); self._y_data.clear(); self._live_points.clear(); self._live_config = config
         try:
             self._measurement_xy.clear()
@@ -50,6 +49,7 @@ class SweepControllerMixin:
             self.app_state.estimated_total = 0
         except Exception:
             pass
+        self._set_run_state("running")
         self._redraw_all_plots(live_only=True)
         self.log_event(f"Sweep started: {config.mode.value} / {config.sweep_kind.value}.")
         t = threading.Thread(target=self._run_sweep_thread, args=(config,), daemon=True)
@@ -86,7 +86,6 @@ class SweepControllerMixin:
             except Exception:
                 pass
             self._set_run_state("paused")
-            self.status.set("Paused")
             self.log_event("Sweep paused.")
         elif self._run_state == "paused":
             try:
@@ -95,7 +94,6 @@ class SweepControllerMixin:
             except Exception:
                 pass
             self._set_run_state("running")
-            self.status.set("Running")
             self.log_event("Sweep resumed.")
 
     def abort_sweep(self) -> None:
@@ -109,7 +107,6 @@ class SweepControllerMixin:
         except Exception:
             pass
         self._set_run_state("stopping")
-        self.status.set("Stopping")
         self.log_event("Emergency stop requested.")
 
     def _manual_output_interlock(self, config: SweepConfig) -> None:
@@ -162,7 +159,7 @@ class SweepControllerMixin:
                     except Exception:
                         pass
                     if self._run_state != "stopping":
-                        self.status.set(f"Running {index}" if total <= 0 else f"Running {index}/{total}")
+                        self._refresh_run_status_from_state()
                     redraw_live = True
                 elif kind == "complete":
                     self._handle_complete(payload)
@@ -178,13 +175,12 @@ class SweepControllerMixin:
 
     def _handle_complete(self, result: SweepResult) -> None:
         was_stopping = self._run_state == "stopping" or self._stop_requested
-        self._set_run_state("idle")
+        self._set_run_state("stopped" if was_stopping else "completed")
         self._last_result = result
         self._datasets.add_result(result, result.config.device_name)
         self._live_points.clear(); self._x_data.clear(); self._y_data.clear(); self._live_config = None
         self._refresh_trace_list()
         self._redraw_all_plots()
-        self.status.set("Stopped" if was_stopping else "Completed")
         try:
             self._last_backup_path = autosave_result(result)
             self.backup_text.set(f"Backup: {self._last_backup_path.name}")
@@ -194,11 +190,8 @@ class SweepControllerMixin:
             self.log_event(f"Sweep completed, backup failed: {exc}")
 
     def _handle_error(self, exc: Exception) -> None:
-        self._set_run_state("idle")
-        self.status.set("Error")
-        try:
-            self.app_state.set_error(str(exc))
-        except Exception:
-            pass
+        self.app_state.dispatch(AppAction.SWEEP_ERROR, error=str(exc))
+        self._refresh_run_status_from_state()
+        self._update_run_button_states()
         self.log_event(f"Error: {exc}")
         messagebox.showerror("Sweep error", str(exc))

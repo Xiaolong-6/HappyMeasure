@@ -35,12 +35,24 @@ PowerShell alternative:
 
 ## Safe validation path
 
+Install developer test tools first:
+
+```text
+python -m pip install -r requirements-dev.txt
+```
+
 Run simulator/unit validation first:
 
 ```text
 python tests\run_full_validation.py
 python -m pytest -q
 python -m pytest --cov=keith_ivt -q
+```
+
+Run the update reminder tests:
+
+```text
+python -m pytest tests/test_update_check.py -q
 ```
 
 Optional desktop-only Tk smoke test:
@@ -78,6 +90,10 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - Verdana is the preferred default UI font when installed. The font selector reads system-installed fonts.
 - During an active measurement, the plot shows live data only; stored traces return after completion.
 - Trace export/import/rename/delete actions live in the trace-list context menu. Plot right-click is for plot view/range/image actions.
+
+## Manual update checks
+
+App only checks GitHub release metadata. It does not auto-download, auto-install, or replace files. Users must upgrade manually from the Release page.
 
 ## Where to look next
 
