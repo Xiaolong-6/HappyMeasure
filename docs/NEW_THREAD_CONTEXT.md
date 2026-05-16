@@ -20,3 +20,10 @@ Before release, run the normal tests, update version/release notes, then perform
 
 Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
 
+
+Additional release-hardening context:
+
+- Legacy `config/settings.json` and `config/presets.json` are deliberately tolerant. Corrupt files fall back to defaults, string booleans are parsed safely, and partial presets are sanitized.
+- Trace/export schema is documented in `docs/TRACE_SCHEMA.md` and guarded by `tests/test_trace_schema_contract.py`.
+- Human validation steps are centralized in `docs/MANUAL_SMOKE_TESTS.md`.
+- Real-hardware preflight is documented in `docs/HARDWARE_PREFLIGHT.md`; the CLI prints readable PASS/FAIL output and does not run a sweep.

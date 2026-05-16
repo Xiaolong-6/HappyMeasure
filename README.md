@@ -65,6 +65,15 @@ Run the update reminder tests:
 python -m pytest tests/test_update_check.py -q
 ```
 
+Run release-hardening compatibility checks:
+
+```text
+python -m pytest tests/test_config_compatibility.py tests/test_trace_schema_contract.py tests/test_hardware_preflight_cli.py -q
+```
+
+Manual smoke checks are listed in `docs/MANUAL_SMOKE_TESTS.md`. Trace/export behavior is documented in `docs/TRACE_SCHEMA.md`; hardware preflight behavior is documented in `docs/HARDWARE_PREFLIGHT.md`.
+
+
 Optional desktop-only Tk smoke test:
 
 ```powershell

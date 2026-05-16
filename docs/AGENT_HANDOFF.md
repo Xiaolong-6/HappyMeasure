@@ -43,3 +43,13 @@ Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_st
 
 Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
 
+
+## P1 release-hardening contracts
+
+Configuration compatibility is now part of the release contract. `data/settings.py` intentionally sanitizes the legacy flat settings JSON instead of failing hard: corrupt/non-dict files fall back to defaults, string booleans are parsed explicitly, invalid numbers are clamped/defaulted, old theme names are migrated, and unknown fields are ignored. Keep this path tolerant until a formal config schema migration replaces it.
+
+Sweep presets use the same sanitizer through `data/presets.py`. Do not let partial or legacy presets crash startup; missing fields should fall back to defaults and unknown fields should be ignored.
+
+Trace metadata is documented in `docs/TRACE_SCHEMA.md`; if exporter/importer fields change, update that document and `tests/test_trace_schema_contract.py` together.
+
+Manual release validation is documented in `docs/MANUAL_SMOKE_TESTS.md`. Hardware preflight behavior is documented in `docs/HARDWARE_PREFLIGHT.md`. The CLI should produce readable PASS/FAIL output for ordinary serial/resource failures.

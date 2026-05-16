@@ -5,7 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from keith_ivt.data.settings import AppSettings
+from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
 
 PRESETS_PATH = Path("config") / "presets.json"
 SWEEP_PRESET_KEYS = {
@@ -24,10 +24,11 @@ def default_sweep_preset() -> dict[str, Any]:
 
 def _clean(data: dict[str, Any]) -> dict[str, Any]:
     defaults = default_sweep_preset()
+    sanitized = sanitize_settings_dict(data)
     cleaned = defaults.copy()
-    for key, value in data.items():
-        if key in SWEEP_PRESET_KEYS:
-            cleaned[key] = value
+    for key in SWEEP_PRESET_KEYS:
+        if key in data:
+            cleaned[key] = sanitized[key]
     return cleaned
 
 

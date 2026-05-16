@@ -41,6 +41,19 @@ Follow `docs/HARDWARE_VALIDATION_PROTOCOL.md` in order:
 Record the instrument model, firmware, serial resource, terminal path, wiring,
 compliance, output-off behavior, CSV files, and runtime logs.
 
+## Release-hardening smoke checks
+
+Before version bump and packaging, also run the focused source-level checks:
+
+```powershell
+python -m pytest tests\test_config_compatibility.py tests\test_trace_schema_contract.py tests\test_hardware_preflight_cli.py -q
+python -m pytest tests\test_fault_injection_safety.py tests\test_sweep_safety.py tests\test_data_import_export_store.py -q
+```
+
+Manual checks are tracked in `docs/MANUAL_SMOKE_TESTS.md`. Confirm at least the simulator state-flow and trace/export sections before preparing a release build.
+
+Trace import/export behavior is documented in `docs/TRACE_SCHEMA.md`. Hardware preflight behavior is documented in `docs/HARDWARE_PREFLIGHT.md`.
+
 ## Packaging
 
 Build the portable Windows folder app only after source validation passes:

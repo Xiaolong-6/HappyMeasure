@@ -51,3 +51,13 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Wired `UpdateControllerMixin` through `AppWorkflowMixin` so `SimpleKeithIVtApp` keeps the same public inheritance surface.
 - Reduced `ui/simple_app.py` from 381 lines / 15 function definitions to 290 lines / 8 function definitions, satisfying the engineering baseline contract.
 - Updated update-check and engineering-baseline tests to assert the new composition boundary.
+
+### P1 release-hardening pass
+
+- Hardened legacy flat settings loading/saving so corrupt files, unknown fields, string booleans, invalid numbers, old theme names, and `FRONT`/`FRON` terminal spelling differences fall back safely instead of blocking UI startup.
+- Hardened sweep preset loading so partial/legacy presets are sanitized with the same compatibility rules and invalid preset entries are ignored.
+- Added `docs/TRACE_SCHEMA.md` to formalize the HappyMeasure CSV v2 metadata contract and Export all / Export visible / Export selected semantics.
+- Added `docs/MANUAL_SMOKE_TESTS.md` with simulator state-flow, trace/export, config/preset, update-reminder, and hardware-preflight checks for human validation.
+- Added `docs/HARDWARE_PREFLIGHT.md` and improved the hardware preflight CLI so ordinary failures print readable PASS/FAIL output instead of a traceback.
+- Updated `docs/RELEASE_CHECKLIST.md` and README with focused release-hardening checks.
+- Added tests for settings/preset compatibility, trace schema contract, and hardware preflight CLI PASS/FAIL behavior.
