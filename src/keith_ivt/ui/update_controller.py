@@ -96,6 +96,11 @@ class UpdateControllerMixin:
         elif status == "error":
             self._set_update_check_message("Update check unavailable. Open the release page to check manually.")
             logging.getLogger("keith_ivt.ui.updates").warning(message)
+        elif status == "ahead":
+            latest = result.get("latest_version") or "unknown"
+            self._set_update_check_message(
+                f"Local beta is newer than the latest published release ({latest})."
+            )
         elif status == "current":
             latest = result.get("latest_version") or __version__
             self._set_update_check_message(f"You are up to date ({latest}).")

@@ -119,22 +119,30 @@ def check_github_release(
         return _result("error", "Update check unavailable.")
 
     try:
-        newer = is_newer_version(tag_name, current_version)
+        remote = parse_version(tag_name)
+        current = parse_version(current_version)
     except ValueError as exc:
         return _result("error", f"Update check unavailable: {exc}")
 
     display_version = tag_name if tag_name.startswith("v") else f"v{tag_name}"
-    if newer:
+    if remote > current:
         return _result(
             "newer",
             f"New version available: {display_version}. Please upgrade manually.",
             display_version,
             str(release_url) if release_url else None,
         )
+    if remote < current:
+        return _result(
+            "ahead",
+            f"Local version is newer than the latest published release ({display_version}).",
+            display_version,
+            str(release_url) if release_url else None,
+        )
 
     return _result(
         "current",
-        "You are using the latest version.",
+        "You are using the latest published version.",
         display_version,
         str(release_url) if release_url else None,
     )
