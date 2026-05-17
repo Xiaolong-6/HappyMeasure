@@ -110,7 +110,7 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - During an active measurement, the plot shows live data only; stored traces return after completion.
 - Trace export/import/rename/delete actions live in the trace-list context menu. Plot right-click is for plot view/range/image actions.
 - Trace visibility is display-only. **Export all traces** includes hidden traces; **Export visible** filters to ticked/visible traces only. Renamed traces are exported with their edited names.
-- The bottom status-bar connection/debug indicators are fixed-size Canvas drawings, so they do not depend on Windows emoji fallback or scale with the app UI font setting.
+- The bottom status-bar connection/debug indicators are UI-scale-aware Canvas drawings, so they do not depend on Windows emoji fallback or the selected font family.
 - Start is valid from `idle`, `stopped`, `completed`, and `aborted` ready states; repeated simulator runs should not require restarting the app.
 
 ## Developer architecture note
@@ -178,5 +178,5 @@ The debug simulator includes deterministic fault-injection hooks used by tests o
 
 ### Status icon rendering
 
-The bottom status bar uses fixed-size Canvas icons for connection/debug indicators instead of emoji glyphs. This avoids Windows/Tk emoji fallback problems where red/green lamps can render as monochrome or striped symbols. Status text still follows the selected UI font, but the lamp and simulator gear icons keep fixed dimensions.
+The bottom status bar uses UI-scale-aware Canvas icons for connection/debug indicators instead of emoji glyphs. This avoids Windows/Tk emoji fallback problems where red/green lamps can render as monochrome or striped symbols. Status text and icons follow the selected UI scale; the icons do not depend on the selected font family.
 

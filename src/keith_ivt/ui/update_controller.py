@@ -27,7 +27,9 @@ class UpdateControllerMixin:
             self._handle_update_check_result(self._last_update_check_result, from_cache=True)
             return
         if self._update_check_in_progress:
+            self._set_update_check_message("Checking for updates...")
             return
+        self._set_update_check_message("Checking for updates...")
         self._update_check_in_progress = True
         threading.Thread(target=self._check_for_updates_worker, daemon=True).start()
 
@@ -79,20 +81,19 @@ class UpdateControllerMixin:
             self._update_release_url = release_url
 
         if status == "newer":
-            self.update_notice_text.set(message)
-            self.update_status_text.set(message)
+            self._set_update_check_message(message)
             if not from_cache:
                 self.log_event(message)
         elif status == "offline":
-            self.update_notice_text.set("Update check unavailable: offline.")
-            self.update_status_text.set("Update check unavailable: offline.")
+            self._set_update_check_message("No network. Update status unknown; open the release page to check manually.")
         elif status == "error":
-            self.update_notice_text.set("Update check unavailable.")
-            self.update_status_text.set("Update check unavailable.")
+            self._set_update_check_message("Update check unavailable. Open the release page to check manually.")
             logging.getLogger("keith_ivt.ui.updates").warning(message)
+        elif status == "current":
+            latest = result.get("latest_version") or __version__
+            self._set_update_check_message(f"You are up to date ({latest}).")
         else:
-            self.update_notice_text.set("")
-            self.update_status_text.set("")
+            self._set_update_check_message("Update status: not checked yet. Manual upgrade remains available from the release page.")
 
     def _open_update_release_page(self) -> None:
         try:

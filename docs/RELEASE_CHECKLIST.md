@@ -124,7 +124,7 @@ Follow `docs/MANUAL_SMOKE_TESTS.md`. At minimum, confirm:
 - Debug simulator connect/disconnect works.
 - Start works from `idle`, then again after `completed`, `stopped`, and `aborted` ready states.
 - Pause/Stop/Abort do not leave the status bar stuck in `Sweeping`.
-- Canvas connection/simulator status icons remain fixed-size when UI font size changes.
+- Canvas connection/simulator status icons scale with UI scale but remain independent of the selected font family and emoji fallback.
 - Trace rename/hide/delete/export/import behavior matches `docs/TRACE_SCHEMA.md`.
 - Update reminder remains non-intrusive and does not download, install, or replace files.
 

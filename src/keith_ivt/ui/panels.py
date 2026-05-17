@@ -268,10 +268,13 @@ class PanelBuilderMixin:
         except Exception:
             pass
         
-        # Create canvas and scrollbar for scrollable content
-        canvas = tk.Canvas(parent, highlightthickness=0)
+        # Create canvas and scrollbar for scrollable content.  Use the card
+        # palette explicitly; native Tk canvases do not inherit ttk styles,
+        # which otherwise leaves a light patch in the Dark About page.
+        about_bg = self._palette.get("card", self._palette.get("panel", "#FFFFFF"))
+        canvas = tk.Canvas(parent, highlightthickness=0, background=about_bg, bd=0)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scroll_frame = ttk.Frame(canvas, padding=(16, 14))
+        scroll_frame = ttk.Frame(canvas, padding=(16, 14), style="Card.TFrame")
         
         scroll_frame.bind(
             "<Configure>",
@@ -325,19 +328,19 @@ class PanelBuilderMixin:
         
         # App name and version - prominent header
         app_header = f"{APP_NAME} v{__version__}"
-        ttk.Label(box, text=app_header, style="Card.TLabel", 
+        ttk.Label(box, text=app_header, style="AboutTitle.TLabel", 
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)) + 2, "bold")
                  ).grid(row=row, column=0, sticky="w", pady=(0, 4))
         row += 1
         
-        ttk.Label(box, text=__release_stage__, style="Muted.TLabel",
+        ttk.Label(box, text=__release_stage__, style="AboutStatus.TLabel",
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)))
                  ).grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
         
-        ttk.Label(box, textvariable=self.update_notice_text, style="Muted.TLabel",
+        ttk.Label(box, textvariable=self.update_notice_text, style="AboutStatus.TLabel",
                  wraplength=450, justify="left"
                  ).grid(row=row, column=0, sticky="w", pady=(0, 6))
         row += 1
@@ -352,7 +355,7 @@ class PanelBuilderMixin:
         
         # What is HappyMeasure?
         section_title_style = "Card.TLabel"
-        ttk.Label(box, text="What is HappyMeasure?", style=section_title_style,
+        ttk.Label(box, text="What is HappyMeasure?", style="AboutTitle.TLabel",
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)), "bold")
                  ).grid(row=row, column=0, sticky="w", pady=(8, 4))
@@ -364,12 +367,12 @@ class PanelBuilderMixin:
             "interface for performing IV (current-voltage) sweeps, time-based measurements, "
             "and adaptive testing with real-time visualization and data export."
         )
-        ttk.Label(box, text=description, style="Card.TLabel", wraplength=450, justify="left"
+        ttk.Label(box, text=description, style="AboutBody.TLabel", wraplength=450, justify="left"
                  ).grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
         
         # Key Features
-        ttk.Label(box, text="Key Features", style=section_title_style,
+        ttk.Label(box, text="Key Features", style="AboutTitle.TLabel",
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)), "bold")
                  ).grid(row=row, column=0, sticky="w", pady=(8, 4))
@@ -386,14 +389,14 @@ class PanelBuilderMixin:
             "• Multi-trace comparison and analysis",
         ]
         for feature in features:
-            ttk.Label(box, text=feature, style="Card.TLabel", wraplength=450
+            ttk.Label(box, text=feature, style="AboutBody.TLabel", wraplength=450
                      ).grid(row=row, column=0, sticky="w", pady=1)
             row += 1
         
         row += 1  # Extra spacing
         
         # Supported Hardware
-        ttk.Label(box, text="Supported Hardware", style=section_title_style,
+        ttk.Label(box, text="Supported Hardware", style="AboutTitle.TLabel",
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)), "bold")
                  ).grid(row=row, column=0, sticky="w", pady=(8, 4))
@@ -404,12 +407,12 @@ class PanelBuilderMixin:
             "• Keithley 2450 Series SourceMeter (via RS-232)\n"
             "• Built-in simulator for offline testing"
         )
-        ttk.Label(box, text=hardware, style="Card.TLabel", wraplength=450, justify="left"
+        ttk.Label(box, text=hardware, style="AboutBody.TLabel", wraplength=450, justify="left"
                  ).grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
         
         # Safety Notice
-        ttk.Label(box, text="Safety Notice", style=section_title_style,
+        ttk.Label(box, text="Safety Notice", style="AboutTitle.TLabel",
                  font=(getattr(self.settings, "ui_font_family", "Verdana"), 
                       int(getattr(self.settings, "ui_font_size", 10)), "bold")
                  ).grid(row=row, column=0, sticky="w", pady=(8, 4))
@@ -420,8 +423,8 @@ class PanelBuilderMixin:
             "⚠ Verify wiring and compliance limits externally.\n"
             "⚠ The Emergency Stop button requests output-off at the next safe point."
         )
-        ttk.Label(box, text=safety, style="Card.TLabel", wraplength=450, justify="left",
-                 foreground="#d9534f"
+        ttk.Label(box, text=safety, style="AboutBody.TLabel", wraplength=450, justify="left",
+                 foreground=self._palette.get("danger", "#d9534f")
                  ).grid(row=row, column=0, sticky="w", pady=(0, 16))
         row += 1
         

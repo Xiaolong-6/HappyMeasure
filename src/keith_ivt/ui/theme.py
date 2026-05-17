@@ -119,6 +119,8 @@ class ThemeMixin:
         active = self._palette["nav_active"]
         fg = self._palette["fg"]
         muted = self._palette["muted"]
+        disabled_bg = self._palette["disabled"]
+        disabled_fg = "#B8C3CA" if dark else ("#000000" if debug else "#5F7080")
         button_bg = self._palette["button"]
         button_active = self._palette["button_active"]
         border = self._palette["border"]
@@ -144,17 +146,33 @@ class ThemeMixin:
         self.style.configure("TLabel", background=label_bg, foreground=fg)
         self.style.configure("Card.TLabel", background=card, foreground=fg)
         self.style.configure("Muted.TLabel", background=label_bg, foreground=muted)
+        self.style.configure("CardMuted.TLabel", background=card, foreground=muted)
+        self.style.configure("AboutStatus.TLabel", background=card, foreground=muted, padding=(0, 2))
+        self.style.configure("AboutTitle.TLabel", background=card, foreground=fg)
+        self.style.configure("AboutBody.TLabel", background=card, foreground=fg)
         self.style.configure("TCheckbutton", background=label_bg, foreground=fg)
+        for label_style, label_background in (
+            ("TLabel", label_bg),
+            ("Card.TLabel", card),
+            ("Muted.TLabel", label_bg),
+            ("CardMuted.TLabel", card),
+            ("AboutStatus.TLabel", card),
+            ("AboutTitle.TLabel", card),
+            ("AboutBody.TLabel", card),
+        ):
+            self.style.map(label_style,
+                           background=[("disabled", label_background)],
+                           foreground=[("disabled", disabled_fg)])
 
         button_border = 2 if debug else 1
         self.style.configure("TButton", background=button_bg, foreground=fg, padding=(11, 7), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("TButton", background=[("disabled", self._palette["disabled"]), ("active", button_active)], foreground=[("disabled", muted)], relief=[("pressed", "solid")])
+        self.style.map("TButton", background=[("disabled", disabled_bg), ("active", button_active)], foreground=[("disabled", disabled_fg)], relief=[("pressed", "solid")])
         self.style.configure("Soft.TButton", background=button_bg, foreground=fg, padding=(9, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("Soft.TButton", background=[("disabled", self._palette["disabled"]), ("active", button_active)], foreground=[("disabled", muted)])
+        self.style.map("Soft.TButton", background=[("disabled", disabled_bg), ("active", button_active)], foreground=[("disabled", disabled_fg)])
         self.style.configure("TEntry", fieldbackground=input_bg, foreground=fg, insertcolor=fg, padding=(7, 5), borderwidth=1, relief="solid", bordercolor=border)
         self.style.configure("TCombobox", fieldbackground=input_bg, background=input_bg, foreground=fg, selectbackground=input_bg, selectforeground=fg, padding=(7, 5), borderwidth=1, relief="solid", bordercolor=border, arrowcolor=muted)
-        self.style.map("TEntry", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("disabled", self._palette["disabled"])], foreground=[("disabled", muted)])
-        self.style.map("TCombobox", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("readonly", input_bg), ("disabled", self._palette["disabled"])], background=[("readonly", input_bg), ("disabled", self._palette["disabled"])], foreground=[("readonly", fg), ("disabled", muted)], arrowcolor=[("readonly", muted), ("disabled", muted)])
+        self.style.map("TEntry", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("disabled", disabled_bg)], background=[("disabled", disabled_bg)], foreground=[("disabled", disabled_fg)])
+        self.style.map("TCombobox", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("readonly", input_bg), ("disabled", disabled_bg)], background=[("readonly", input_bg), ("disabled", disabled_bg)], foreground=[("readonly", fg), ("disabled", disabled_fg)], arrowcolor=[("readonly", muted), ("disabled", disabled_fg)])
         self.style.configure("Treeview", background=card, fieldbackground=card, foreground=fg, rowheight=max(24, int(getattr(self.settings, "ui_font_size", 10)) + 15), borderwidth=1 if debug else 0, relief="solid" if debug else "flat", bordercolor=border)
         self.style.configure("Treeview.Heading", background=button_bg, foreground=fg, relief="solid" if debug else "flat", borderwidth=1 if debug else 0)
 
@@ -190,11 +208,11 @@ class ThemeMixin:
         self.style.map("ToggleOn.TButton", background=[("active", self._palette["accent"]), ("pressed", self._palette["accent"])])
         self.style.map("ToggleOff.TButton", background=[("active", button_active), ("pressed", button_active)])
         self.style.configure("Start.TButton", background=self._palette["forest"], foreground="#FFFFFF", padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Start.TButton", background=[("active", self._palette["forest"]), ("disabled", self._palette["disabled"])] , foreground=[("disabled", muted)])
+        self.style.map("Start.TButton", background=[("active", self._palette["forest"]), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
         self.style.configure("Pause.TButton", background=button_bg, foreground=fg, padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Pause.TButton", background=[("active", button_active), ("disabled", self._palette["disabled"])] , foreground=[("disabled", muted)])
+        self.style.map("Pause.TButton", background=[("active", button_active), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
         self.style.configure("Stop.TButton", background=self._palette["danger"], foreground="#FFFFFF", padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Stop.TButton", background=[("active", "#FFE1E0" if not dark else "#4A2A2A"), ("disabled", self._palette["disabled"])] , foreground=[("disabled", muted)])
+        self.style.map("Stop.TButton", background=[("active", "#FFE1E0" if not dark else "#4A2A2A"), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
         self.style.configure("OperatorGroup.TFrame", background=card, borderwidth=0)
         self.style.configure("TraceTitle.TLabel", background=card, foreground=fg, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1, "bold"))
         self.style.configure("TinyIcon.TButton", background=button_bg, foreground=fg, padding=(8, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 3))

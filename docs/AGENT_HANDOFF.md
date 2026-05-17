@@ -24,7 +24,7 @@ Stop/Abort safety now has explicit sweep-runner tests: an operator stop must att
 
 Export semantics are intentional: **Export all traces** includes hidden traces; **Export visible** filters by the trace `visible` flag. Trace rename must be applied to exported `SweepResult.config.device_name` via `_result_with_trace_name()`.
 
-Status-bar connection lamps are Canvas-rendered fixed-size indicators, not emoji labels. The simulator/debug state is a Canvas gear. Do not reintroduce emoji glyphs for these indicators because Windows/Tk can render them through monochrome fallback fonts.
+Status-bar connection lamps are Canvas-rendered UI-scale-aware indicators, not emoji labels. The simulator/debug state is a Canvas gear. Do not reintroduce emoji glyphs for these indicators because Windows/Tk can render them through monochrome fallback fonts.
 
 Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_start_sweep()`: ready states are `idle`, `stopped`, `completed`, and `aborted`. Do not regress to an `idle`-only guard, or repeated simulator starts will appear unresponsive.
 
@@ -41,7 +41,7 @@ Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_st
 
 ## Current UI/data hardening note
 
-Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
+Status-bar connection indicators are Canvas-rendered, not emoji labels. The simulator/debug state is shown as a small Canvas gear. These icons follow UI scale but not the selected font family. Do not reintroduce red/green/devil emoji for these indicators because Windows/Tk can render them through monochrome fallback fonts.
 
 
 ## P1 release-hardening contracts
@@ -67,3 +67,8 @@ Legacy source-contract tests have been updated to match the current Canvas statu
 Current full-test status after this sync: non-build tests pass. Two remaining full-suite failures are build/packaging contracts and should be resolved in the version-bump/release-build phase unless the user explicitly asks to address packaging earlier.
 
 External audit quick-fix status: RunState alias clarity, redundant coverage omit cleanup, and the staged namespace migration plan have been addressed. `RunState.RUNNING` is intentionally a deprecated alias for canonical `RunState.SWEEPING`; do not split it into a new runtime state without updating AppState transitions and UI status rendering. Strict mypy settings and coverage-threshold changes remain deferred engineering-policy decisions, not next-release blockers.
+
+
+## Beta UI polish note
+
+The left navigation rail uses user-facing hover summaries for each tab; keep these concise and task-oriented. The About page must always show a non-empty update status, even before/without a successful update check. Dark-theme About labels should use About-specific card-background styles rather than native/default label backgrounds.

@@ -158,8 +158,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.backup_text = StringVar(value="Backup: --")  # retained for restore/legacy messages; not shown in the status bar
         self.last_save_text = StringVar(value="Last save: --")
         self.status_connection_text = StringVar(value="Instrument: --")
-        self.update_status_text = StringVar(value="")
-        self.update_notice_text = StringVar(value="")
+        default_update_text = "Update status: not checked yet. Manual upgrade remains available from the release page."
+        self.update_status_text = StringVar(value=default_update_text)
+        self.update_notice_text = StringVar(value=default_update_text)
         self.connection_light_text = StringVar(value="disconnected")
 
         self._build_layout()

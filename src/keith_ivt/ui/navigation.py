@@ -16,6 +16,16 @@ NAV_ITEMS = {
     "About": ("ℹ️", "About"),
 }
 
+NAV_TIPS = {
+    "Hardware": "Connect to a real Keithley instrument or use the debug simulator; review detected model and terminal/sense settings.",
+    "Sweep": "Configure source mode, sweep type, compliance, ranges, and step/time/adaptive sweep parameters before running.",
+    "Preset": "Save and restore common measurement setups such as mode, ranges, compliance, and sweep parameters.",
+    "Restore": "Recover automatically backed-up sweep data and import previous measurement CSV files.",
+    "Settings": "Adjust simulator mode, logging, cache behavior, UI font, UI scale, and light/dark/debug themes.",
+    "Log": "Review recent application events and diagnostics; use this when debugging connection, sweep, or export issues.",
+    "About": "View version, release/update status, supported hardware, safety notes, and release-page access.",
+}
+
 
 class NavigationMixin:
     """Persistent push-side navigation rail.
@@ -27,6 +37,7 @@ class NavigationMixin:
     """
 
     NAV_ITEMS = NAV_ITEMS
+    NAV_TIPS = NAV_TIPS
 
     def _build_navigation_drawer(self) -> None:
         """Build a persistent Outlook-style side rail."""
@@ -42,7 +53,7 @@ class NavigationMixin:
         self.drawer_title.pack(anchor="w", padx=16, pady=(18, 4))
         self.drawer_subtitle = ttk.Label(
             self.drawer_frame,
-            text="Measurement workspace",
+            text="Your lab buddy",
             style="DrawerSubtitle.TLabel",
         )
         self.drawer_subtitle.pack(anchor="w", padx=16, pady=(0, 14))
@@ -56,7 +67,7 @@ class NavigationMixin:
                 command=lambda n=name: self._show_nav(n),
             )
             btn.pack(fill="x", padx=(8, 10), pady=2)
-            add_tip(btn, f"Open {label} panel")
+            add_tip(btn, self.NAV_TIPS.get(name, f"Open {label} panel"))
             self.nav_buttons[name] = btn
         self.nav_version_label = ttk.Label(
             self.drawer_frame,

@@ -25,7 +25,7 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Hardened trace selection cleanup so deleting or externally removing the selected trace cannot leave `_selected_trace_id` pointing at a missing trace.
 - Added regression tests for deleting the last trace, stale selected trace IDs, rename/export name preservation, and hidden-vs-visible export semantics.
 - Documented that Export all includes hidden traces while Export visible filters to ticked traces.
-- Replaced status-bar emoji lamps with fixed-size Canvas-rendered connection/debug indicators independent of the user-selected UI font family/size.
+- Replaced status-bar emoji lamps with UI-scale-aware Canvas-rendered connection/debug indicators independent of the selected font family and Windows emoji fallback.
 
 ### Simulator start-state regression fix
 
@@ -35,7 +35,7 @@ This temporary diary records changes made during Codex-assisted turns so release
 
 - Hardened trace selection/export consistency and preserved renamed trace names in export paths.
 - Fixed simulator Start gating so ready states such as stopped/completed/aborted can start a new sweep.
-- Replaced emoji status lamps with fixed-size Canvas indicators and a Canvas gear for simulator/debug mode to avoid Windows/Tk emoji fallback rendering.
+- Replaced emoji status lamps with UI-scale-aware Canvas indicators and a Canvas gear for simulator/debug mode to avoid Windows/Tk emoji fallback rendering.
 
 ### Fault-injection simulator and error-path hardening
 
@@ -83,3 +83,12 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Removed the redundant `src/happymeasure/diagnostics/*` coverage omit entry because `src/happymeasure/*` already covers the wrapper namespace.
 - Added `docs/MIGRATION_PLAN.md` to document the staged `keith_ivt` -> `happymeasure` namespace migration strategy.
 - Recorded strict mypy and coverage-threshold changes as deferred engineering-policy decisions rather than next-release blockers.
+
+### Beta UI polish and hover-text audit
+
+- Updated the navigation subtitle to the user-facing copy `Your lab buddy` and added panel-specific hover summaries for every left-rail tab.
+- Adjusted status-bar Canvas connection/debug icons so they scale with the UI scale while staying independent of emoji/font-family fallback.
+- Improved dark-theme About rendering with About-specific label styles on the card background and a non-empty default update-status message.
+- Refined update-status copy so offline/error/current/not-checked states always give the user an actionable manual-release-page path.
+- Improved disabled-control theme colors so disabled sweep entries/buttons remain readable in Dark mode without looking like native grey patches.
+- Added source-contract tests for beta UI polish, dark About styling, status-icon scaling, and tab tooltip summaries.
