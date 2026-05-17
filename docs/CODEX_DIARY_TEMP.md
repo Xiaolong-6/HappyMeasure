@@ -92,3 +92,15 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Refined update-status copy so offline/error/current/not-checked states always give the user an actionable manual-release-page path.
 - Improved disabled-control theme colors so disabled sweep entries/buttons remain readable in Dark mode without looking like native grey patches.
 - Added source-contract tests for beta UI polish, dark About styling, status-icon scaling, and tab tooltip summaries.
+
+### Beta UI follow-up fixes after local smoke test
+
+- Fixed the update-reminder refactor regression where `UpdateControllerMixin` could be called before the About update-message API was present in the applied local tree; About now always starts with a non-empty manual-update status message.
+- Slimmed the bottom status bar to compact instrument status, run state, and live V/I readout only; point count / estimate stays in the controls header and update status stays in About.
+- Added compact real-time voltage/current status text during sweeps using engineering-format units.
+- Made Canvas status icons redraw after UI scale changes and kept icon sizing proportional to UI scale.
+- Kept Source range / Measure range Auto buttons clickable before connection and after stopped/completed/aborted states; they lock only during active runs.
+- Made the trace visibility column show a visible checked box (`☑`) for visible traces and an empty box (`☐`) for hidden traces.
+- Selected the newly completed trace by default after each measurement so the latest result is highlighted and plotted prominently.
+- Added a plot context-menu option to swap X/Y axes for quick visual inspection without changing saved data.
+- Updated legacy/source-contract tests for the compact status bar and UI-scale status-icon behavior.

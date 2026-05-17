@@ -8,8 +8,9 @@ from tkinter import messagebox, simpledialog
 
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.backup import autosave_result
-from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
+from keith_ivt.models import SweepConfig, SweepKind, SweepMode, SweepResult, minimum_interval_seconds
 from keith_ivt.ui.app_state import AppAction, RunState
+from keith_ivt.utils import format_current, format_voltage
 
 
 class SweepControllerMixin:
@@ -45,6 +46,10 @@ class SweepControllerMixin:
             pass
         self._x_data.clear(); self._y_data.clear(); self._live_points.clear(); self._live_config = config
         try:
+            self.live_readout_text.set("V -- · I --")
+        except Exception:
+            pass
+        try:
             self._measurement_xy.clear()
             self.app_state.point_count = 0
             self.app_state.estimated_total = 0
@@ -75,6 +80,23 @@ class SweepControllerMixin:
 
     def _on_point_thread(self, point, index: int, total: int) -> None:
         self._queue.put(("point", (point, index, total)))
+
+    def _update_live_readout_from_point(self, point) -> None:
+        """Render compact live voltage/current readout for the bottom status bar."""
+        try:
+            config = getattr(self, "_live_config", None)
+            if config is not None and config.mode is SweepMode.CURRENT_SOURCE:
+                current = float(point.source_value)
+                voltage = float(point.measured_value)
+            else:
+                voltage = float(point.source_value)
+                current = float(point.measured_value)
+            self.live_readout_text.set(f"V {format_voltage(voltage)} · I {format_current(current)}")
+        except Exception:
+            try:
+                self.live_readout_text.set("V -- · I --")
+            except Exception:
+                pass
 
     def toggle_pause(self) -> None:
         if self._run_state not in {"running", "paused"}:
@@ -159,6 +181,7 @@ class SweepControllerMixin:
                         self.app_state.estimated_total = max(0, int(total))
                     except Exception:
                         pass
+                    self._update_live_readout_from_point(point)
                     if self._run_state != "stopping":
                         self._refresh_run_status_from_state()
                     redraw_live = True
@@ -178,9 +201,13 @@ class SweepControllerMixin:
         was_stopping = self._run_state == "stopping" or self._stop_requested
         self._set_run_state("stopped" if was_stopping else "completed")
         self._last_result = result
-        self._datasets.add_result(result, result.config.device_name)
+        new_trace = self._datasets.add_result(result, result.config.device_name)
         self._live_points.clear(); self._x_data.clear(); self._y_data.clear(); self._live_config = None
         self._refresh_trace_list()
+        try:
+            self._select_trace_id(new_trace.trace_id)
+        except Exception:
+            pass
         self._redraw_all_plots()
         try:
             self._last_backup_path = autosave_result(result)

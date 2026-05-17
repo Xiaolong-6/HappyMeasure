@@ -99,7 +99,7 @@ class TracePanelMixin:
             except Exception:
                 pass
             item = self.trace_tree.insert("", END, values=(
-                "" if trace.visible else "☐",
+                "☑" if trace.visible else "☐",
                 "■",
                 trace.name,
                 cfg.operator or "--",
@@ -121,6 +121,22 @@ class TracePanelMixin:
                 # New live data should surface the latest trace when there was no surviving selection.
                 self.trace_tree.selection_set(items[0])
         self._ensure_trace_selection()
+
+
+    def _select_trace_id(self, trace_id: int | None) -> None:
+        """Select a trace in the visible tree, used after new measurements/imports."""
+        if trace_id is None or not hasattr(self, "trace_tree"):
+            return
+        for item, item_trace_id in getattr(self, "_tree_item_to_trace", {}).items():
+            if item_trace_id == trace_id:
+                try:
+                    self.trace_tree.selection_set(item)
+                    self.trace_tree.focus(item)
+                    self.trace_tree.see(item)
+                    self._selected_trace_id = trace_id
+                except Exception:
+                    pass
+                return
 
     def _selected_trace(self) -> DeviceTrace | None:
         ids = self._selected_trace_ids()

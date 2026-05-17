@@ -256,6 +256,13 @@ class PanelBuilderMixin:
 
     def _build_about_panel(self, parent) -> None:
         self._section_title(parent, "About")
+        try:
+            self._set_update_check_message(self.update_notice_text.get())
+        except Exception:
+            try:
+                self.update_notice_text.set("Update status: not checked yet. Manual upgrade remains available from the release page.")
+            except Exception:
+                pass
         if not self._show_cached_update_check_result():
             self._check_for_updates_async()
         

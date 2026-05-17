@@ -277,6 +277,17 @@ class PlotPanelMixin:
         base = label.split("(")[0].strip() or label
         return scale, f"{base} ({label_unit})"
 
+    def _apply_plot_xy_swap(self, x, y, xlabel: str, ylabel: str, y_is_log: bool):
+        """Apply the user-requested X/Y axis swap to one plot series."""
+        try:
+            swap = bool(self.plot_swap_xy.get())
+        except Exception:
+            swap = False
+        if not swap:
+            return x, y, xlabel, ylabel, y_is_log, False
+        # If the original Y axis was logarithmic, the swapped X axis should be log.
+        return y, x, ylabel, xlabel, False, bool(y_is_log)
+
     def _format_axis_numbers(self, ax) -> None:
         fmt = self.plot_number_format.get()
         if fmt == "Scientific":
@@ -329,17 +340,21 @@ class PlotPanelMixin:
                 yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x = [v * xscale for v in x]
                 y = [v * yscale for v in y]
+                x, y, xlabel, ylabel, y_is_log, x_is_log = self._apply_plot_xy_swap(x, y, xlabel, ylabel, y_is_log)
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
                 ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
                     ax.set_yscale("log")
+                if x_is_log:
+                    ax.set_xscale("log")
             for trace in traces:
                 x, y, xlabel, ylabel, title, y_is_log = xy_for_view(trace.result, view)
                 xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
                 yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x = [v * xscale for v in x]
                 y = [v * yscale for v in y]
+                x, y, xlabel, ylabel, y_is_log, x_is_log = self._apply_plot_xy_swap(x, y, xlabel, ylabel, y_is_log)
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
                     x, y, marker=marker, linestyle=linestyle,
@@ -352,6 +367,8 @@ class PlotPanelMixin:
                 ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
                     ax.set_yscale("log")
+                if x_is_log:
+                    ax.set_xscale("log")
             if traces or live_result is not None:
                 leg = ax.legend(fontsize=8, frameon=False)
                 for text in leg.get_texts():
@@ -436,6 +453,9 @@ class PlotPanelMixin:
                 yscale, ylabel_scaled = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x_scaled = [v * xscale for v in x]
                 y_scaled = [v * yscale for v in y]
+                x_scaled, y_scaled, xlabel_scaled, ylabel_scaled, y_is_log, x_is_log = self._apply_plot_xy_swap(
+                    x_scaled, y_scaled, xlabel_scaled, ylabel_scaled, y_is_log
+                )
 
                 # Downsample for display if needed
                 key = f"live_{view.value}"
@@ -462,6 +482,8 @@ class PlotPanelMixin:
                 ax.set_ylabel(ylabel_scaled, color=self._palette["fg"])
                 if y_is_log:
                     ax.set_yscale("log")
+                if x_is_log:
+                    ax.set_xscale("log")
                 ax.grid(True, alpha=0.35, color=self._palette["grid"])
 
             # Draw incrementally

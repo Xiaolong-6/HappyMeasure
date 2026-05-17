@@ -55,7 +55,7 @@ def test_disabled_sweep_controls_use_theme_disabled_palette() -> None:
 def test_status_icons_follow_ui_scale_not_fixed_emoji_size() -> None:
     status = read("src/keith_ivt/ui/status_bar.py")
     assert "def _status_icon_size" in status
-    assert "size_pt + 7" in status
+    assert "size_pt * 1.45" in status
     assert "canvas.configure(width=icon_size, height=icon_size" in status
     assert "Tk/Windows may render emoji circles" in status
     assert "_draw_status_gear(canvas, colors, icon_size)" in status

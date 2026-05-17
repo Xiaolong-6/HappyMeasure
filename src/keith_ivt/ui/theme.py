@@ -137,7 +137,8 @@ class ThemeMixin:
         self.style.configure("Status.TFrame", background=bg, borderwidth=0)
         self.style.configure("StatusCell.TLabel", background=bg, foreground=muted, padding=(8, 5), relief="solid" if debug else "flat", borderwidth=status_border, bordercolor=border)
         # Status icons are Canvas-rendered in status_bar.py so they do not
-        # depend on Windows/Tk emoji fallback or user-selected UI font size.
+        # depend on Windows/Tk emoji fallback or user-selected font family;
+        # their pixel size intentionally follows the UI scale setting.
         self.style.configure("StatusPill.TLabel", background=bg if debug else panel, foreground=self._palette["forest"], padding=(8, 4), relief="solid", borderwidth=1, bordercolor=border)
         # Keep normal labels on the dominant content-card background.
         # The previous Light theme used a grey panel background for labels inside
@@ -237,6 +238,10 @@ class ThemeMixin:
             pass
         try:
             self._refresh_nav_scaling()
+        except Exception:
+            pass
+        try:
+            self._refresh_connection_status_from_state()
         except Exception:
             pass
         self._redraw_all_plots()

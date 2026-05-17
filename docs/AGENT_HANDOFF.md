@@ -72,3 +72,13 @@ External audit quick-fix status: RunState alias clarity, redundant coverage omit
 ## Beta UI polish note
 
 The left navigation rail uses user-facing hover summaries for each tab; keep these concise and task-oriented. The About page must always show a non-empty update status, even before/without a successful update check. Dark-theme About labels should use About-specific card-background styles rather than native/default label backgrounds.
+
+## Beta UI follow-up note
+
+After local smoke testing, keep the status bar intentionally compact: connection indicator/text, run state, and live V/I readout only. Do not move update status or point-count estimates back into the status bar; About owns update status, and the controls header owns point count / estimate.
+
+Range Auto buttons should remain clickable when the app is not actively sweeping, even before hardware connection and after stopped/completed/aborted states. They should lock only for active states (`preparing`, `running`/`sweeping`, `paused`, `stopping`).
+
+The trace visibility column must show `☑` for visible traces and `☐` for hidden traces so the Vis column is readable in both light and dark themes. Completed measurements should select the newly added trace by default.
+
+Plot right-click context menu now includes `Swap X/Y axes`; this is a display-only plot option and must not modify stored trace data or CSV export semantics.

@@ -129,6 +129,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.plot_number_format = StringVar(value="Auto")
         self.plot_x_unit = StringVar(value="Auto")
         self.plot_y_unit = StringVar(value="Auto")
+        self.plot_swap_xy = BooleanVar(value=False)
         self.trace_column_vars: dict[str, BooleanVar] = {
             "show": BooleanVar(value=True),
             "color": BooleanVar(value=True),
@@ -150,6 +151,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.const_label = StringVar(value="Const value (V)")
         self.compliance_label = StringVar(value="Compliance (A)")
         self.points_text = StringVar(value="Points: -- · Est: --")
+        self.control_title_text = StringVar(value="Controls (setup pending)")
 
         # Status bar variables
         self.status = StringVar(value="Ready")
@@ -157,6 +159,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.version_text = StringVar(value=f"v{__version__}")
         self.backup_text = StringVar(value="Backup: --")  # retained for restore/legacy messages; not shown in the status bar
         self.last_save_text = StringVar(value="Last save: --")
+        self.live_readout_text = StringVar(value="V -- · I --")
         self.status_connection_text = StringVar(value="Instrument: --")
         default_update_text = "Update status: not checked yet. Manual upgrade remains available from the release page."
         self.update_status_text = StringVar(value=default_update_text)

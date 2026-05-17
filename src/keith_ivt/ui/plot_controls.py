@@ -35,6 +35,7 @@ class PlotInteractionMixin:
         menu.add_command(label=title, state="disabled")
         menu.add_separator()
         menu.add_command(label="Autorange this view", command=lambda: self._autoscale_axis(ax))
+        menu.add_checkbutton(label="Swap X/Y axes", variable=self.plot_swap_xy, command=self._redraw_all_plots)
         menu.add_command(label="Open fullscreen", command=self.open_plot_fullscreen)
         menu.add_command(label="Save plot image...", command=self.save_figure)
         menu.add_separator()

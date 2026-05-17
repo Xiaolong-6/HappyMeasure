@@ -16,7 +16,9 @@ class StatusBarMixin:
         """Dedicated bottom status bar for connection/run/point/backup state."""
         self.status_bar = ttk.Frame(self.root, style="Status.TFrame", padding=(8, 5))
         self.status_bar.grid(row=2, column=getattr(self, "_workspace_column", 0), sticky="ew")
-        for i, (weight, minsize) in enumerate([(2, 300), (2, 150), (2, 190), (2, 210), (2, 220)]):
+        # Keep the bottom bar compact: instrument, run state, live V/I.
+        # Point estimates live in the controls header and update status lives in About.
+        for i, (weight, minsize) in enumerate([(2, 125), (2, 115), (3, 190)]):
             self.status_bar.columnconfigure(i, weight=weight, minsize=minsize)
         conn = ttk.Frame(self.status_bar, style="Status.TFrame")
         conn.grid(row=0, column=0, sticky="ew", padx=(0, 10))
@@ -37,9 +39,7 @@ class StatusBarMixin:
         self._draw_connection_status_icon("disconnected")
         ttk.Label(conn, textvariable=self.status_connection_text, style="StatusCell.TLabel").grid(row=0, column=1, sticky="ew")
         ttk.Label(self.status_bar, textvariable=self.status, style="StatusCell.TLabel").grid(row=0, column=1, sticky="ew", padx=(0, 10))
-        ttk.Label(self.status_bar, textvariable=self.points_text, style="StatusCell.TLabel").grid(row=0, column=2, sticky="ew", padx=(0, 10))
-        ttk.Label(self.status_bar, textvariable=self.last_save_text, style="StatusCell.TLabel").grid(row=0, column=3, sticky="ew", padx=(0, 10))
-        ttk.Label(self.status_bar, textvariable=self.update_status_text, style="StatusCell.TLabel").grid(row=0, column=4, sticky="ew")
+        ttk.Label(self.status_bar, textvariable=self.live_readout_text, style="StatusCell.TLabel").grid(row=0, column=2, sticky="ew")
 
 
     def _status_icon_size(self) -> int:
@@ -48,7 +48,9 @@ class StatusBarMixin:
             size_pt = int(self.ui_font_size.get()) if hasattr(self, "ui_font_size") else int(getattr(self.settings, "ui_font_size", 10))
         except Exception:
             size_pt = 10
-        return max(14, min(28, size_pt + 7))
+        # Keep the icon proportional to the UI scale setting while avoiding
+        # the selected text font family. Tk canvas sizes are in screen pixels.
+        return max(12, min(34, int(round(size_pt * 1.45))))
 
     def _status_icon_palette(self) -> dict[str, str]:
         palette = getattr(self, "_palette", {})

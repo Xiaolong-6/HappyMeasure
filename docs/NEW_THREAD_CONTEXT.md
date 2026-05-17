@@ -46,3 +46,12 @@ Legacy test-contract sync status:
 ## Beta UI polish note
 
 The left navigation rail uses user-facing hover summaries for each tab; keep these concise and task-oriented. The About page must always show a non-empty update status, even before/without a successful update check. Dark-theme About labels should use About-specific card-background styles rather than native/default label backgrounds.
+
+Beta UI follow-up state:
+
+- Status bar is intentionally compact: instrument, run state, live V/I. No update status, no last-save text, no point estimate.
+- Controls header shows point count / estimate in parentheses above Start/Pause/STOP.
+- About always owns update-status text and must never render it blank.
+- Range Auto buttons are configurable outside active runs, including before connection.
+- Trace Vis column uses `☑` / `☐`; latest completed trace is selected automatically.
+- Plot context menu supports display-only X/Y axis swapping.

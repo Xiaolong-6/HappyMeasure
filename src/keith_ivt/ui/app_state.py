@@ -430,11 +430,9 @@ class AppState:
             if self.run_state == RunState.PREPARING:
                 return "Preparing"
             if self.run_state == RunState.SWEEPING:
-                if self.estimated_total:
-                    return f"Running {self.point_count}/{self.estimated_total}"
-                return f"Running {self.point_count}"
+                return "Sweeping"
             if self.run_state == RunState.PAUSED:
-                return f"Paused ({self.point_count} points)"
+                return "Paused"
             return {
                 RunState.IDLE: "Ready",
                 RunState.STOPPING: "Stopping",

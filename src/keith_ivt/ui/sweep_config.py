@@ -372,8 +372,10 @@ class SweepConfigMixin:
 
     def _update_range_state(self) -> None:
         pairs = (("source_range_row", self.auto_source_range), ("measure_range_row", self.auto_measure_range))
-        busy = getattr(self, "_run_state", "idle") != "idle"
-        editable = bool(self._connected and not busy)
+        busy = str(getattr(self, "_run_state", "idle")).lower() in {"preparing", "running", "sweeping", "paused", "stopping"}
+        # Range choices are configuration, so users may set/toggle them before connecting.
+        # Lock them only during an active run, not after completed/stopped/aborted states.
+        editable = not busy
         for attr, auto_var in pairs:
             pair = getattr(self, attr, None)
             try:
