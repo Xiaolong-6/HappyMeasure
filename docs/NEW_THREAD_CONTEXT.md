@@ -1,3 +1,8 @@
+## 2026-05-17 export-selected and settings factory restore
+- Fixed trace context-menu `Export selected...` so a multi-row Treeview selection exports all selected traces into one metadata-preserving combined CSV; single selection still exports one normal CSV.
+- Added a `Restore factory settings` button to the Default Settings dialog. The button resets dialog fields to built-in `AppSettings()` defaults and checks those fields; values are not persisted until `Save Selected` is clicked.
+- Added source-contract tests for multi-selected trace export and the factory-settings restore button.
+
 ## 2026-05-17 duplicate title/log/About cleanup
 - Removed duplicate in-panel tab titles; the fixed top-bar title is now the only visible page title.
 - Added/kept tab hover summaries on the fixed top-bar title instead of duplicate panel headings.

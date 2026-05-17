@@ -228,13 +228,42 @@ class TracePanelMixin:
         if not path: return False
         save_csv(self._last_result, path); self._mark_last_save("last CSV"); self.log_event(f"Saved last CSV: {path}"); return True
 
+    def _selected_traces(self) -> list[DeviceTrace]:
+        """Return every selected trace, preserving Treeview selection order."""
+        traces: list[DeviceTrace] = []
+        seen: set[int] = set()
+        for trace_id in self._selected_trace_ids():
+            if trace_id in seen:
+                continue
+            trace = self._datasets.get(trace_id)
+            if trace is not None:
+                traces.append(trace)
+                seen.add(trace_id)
+        if not traces:
+            trace = self._selected_trace()
+            if trace is not None:
+                traces.append(trace)
+        return traces
+
     def save_selected_trace(self):
-        trace = self._selected_trace()
-        if trace is None:
-            messagebox.showinfo("No selection", "Select a device trace first."); return False
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_single_csv_name(trace.result, trace.name), filetypes=[("CSV", "*.csv")])
+        traces = self._selected_traces()
+        if not traces:
+            messagebox.showinfo("No selection", "Select one or more device traces first."); return False
+        if len(traces) == 1:
+            trace = traces[0]
+            path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_single_csv_name(trace.result, trace.name), filetypes=[("CSV", "*.csv")])
+            if not path: return False
+            save_csv(self._result_with_trace_name(trace), path)
+            self._mark_last_save("selected CSV")
+            self.log_event(f"Saved selected trace: {path}")
+            return True
+        results = [self._result_with_trace_name(trace) for trace in traces]
+        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_all_csv_name(results), filetypes=[("CSV", "*.csv")])
         if not path: return False
-        save_csv(self._result_with_trace_name(trace), path); self._mark_last_save("selected CSV"); self.log_event(f"Saved selected trace: {path}"); return True
+        save_combined_csv(results, path)
+        self._mark_last_save("selected CSV")
+        self.log_event(f"Saved {len(traces)} selected traces with metadata: {path}")
+        return True
 
     def save_all_traces(self):
         """Export every trace, including hidden traces. Visibility is display-only."""

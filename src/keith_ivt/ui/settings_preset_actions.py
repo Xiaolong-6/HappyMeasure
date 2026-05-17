@@ -68,7 +68,32 @@ class SettingsPresetMixin:
             result["data"] = data
             win.destroy()
         
+        def factory_value_for(key: str):
+            defaults = AppSettings()
+            if key == "log_max_kb":
+                return max(1, int((defaults.log_max_bytes + 1023) // 1024))
+            return getattr(defaults, key, fields.get(key, ""))
+
+        def restore_factory_fields() -> None:
+            if not messagebox.askyesno(
+                "Restore factory settings",
+                "Restore all values in this dialog to the built-in factory defaults?\n\nNothing is saved until you click Save Selected.",
+                parent=win,
+            ):
+                return
+            for key, (var, typ) in vars_by_key.items():
+                value = factory_value_for(key)
+                if typ is bool:
+                    var.set("Yes" if bool(value) else "No")
+                else:
+                    var.set(str(value))
+                try:
+                    checks[key].set(True)
+                except Exception:
+                    pass
+
         ttk.Button(btns, text="Save Selected", command=save).pack(side="left", padx=(0, 8))
+        ttk.Button(btns, text="Restore factory settings", command=restore_factory_fields).pack(side="left", padx=(0, 8))
         ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="left")
         
         # Separator
