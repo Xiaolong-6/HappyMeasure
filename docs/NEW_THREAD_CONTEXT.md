@@ -34,3 +34,10 @@ Documentation cleanup status:
 - `docs/RELEASE_CHECKLIST.md` is the release-prep source of truth.
 - `docs/DOCS_AUDIT.md` records the current docs ownership map and non-blocking cleanup candidates.
 - Keep new docs linked from the index; avoid creating orphan handoff files.
+
+Legacy test-contract sync status:
+
+- Stale tests have been aligned with Canvas status indicators, Canvas gear debug indicator, `_normalize_theme()`, and `_should_stop` sleep interruption.
+- Non-build pytest contracts pass after this sync.
+- The remaining known full-suite failures are packaging/build-oriented and are intentionally deferred to the release/build validation phase.
+- External audit findings are queued for the next planning pass: RunState alias cleanup/clarification, pyproject coverage cleanup, namespace migration plan, and coverage/mypy policy review.

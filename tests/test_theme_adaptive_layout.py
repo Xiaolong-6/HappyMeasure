@@ -12,8 +12,9 @@ def test_theme_names_and_defaults_contract():
     theme = read("src/keith_ivt/ui/theme.py")
     panels = read("src/keith_ivt/ui/panels.py")
     assert 'ui_theme: str = "Light"' in settings
-    assert 'theme not in {"Light", "Dark", "Debug"}' in settings
-    assert 'theme = "Debug"' in settings
+    assert 'def _normalize_theme' in settings
+    assert 'return theme if theme in {"Light", "Dark", "Debug"} else "Light"' in settings
+    assert '"High Contrast": "Debug"' in settings
     assert 'debug = theme == "Debug"' in theme
     assert '["Light", "Dark", "Debug"]' in panels
     assert '["High contrast", "Dark"]' not in panels

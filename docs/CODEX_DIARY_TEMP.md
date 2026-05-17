@@ -69,3 +69,10 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Reworked `docs/README.md` into a structured documentation index so user, hardware, build, architecture, and agent-facing docs have clear ownership.
 - Added `docs/DOCS_AUDIT.md` to record the current documentation ownership map and non-blocking cleanup candidates.
 - Added documentation contract tests for release-checklist section coverage and docs index links.
+
+### Legacy test-contract synchronization
+
+- Updated stale legacy UI/source contract tests after the Canvas status-icon, theme-sanitizer, and interruptible-stop refactors.
+- Replaced obsolete assertions for `ConnGreen.TLabel` / `ConnRed.TLabel`, the devil emoji debug icon, and direct `should_stop` sleep calls with current Canvas/status-gear and `_should_stop` contracts.
+- Full pytest now fails only on two Windows build/packaging contract tests intentionally deferred to the release/build validation phase.
+- External audit items from `HappyMeasureClone-Issues.md` are queued as follow-up targets: RunState alias clarity, pyproject coverage cleanup, namespace migration-plan documentation, and coverage/type-check policy review.

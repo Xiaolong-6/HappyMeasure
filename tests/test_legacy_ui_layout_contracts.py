@@ -160,7 +160,11 @@ def test_statusbar_connection_summary_and_click_outside_drawer():
     assert 'def _close_drawer_on_outside_click' in nav
     assert 'no longer auto-hides' in nav
     assert 'self._refresh_connection_status_from_state()' in ui_text()
-    assert 'self.connection_light_label' in status and 'ConnGreen.TLabel' in ui_text() and 'ConnRed.TLabel' in ui_text()
+    assert 'self.connection_light_canvas = tk.Canvas' in status
+    assert 'self.connection_light_label = self.connection_light_canvas' in status
+    assert 'def _draw_connection_status_icon' in status
+    assert 'def _draw_status_gear' in status
+    assert 'ConnGreen.TLabel' not in ui_text() and 'ConnRed.TLabel' not in ui_text()
 
 
 def test_plot_toolbar_is_view_only_and_actions_are_context_menu():

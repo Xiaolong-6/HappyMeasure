@@ -59,3 +59,11 @@ Manual release validation is documented in `docs/MANUAL_SMOKE_TESTS.md`. Hardwar
 `docs/README.md` is now the documentation index. `docs/RELEASE_CHECKLIST.md` is the release-prep owner document and should be updated whenever the release workflow, validation sequence, build steps, asset naming, or post-release verification changes. `docs/DOCS_AUDIT.md` records the latest documentation audit and future cleanup candidates.
 
 Avoid duplicating long procedures across docs. Update the owner document and link to it from README, handoff, or release notes as needed.
+
+## Legacy test-contract synchronization note
+
+Legacy source-contract tests have been updated to match the current Canvas status-icon design, `_normalize_theme()` settings sanitizer, and `_should_stop` interruptible-sleep wrapper. Do not reintroduce assertions for `ConnGreen.TLabel`, `ConnRed.TLabel`, or the old devil emoji status indicator; those are intentionally obsolete.
+
+Current full-test status after this sync: non-build tests pass. Two remaining full-suite failures are build/packaging contracts and should be resolved in the version-bump/release-build phase unless the user explicitly asks to address packaging earlier.
+
+External audit follow-up queue: review `HappyMeasureClone-Issues.md` findings after the test-contract sync. Priority targets are RunState alias clarity, pyproject coverage omit cleanup, documenting the staged `keith_ivt` -> `happymeasure` migration plan, and deciding whether coverage/type-check thresholds should remain as-is for the alpha stage.
