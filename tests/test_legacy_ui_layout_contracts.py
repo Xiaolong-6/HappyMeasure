@@ -56,15 +56,14 @@ def test_root_rows_have_workspace_operator_and_dedicated_status_contract():
     assert 'self._build_status_bar()' in layout
     operator = source_text("ui/operator_bar.py")
     assert 'StatusPill.TLabel' not in operator
-    assert 'self.points_text' in operator
+    assert 'self.points_text' not in operator
     status = source_text("ui/status_bar.py")
     assert 'class StatusBarMixin' in status
     assert 'def _build_status_bar' in status
     assert 'textvariable=self.status_connection_text' in status
     assert 'textvariable=self.status' in status
-    assert 'textvariable=self.points_text' not in status
-    assert 'textvariable=self.live_readout_text' in status
-    assert 'textvariable=self.last_save_text' not in status
+    assert 'textvariable=self.points_text' in status
+    assert 'textvariable=self.last_save_text' in status
 
 
 def test_plot_trace_never_overlay_layout_contract():

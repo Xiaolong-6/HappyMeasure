@@ -372,10 +372,8 @@ class SweepConfigMixin:
 
     def _update_range_state(self) -> None:
         pairs = (("source_range_row", self.auto_source_range), ("measure_range_row", self.auto_measure_range))
-        busy = str(getattr(self, "_run_state", "idle")).lower() in {"preparing", "running", "sweeping", "paused", "stopping"}
-        # Range choices are configuration, so users may set/toggle them before connecting.
-        # Lock them only during an active run, not after completed/stopped/aborted states.
-        editable = not busy
+        busy = getattr(self, "_run_state", "idle") not in {"idle", "stopped", "completed", "aborted"}
+        editable = bool(self._connected and not busy)
         for attr, auto_var in pairs:
             pair = getattr(self, attr, None)
             try:
@@ -396,6 +394,7 @@ class SweepConfigMixin:
                     values = [float(self.constant_value.get())]
                     per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get())
                     self.points_text.set(f"Points: continuous · Interval: {per_point:.2f}s")
+                    self.controls_title_text.set(f"Controls (continuous, {per_point:.2f} s/pt)")
                     self._set_sweep_fields_state()
                     return
                 values = make_constant_time_values(self.constant_value.get(), self.duration_s.get(), self.interval_s.get())
@@ -407,7 +406,10 @@ class SweepConfigMixin:
             else:
                 values = make_source_values(self.start.get(), self.stop.get(), self.step.get())
                 per_point = estimate_point_seconds(self.nplc.get())
-            self.points_text.set(f"Points: {len(values)} · Est: {len(values) * per_point:.1f}s")
+            total_s = len(values) * per_point
+            self.points_text.set(f"Points: {len(values)} · Est: {total_s:.1f}s")
+            self.controls_title_text.set(f"Controls ({len(values)} pts, {total_s:.1f} sec)")
         except Exception:
             self.points_text.set("Points: invalid · Est: --")
+            self.controls_title_text.set("Controls (--)")
         self._set_sweep_fields_state()

@@ -68,6 +68,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._last_mode_value = self.settings.default_mode
         self._last_sweep_kind_value = getattr(self.settings, "default_sweep_kind", SweepKind.STEP.value)
         self._axes = []
+        self._swapped_views = set()
         self._x_data: list[float] = []
         self._y_data: list[float] = []
         self._live_points = []
@@ -129,7 +130,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.plot_number_format = StringVar(value="Auto")
         self.plot_x_unit = StringVar(value="Auto")
         self.plot_y_unit = StringVar(value="Auto")
-        self.plot_swap_xy = BooleanVar(value=False)
         self.trace_column_vars: dict[str, BooleanVar] = {
             "show": BooleanVar(value=True),
             "color": BooleanVar(value=True),
@@ -151,7 +151,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.const_label = StringVar(value="Const value (V)")
         self.compliance_label = StringVar(value="Compliance (A)")
         self.points_text = StringVar(value="Points: -- · Est: --")
-        self.control_title_text = StringVar(value="Controls (setup pending)")
+        self.controls_title_text = StringVar(value="Controls (--)")
 
         # Status bar variables
         self.status = StringVar(value="Ready")
@@ -159,12 +159,15 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.version_text = StringVar(value=f"v{__version__}")
         self.backup_text = StringVar(value="Backup: --")  # retained for restore/legacy messages; not shown in the status bar
         self.last_save_text = StringVar(value="Last save: --")
-        self.live_readout_text = StringVar(value="V -- · I --")
-        self.status_connection_text = StringVar(value="Instrument: --")
+        self.status_connection_text = StringVar(value="No instr")
+        self.measurement_status_text = StringVar(value="Src -- · Meas -- · Cmpl --")
         default_update_text = "Update status: not checked yet. Manual upgrade remains available from the release page."
         self.update_status_text = StringVar(value=default_update_text)
         self.update_notice_text = StringVar(value=default_update_text)
         self.connection_light_text = StringVar(value="disconnected")
+        self._last_source_value = None
+        self._last_measured_value = None
+        self._front_panel_window = None
 
         self._build_layout()
         self._bind_variables()

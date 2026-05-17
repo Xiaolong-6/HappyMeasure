@@ -1,3 +1,23 @@
+## 2026-05-17 duplicate title/log/About cleanup
+- Removed duplicate in-panel tab titles; the fixed top-bar title is now the only visible page title.
+- Added/kept tab hover summaries on the fixed top-bar title instead of duplicate panel headings.
+- Removed the `Named presets` LabelFrame title and the Preset/Restore inline info rows/buttons.
+- Moved the About release-stage text into the body copy instead of showing a separate status line.
+- Restored Log panel layout by avoiding mixed pack/grid title widgets inside grid-based pages.
+- Added regression coverage for duplicate-title and inline-info cleanup.
+
+## 2026-05-17 follow-up UI/status/plot patch
+- Removed preset/restore inline info rows and pushed the explanation back into hover tips via the page title + in-panel section title hover.
+- Moved points/estimate into the Controls heading (`Controls (xx pts, yy sec)` / continuous variant).
+- Added compact live status readout (`Vsrc/Isrc`, `Imeas/Vmeas`, `Cmpl`) with signed engineering-format values and a double-clickable Keithley-style front-panel popup.
+- Added fullscreen plot `Save screenshot...` button.
+- Tight-layout warning path replaced with constrained-layout/safe fallback.
+- Plot X/Y swap now targets only the current plot view from the context menu.
+- Current-source default linear/log IV plots now use current on the X axis.
+- Range Auto buttons stay editable in idle/stopped/completed states (not only literal `idle`).
+- Trace visibility column now shows ☑/☐ and completed sweeps auto-select the newest trace.
+- Added source-text + logic contract tests for controls header, front-panel hooks, current-source X-axis default, and plot swap/fullscreen save hooks.
+
 # Codex Diary (Temporary)
 
 This temporary diary records changes made during Codex-assisted turns so release notes can be prepared later.
@@ -92,15 +112,3 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Refined update-status copy so offline/error/current/not-checked states always give the user an actionable manual-release-page path.
 - Improved disabled-control theme colors so disabled sweep entries/buttons remain readable in Dark mode without looking like native grey patches.
 - Added source-contract tests for beta UI polish, dark About styling, status-icon scaling, and tab tooltip summaries.
-
-### Beta UI follow-up fixes after local smoke test
-
-- Fixed the update-reminder refactor regression where `UpdateControllerMixin` could be called before the About update-message API was present in the applied local tree; About now always starts with a non-empty manual-update status message.
-- Slimmed the bottom status bar to compact instrument status, run state, and live V/I readout only; point count / estimate stays in the controls header and update status stays in About.
-- Added compact real-time voltage/current status text during sweeps using engineering-format units.
-- Made Canvas status icons redraw after UI scale changes and kept icon sizing proportional to UI scale.
-- Kept Source range / Measure range Auto buttons clickable before connection and after stopped/completed/aborted states; they lock only during active runs.
-- Made the trace visibility column show a visible checked box (`☑`) for visible traces and an empty box (`☐`) for hidden traces.
-- Selected the newly completed trace by default after each measurement so the latest result is highlighted and plotted prominently.
-- Added a plot context-menu option to swap X/Y axes for quick visual inspection without changing saved data.
-- Updated legacy/source-contract tests for the compact status bar and UI-scale status-icon behavior.

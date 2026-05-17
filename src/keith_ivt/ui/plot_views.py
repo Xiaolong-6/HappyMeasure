@@ -95,9 +95,13 @@ def xy_for_view(result: SweepResult, view: PlotView) -> tuple[list[float], list[
     voltage, current = iv_vectors(result)
 
     if view is PlotView.LINEAR:
+        if result.config.mode is SweepMode.CURRENT_SOURCE:
+            return current, voltage, "Current (A)", "Voltage (V)", "V-I curve", False
         return voltage, current, "Voltage (V)", "Current (A)", "I-V curve", False
 
     if view is PlotView.LOG_ABS:
+        if result.config.mode is SweepMode.CURRENT_SOURCE:
+            return current, safe_abs_log_values(voltage), "Current (A)", "|Voltage (V)|", "Log |V|", True
         return voltage, safe_abs_log_values(current), "Voltage (V)", "|Current (A)|", "Log |I|", True
 
     if view is PlotView.V_OVER_I:

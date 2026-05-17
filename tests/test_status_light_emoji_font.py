@@ -14,7 +14,7 @@ def test_status_icons_are_canvas_rendered_not_emoji_labels() -> None:
     assert "_draw_connection_status_icon" in status_bar
     assert "_draw_status_gear" in status_bar
     assert "def _status_icon_size" in status_bar
-    assert "size_pt * 1.45" in status_bar
+    assert "size_pt + 7" in status_bar
     assert "canvas.configure(width=icon_size, height=icon_size" in status_bar
     assert "Segoe UI Emoji" not in theme
     assert "🔴" not in bridge

@@ -137,8 +137,7 @@ class ThemeMixin:
         self.style.configure("Status.TFrame", background=bg, borderwidth=0)
         self.style.configure("StatusCell.TLabel", background=bg, foreground=muted, padding=(8, 5), relief="solid" if debug else "flat", borderwidth=status_border, bordercolor=border)
         # Status icons are Canvas-rendered in status_bar.py so they do not
-        # depend on Windows/Tk emoji fallback or user-selected font family;
-        # their pixel size intentionally follows the UI scale setting.
+        # depend on Windows/Tk emoji fallback or user-selected UI font size.
         self.style.configure("StatusPill.TLabel", background=bg if debug else panel, foreground=self._palette["forest"], padding=(8, 4), relief="solid", borderwidth=1, bordercolor=border)
         # Keep normal labels on the dominant content-card background.
         # The previous Light theme used a grey panel background for labels inside
@@ -151,6 +150,7 @@ class ThemeMixin:
         self.style.configure("AboutStatus.TLabel", background=card, foreground=muted, padding=(0, 2))
         self.style.configure("AboutTitle.TLabel", background=card, foreground=fg)
         self.style.configure("AboutBody.TLabel", background=card, foreground=fg)
+        self.style.configure("SectionHeader.TLabel", background=bg, foreground=fg, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1, "bold"))
         self.style.configure("TCheckbutton", background=label_bg, foreground=fg)
         for label_style, label_background in (
             ("TLabel", label_bg),
@@ -241,7 +241,9 @@ class ThemeMixin:
         except Exception:
             pass
         try:
-            self._refresh_connection_status_from_state()
+            if hasattr(self, "_refresh_live_measurement_status"):
+                self._draw_connection_status_icon(getattr(self.connection_light_text, "get", lambda: "disconnected")())
+                self._refresh_live_measurement_status()
         except Exception:
             pass
         self._redraw_all_plots()

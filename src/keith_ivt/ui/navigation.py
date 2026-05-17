@@ -154,6 +154,10 @@ class NavigationMixin:
         self._active_nav = name
         if hasattr(self, "page_title") and self.page_title.winfo_exists():
             self.page_title.configure(text=name)
+            try:
+                add_tip(self.page_title, self.NAV_TIPS.get(name, f"Open {name} tools."))
+            except Exception:
+                pass
         for n, btn in self.nav_buttons.items():
             btn.configure(style="Active.Drawer.TButton" if n == name else "Drawer.TButton")
         for child in self.current_content.winfo_children():

@@ -84,7 +84,11 @@ class AppStateBridgeMixin:
         state = self.app_state.connection_state
         text = self.app_state.get_connection_status_string(debug_selected=debug_selected)
         if state is ConnectionState.CONNECTED and hasattr(self, "port"):
-            text = f"Instrument: {self.port.get()} | {self._detected_device_model()}"
+            text = f"{self.port.get()} · {self._detected_device_model()}"
+        elif state is ConnectionState.SIMULATED:
+            text = "Sim · 2400"
+        elif state is ConnectionState.DISCONNECTED:
+            text = "No instr" if not debug_selected else "Sim off"
 
         if hasattr(self, "status_connection_text"):
             self.status_connection_text.set(text)

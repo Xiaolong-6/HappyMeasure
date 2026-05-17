@@ -256,13 +256,6 @@ class PanelBuilderMixin:
 
     def _build_about_panel(self, parent) -> None:
         self._section_title(parent, "About")
-        try:
-            self._set_update_check_message(self.update_notice_text.get())
-        except Exception:
-            try:
-                self.update_notice_text.set("Update status: not checked yet. Manual upgrade remains available from the release page.")
-            except Exception:
-                pass
         if not self._show_cached_update_check_result():
             self._check_for_updates_async()
         
@@ -341,12 +334,6 @@ class PanelBuilderMixin:
                  ).grid(row=row, column=0, sticky="w", pady=(0, 4))
         row += 1
         
-        ttk.Label(box, text=__release_stage__, style="AboutStatus.TLabel",
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)))
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 12))
-        row += 1
-        
         ttk.Label(box, textvariable=self.update_notice_text, style="AboutStatus.TLabel",
                  wraplength=450, justify="left"
                  ).grid(row=row, column=0, sticky="w", pady=(0, 6))
@@ -369,6 +356,7 @@ class PanelBuilderMixin:
         row += 1
         
         description = (
+            f"Release stage: {__release_stage__}.\n\n"
             "HappyMeasure is a professional measurement UI for characterizing electronic devices "
             "using Keithley 2400/2450 series SourceMeter instruments. It provides an intuitive "
             "interface for performing IV (current-voltage) sweeps, time-based measurements, "

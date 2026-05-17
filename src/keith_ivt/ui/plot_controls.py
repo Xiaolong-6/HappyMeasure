@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tkinter import Toplevel, messagebox, simpledialog
+from tkinter import Toplevel, filedialog, messagebox, simpledialog
 from tkinter import ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -35,8 +35,8 @@ class PlotInteractionMixin:
         menu.add_command(label=title, state="disabled")
         menu.add_separator()
         menu.add_command(label="Autorange this view", command=lambda: self._autoscale_axis(ax))
-        menu.add_checkbutton(label="Swap X/Y axes", variable=self.plot_swap_xy, command=self._redraw_all_plots)
-        menu.add_command(label="Open fullscreen", command=self.open_plot_fullscreen)
+        menu.add_command(label="Swap X/Y axes", command=lambda v=view: self._swap_xy_for_axis_view(v))
+        menu.add_command(label="Open fullscreen", command=lambda a=ax: self.open_plot_fullscreen(a))
         menu.add_command(label="Save plot image...", command=self.save_figure)
         menu.add_separator()
         menu.add_command(label="Set X range...", command=lambda: self.set_axis_range_dialog(axis="x", ax=ax))
@@ -77,7 +77,7 @@ class PlotInteractionMixin:
         # Tk-level fallback: if Matplotlib did not receive a hit-tested event, open a large copy.
         self.open_plot_fullscreen()
 
-    def open_plot_fullscreen(self) -> None:
+    def open_plot_fullscreen(self, ax=None) -> None:
         win = Toplevel(self.root)
         win.title("Plot fullscreen")
         win.geometry("1100x760")
@@ -90,6 +90,15 @@ class PlotInteractionMixin:
         canvas.draw()
         btns = ttk.Frame(win, padding=(8, 6))
         btns.grid(row=1, column=0, sticky="ew")
+
+        def _save_fullscreen_snapshot() -> None:
+            path = filedialog.asksaveasfilename(defaultextension=".png", initialfile=suggested_figure_name(), filetypes=[("PNG image", "*.png"), ("PDF", "*.pdf"), ("SVG", "*.svg")])
+            if not path:
+                return
+            fig.savefig(path, facecolor=fig.get_facecolor(), bbox_inches="tight")
+            self.log_event(f"Saved fullscreen plot snapshot: {path}")
+
+        ttk.Button(btns, text="Save screenshot...", command=_save_fullscreen_snapshot).pack(side="right", padx=(0, 6))
         ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
     def set_axis_range_dialog(self, axis: str | None = None, ax=None) -> None:

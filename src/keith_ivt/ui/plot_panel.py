@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 import tkinter as tk
 from tkinter import END, StringVar, filedialog, messagebox, ttk
 
@@ -277,17 +278,6 @@ class PlotPanelMixin:
         base = label.split("(")[0].strip() or label
         return scale, f"{base} ({label_unit})"
 
-    def _apply_plot_xy_swap(self, x, y, xlabel: str, ylabel: str, y_is_log: bool):
-        """Apply the user-requested X/Y axis swap to one plot series."""
-        try:
-            swap = bool(self.plot_swap_xy.get())
-        except Exception:
-            swap = False
-        if not swap:
-            return x, y, xlabel, ylabel, y_is_log, False
-        # If the original Y axis was logarithmic, the swapped X axis should be log.
-        return y, x, ylabel, xlabel, False, bool(y_is_log)
-
     def _format_axis_numbers(self, ax) -> None:
         fmt = self.plot_number_format.get()
         if fmt == "Scientific":
@@ -297,6 +287,37 @@ class PlotPanelMixin:
             ax.yaxis.set_major_formatter(formatter)
         elif fmt == "Engineering":
             ax.yaxis.set_major_formatter(EngFormatter())
+
+    def _is_view_swapped(self, view) -> bool:
+        swapped = getattr(self, "_swapped_views", set())
+        try:
+            return view in swapped
+        except Exception:
+            return False
+
+    def _swap_xy_for_axis_view(self, view) -> None:
+        if view is None:
+            return
+        swapped = set(getattr(self, "_swapped_views", set()))
+        if view in swapped:
+            swapped.remove(view)
+        else:
+            swapped.add(view)
+        self._swapped_views = swapped
+        self._redraw_all_plots(live_only=bool(getattr(self, "_plot_live_only", False)))
+
+    def _apply_figure_layout(self, figure) -> None:
+        try:
+            figure.set_layout_engine("constrained")
+            return
+        except Exception:
+            pass
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                figure.tight_layout()
+        except Exception:
+            pass
 
     def _plot_data_on_figure(self, figure: Figure) -> list:
         # Full redraw invalidates any Line2D objects cached by the live
@@ -336,25 +357,32 @@ class PlotPanelMixin:
                 spine.set_color(self._palette["grid"])
             if live_result is not None:
                 x, y, xlabel, ylabel, title, y_is_log = xy_for_view(live_result, view)
+                swapped = self._is_view_swapped(view)
+                if swapped:
+                    x, y = y, x
+                    xlabel, ylabel = ylabel, xlabel
                 xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
                 yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x = [v * xscale for v in x]
                 y = [v * yscale for v in y]
-                x, y, xlabel, ylabel, y_is_log, x_is_log = self._apply_plot_xy_swap(x, y, xlabel, ylabel, y_is_log)
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
                 ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
-                    ax.set_yscale("log")
-                if x_is_log:
-                    ax.set_xscale("log")
+                    if swapped:
+                        ax.set_xscale("log")
+                    else:
+                        ax.set_yscale("log")
             for trace in traces:
                 x, y, xlabel, ylabel, title, y_is_log = xy_for_view(trace.result, view)
+                swapped = self._is_view_swapped(view)
+                if swapped:
+                    x, y = y, x
+                    xlabel, ylabel = ylabel, xlabel
                 xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
                 yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x = [v * xscale for v in x]
                 y = [v * yscale for v in y]
-                x, y, xlabel, ylabel, y_is_log, x_is_log = self._apply_plot_xy_swap(x, y, xlabel, ylabel, y_is_log)
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
                     x, y, marker=marker, linestyle=linestyle,
@@ -366,9 +394,10 @@ class PlotPanelMixin:
                 ax.set_title(title, color=self._palette["fg"])
                 ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
-                    ax.set_yscale("log")
-                if x_is_log:
-                    ax.set_xscale("log")
+                    if swapped:
+                        ax.set_xscale("log")
+                    else:
+                        ax.set_yscale("log")
             if traces or live_result is not None:
                 leg = ax.legend(fontsize=8, frameon=False)
                 for text in leg.get_texts():
@@ -376,7 +405,7 @@ class PlotPanelMixin:
             self._format_axis_numbers(ax)
             ax.grid(True, alpha=0.35, color=self._palette["grid"])
             axes.append(ax)
-        figure.tight_layout()
+        self._apply_figure_layout(figure)
         return axes
 
     def _update_live_plot_incremental(self) -> None:
@@ -447,15 +476,16 @@ class PlotPanelMixin:
 
             for idx, view in enumerate(views):
                 x, y, xlabel, ylabel, title, y_is_log = xy_for_view(live_result, view)
+                swapped = self._is_view_swapped(view)
+                if swapped:
+                    x, y = y, x
+                    xlabel, ylabel = ylabel, xlabel
 
                 # Apply unit scaling
                 xscale, xlabel_scaled = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
                 yscale, ylabel_scaled = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
                 x_scaled = [v * xscale for v in x]
                 y_scaled = [v * yscale for v in y]
-                x_scaled, y_scaled, xlabel_scaled, ylabel_scaled, y_is_log, x_is_log = self._apply_plot_xy_swap(
-                    x_scaled, y_scaled, xlabel_scaled, ylabel_scaled, y_is_log
-                )
 
                 # Downsample for display if needed
                 key = f"live_{view.value}"
@@ -481,9 +511,10 @@ class PlotPanelMixin:
                 ax.set_xlabel(xlabel_scaled, color=self._palette["fg"])
                 ax.set_ylabel(ylabel_scaled, color=self._palette["fg"])
                 if y_is_log:
-                    ax.set_yscale("log")
-                if x_is_log:
-                    ax.set_xscale("log")
+                    if swapped:
+                        ax.set_xscale("log")
+                    else:
+                        ax.set_yscale("log")
                 ax.grid(True, alpha=0.35, color=self._palette["grid"])
 
             # Draw incrementally

@@ -75,7 +75,7 @@ def test_status_string_and_error_reset():
     state.dispatch(AppAction.START_SWEEP)
     state.point_count = 3
     state.estimated_total = 10
-    assert state.get_status_string() == "Sweeping"
+    assert state.get_status_string() == "Running 3/10"
     state.set_error("serial timeout")
     assert "serial timeout" in state.get_status_string()
     state.clear_error()

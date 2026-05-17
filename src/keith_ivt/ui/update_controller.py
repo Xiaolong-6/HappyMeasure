@@ -21,6 +21,13 @@ class UpdateControllerMixin:
     UPDATE_REPO_URL = "https://github.com/Xiaolong-6/HappyMeasure"
     UPDATE_CHECK_CACHE_SECONDS = 30 * 60
 
+    def _set_update_check_message(self, message: str) -> None:
+        text = (message or "").strip() or "Update status: not checked yet. Manual upgrade remains available from the release page."
+        if hasattr(self, "update_status_text"):
+            self.update_status_text.set(text)
+        if hasattr(self, "update_notice_text"):
+            self.update_notice_text.set(text)
+
     def _check_for_updates_async(self) -> None:
         """Start a non-blocking GitHub release metadata check."""
         if self._has_fresh_update_check_result():
@@ -94,28 +101,6 @@ class UpdateControllerMixin:
             self._set_update_check_message(f"You are up to date ({latest}).")
         else:
             self._set_update_check_message("Update status: not checked yet. Manual upgrade remains available from the release page.")
-
-
-    def _default_update_status_message(self) -> str:
-        return "Update status: not checked yet. Manual upgrade remains available from the release page."
-
-    def _set_update_check_message(self, message: str | None) -> None:
-        """Set non-empty update status text for About only.
-
-        The update reminder was moved out of the crowded bottom status bar.
-        Keep both variables updated for backward compatibility, but only the
-        About panel is expected to render this copy.
-        """
-        text = (message or "").strip()
-        if not text:
-            text = self._default_update_status_message()
-        for attr in ("update_notice_text", "update_status_text"):
-            var = getattr(self, attr, None)
-            try:
-                if var is not None:
-                    var.set(text)
-            except Exception:
-                pass
 
     def _open_update_release_page(self) -> None:
         try:

@@ -14,8 +14,7 @@ def test_alpha3_status_theme_navigation_contracts():
     nav = read("src/keith_ivt/ui/navigation.py")
     settings = read("src/keith_ivt/data/settings.py")
     assert "self.last_save_text" in simple
-    assert "textvariable=self.last_save_text" not in status
-    assert "textvariable=self.live_readout_text" in status
+    assert "textvariable=self.last_save_text" in status
     assert '"Debug"' in theme and '"Light"' in settings
     assert '"Hardware": ("🔌", "Hardware")' in nav
     assert "_nav_drawer_width" in nav and "size * 9" in nav

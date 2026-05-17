@@ -28,10 +28,16 @@ class WidgetHelperMixin:
         return lab
 
     def _section_title(self, parent, title: str) -> None:
-        # The page title lives in the fixed top bar next to the hamburger icon;
-        # individual panels start directly with their content cards.
+        # The visible section title is the fixed top-bar page title.  Do not add
+        # duplicate in-panel headings; they waste vertical space and can mix Tk
+        # geometry managers on pages that use grid internally.
         if hasattr(self, "page_title") and self.page_title.winfo_exists():
             self.page_title.configure(text=title)
+            try:
+                tip_map = getattr(self, "NAV_TIPS", {}) or {}
+                add_tip(self.page_title, tip_map.get(title, tip_map.get(str(title).title(), f"Open {title} tools.")))
+            except Exception:
+                pass
 
     def _entry(self, parent, label, var, row: int, tip: str = ""):
         lab_text = label.get() if hasattr(label, "get") else str(label)

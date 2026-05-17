@@ -40,7 +40,7 @@ class OperatorBarMixin:
         controls.columnconfigure(0, weight=1)
         controls.columnconfigure(1, weight=1)
         controls.columnconfigure(2, weight=1)
-        ttk.Label(controls, text="Controls", style="Muted.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
+        ttk.Label(controls, textvariable=self.controls_title_text, style="Muted.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
         self.start_btn = ttk.Button(controls, text="Start", style="Start.TButton", command=self.start_sweep)
         self.start_btn.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
         add_tip(

@@ -1,3 +1,23 @@
+## 2026-05-17 duplicate title/log/About cleanup
+- Removed duplicate in-panel tab titles; the fixed top-bar title is now the only visible page title.
+- Added/kept tab hover summaries on the fixed top-bar title instead of duplicate panel headings.
+- Removed the `Named presets` LabelFrame title and the Preset/Restore inline info rows/buttons.
+- Moved the About release-stage text into the body copy instead of showing a separate status line.
+- Restored Log panel layout by avoiding mixed pack/grid title widgets inside grid-based pages.
+- Added regression coverage for duplicate-title and inline-info cleanup.
+
+## 2026-05-17 follow-up UI/status/plot patch
+- Removed preset/restore inline info rows and pushed the explanation back into hover tips via the page title + in-panel section title hover.
+- Moved points/estimate into the Controls heading (`Controls (xx pts, yy sec)` / continuous variant).
+- Added compact live status readout (`Vsrc/Isrc`, `Imeas/Vmeas`, `Cmpl`) with signed engineering-format values and a double-clickable Keithley-style front-panel popup.
+- Added fullscreen plot `Save screenshot...` button.
+- Tight-layout warning path replaced with constrained-layout/safe fallback.
+- Plot X/Y swap now targets only the current plot view from the context menu.
+- Current-source default linear/log IV plots now use current on the X axis.
+- Range Auto buttons stay editable in idle/stopped/completed states (not only literal `idle`).
+- Trace visibility column now shows ☑/☐ and completed sweeps auto-select the newest trace.
+- Added source-text + logic contract tests for controls header, front-panel hooks, current-source X-axis default, and plot swap/fullscreen save hooks.
+
 # New Thread Context
 
 HappyMeasure is a Windows Tkinter + Matplotlib SMU sweep application. `happymeasure` is the public package namespace; `keith_ivt` remains as the legacy implementation namespace for compatibility.
@@ -46,12 +66,3 @@ Legacy test-contract sync status:
 ## Beta UI polish note
 
 The left navigation rail uses user-facing hover summaries for each tab; keep these concise and task-oriented. The About page must always show a non-empty update status, even before/without a successful update check. Dark-theme About labels should use About-specific card-background styles rather than native/default label backgrounds.
-
-Beta UI follow-up state:
-
-- Status bar is intentionally compact: instrument, run state, live V/I. No update status, no last-save text, no point estimate.
-- Controls header shows point count / estimate in parentheses above Start/Pause/STOP.
-- About always owns update-status text and must never render it blank.
-- Range Auto buttons are configurable outside active runs, including before connection.
-- Trace Vis column uses `☑` / `☐`; latest completed trace is selected automatically.
-- Plot context menu supports display-only X/Y axis swapping.

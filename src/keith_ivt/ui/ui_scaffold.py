@@ -18,6 +18,10 @@ class UiScaffoldMixin:
         add_tip(self.menu_button, "Open navigation menu")
         self.page_title = ttk.Label(self.page_header, text=self._active_nav, style="Topbar.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 5, "bold"))
         self.page_title.grid(row=0, column=1, sticky="w")
+        try:
+            add_tip(self.page_title, getattr(self, "NAV_TIPS", {}).get(self._active_nav, "Current workspace panel"))
+        except Exception:
+            pass
 
         import tkinter as tk
         self.content_canvas = tk.Canvas(self.content_frame, highlightthickness=0, borderwidth=0, background=self._palette["bg"])
