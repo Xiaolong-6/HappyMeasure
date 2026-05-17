@@ -53,3 +53,9 @@ Sweep presets use the same sanitizer through `data/presets.py`. Do not let parti
 Trace metadata is documented in `docs/TRACE_SCHEMA.md`; if exporter/importer fields change, update that document and `tests/test_trace_schema_contract.py` together.
 
 Manual release validation is documented in `docs/MANUAL_SMOKE_TESTS.md`. Hardware preflight behavior is documented in `docs/HARDWARE_PREFLIGHT.md`. The CLI should produce readable PASS/FAIL output for ordinary serial/resource failures.
+
+## Documentation ownership note
+
+`docs/README.md` is now the documentation index. `docs/RELEASE_CHECKLIST.md` is the release-prep owner document and should be updated whenever the release workflow, validation sequence, build steps, asset naming, or post-release verification changes. `docs/DOCS_AUDIT.md` records the latest documentation audit and future cleanup candidates.
+
+Avoid duplicating long procedures across docs. Update the owner document and link to it from README, handoff, or release notes as needed.

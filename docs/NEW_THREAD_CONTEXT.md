@@ -27,3 +27,10 @@ Additional release-hardening context:
 - Trace/export schema is documented in `docs/TRACE_SCHEMA.md` and guarded by `tests/test_trace_schema_contract.py`.
 - Human validation steps are centralized in `docs/MANUAL_SMOKE_TESTS.md`.
 - Real-hardware preflight is documented in `docs/HARDWARE_PREFLIGHT.md`; the CLI prints readable PASS/FAIL output and does not run a sweep.
+
+Documentation cleanup status:
+
+- `docs/README.md` is the documentation index.
+- `docs/RELEASE_CHECKLIST.md` is the release-prep source of truth.
+- `docs/DOCS_AUDIT.md` records the current docs ownership map and non-blocking cleanup candidates.
+- Keep new docs linked from the index; avoid creating orphan handoff files.

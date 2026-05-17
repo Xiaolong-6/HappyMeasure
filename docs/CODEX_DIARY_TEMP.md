@@ -61,3 +61,11 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Added `docs/HARDWARE_PREFLIGHT.md` and improved the hardware preflight CLI so ordinary failures print readable PASS/FAIL output instead of a traceback.
 - Updated `docs/RELEASE_CHECKLIST.md` and README with focused release-hardening checks.
 - Added tests for settings/preset compatibility, trace schema contract, and hardware preflight CLI PASS/FAIL behavior.
+
+### Documentation system audit and release checklist consolidation
+
+- Audited the `docs/` tree, top-level README links, handoff notes, and release-prep documents.
+- Expanded `docs/RELEASE_CHECKLIST.md` into the release-prep owner document covering source hygiene, version/naming consistency, documentation audit, source validation, manual smoke checks, hardware gates, version bump, Windows portable packaging, Git/GitHub Release, and post-release verification.
+- Reworked `docs/README.md` into a structured documentation index so user, hardware, build, architecture, and agent-facing docs have clear ownership.
+- Added `docs/DOCS_AUDIT.md` to record the current documentation ownership map and non-blocking cleanup candidates.
+- Added documentation contract tests for release-checklist section coverage and docs index links.
