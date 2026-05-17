@@ -61,7 +61,6 @@ omit = [
   "src/keith_ivt/app_config.py",
   "src/keith_ivt/__main__.py",
   "src/happymeasure/*",
-  "src/happymeasure/diagnostics/*",
 ]
 
 [tool.coverage.report]

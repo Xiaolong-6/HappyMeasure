@@ -40,4 +40,4 @@ Legacy test-contract sync status:
 - Stale tests have been aligned with Canvas status indicators, Canvas gear debug indicator, `_normalize_theme()`, and `_should_stop` sleep interruption.
 - Non-build pytest contracts pass after this sync.
 - The remaining known full-suite failures are packaging/build-oriented and are intentionally deferred to the release/build validation phase.
-- External audit findings are queued for the next planning pass: RunState alias cleanup/clarification, pyproject coverage cleanup, namespace migration plan, and coverage/mypy policy review.
+- External audit quick fixes are mostly addressed: `RunState.RUNNING` is documented/tested as a deprecated alias for canonical `RunState.SWEEPING`, redundant coverage omit configuration was removed, and `docs/MIGRATION_PLAN.md` owns the staged `keith_ivt` -> `happymeasure` migration plan. Coverage/mypy policy changes remain deferred.

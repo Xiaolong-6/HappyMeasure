@@ -26,6 +26,24 @@ def test_authoritative_state_enums_match_contract():
     }
 
 
+
+
+def test_runstate_running_is_documented_legacy_alias():
+    assert "RUNNING" in RunState.__members__
+    assert RunState.RUNNING is RunState.SWEEPING
+    assert RunState.RUNNING.value == "sweeping"
+    assert RunState.from_legacy_text("running") is RunState.SWEEPING
+    assert RunState.from_legacy_text("sweeping") is RunState.SWEEPING
+    assert RunState.from_legacy_text("completed") is RunState.COMPLETED
+
+
+def test_runstate_from_legacy_text_rejects_unknown_state():
+    import pytest
+
+    with pytest.raises(ValueError):
+        RunState.from_legacy_text("definitely-not-a-run-state")
+
+
 def test_initial_state_and_connection_gate():
     state = AppState()
     assert state.run_state is RunState.IDLE

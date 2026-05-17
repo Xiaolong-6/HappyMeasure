@@ -22,6 +22,7 @@ The documentation set is broad enough for alpha handoff, but the release path ne
 - Staged bench validation: `docs/HARDWARE_VALIDATION_PROTOCOL.md`
 - Build instructions: `docs/WINDOWS_PORTABLE_BUILD.md` and `docs/WINDOWS_PYTHON314_BUILD.md`
 - Machine handoff: `docs/AGENT_HANDOFF.md` and `docs/NEW_THREAD_CONTEXT.md`
+- Namespace migration plan: `docs/MIGRATION_PLAN.md`
 - Temporary implementation diary: `docs/CODEX_DIARY_TEMP.md`
 
 ## Items intentionally not changed
@@ -38,3 +39,13 @@ These are not release blockers, but they would reduce long-term documentation de
 2. Review older roadmap/migration docs for stale future claims such as old `0.7.0` removal targets.
 3. Consider moving obsolete historical notes into an archive folder after the first externally shared beta.
 4. Keep `docs/README.md` as the index; avoid adding new orphan docs without linking them there.
+
+
+## External audit follow-up status
+
+The release-blocking quick fixes from the external audit are now tracked as follows:
+
+- `RunState.RUNNING` is explicitly documented and tested as a deprecated alias for `RunState.SWEEPING`.
+- The redundant `src/happymeasure/diagnostics/*` coverage omit entry was removed because `src/happymeasure/*` already covers it.
+- The staged namespace migration is documented in `docs/MIGRATION_PLAN.md`.
+- Strict mypy settings and altered coverage thresholds are deferred policy decisions for a later engineering pass, not next-release blockers.

@@ -75,4 +75,11 @@ This temporary diary records changes made during Codex-assisted turns so release
 - Updated stale legacy UI/source contract tests after the Canvas status-icon, theme-sanitizer, and interruptible-stop refactors.
 - Replaced obsolete assertions for `ConnGreen.TLabel` / `ConnRed.TLabel`, the devil emoji debug icon, and direct `should_stop` sleep calls with current Canvas/status-gear and `_should_stop` contracts.
 - Full pytest now fails only on two Windows build/packaging contract tests intentionally deferred to the release/build validation phase.
-- External audit items from `HappyMeasureClone-Issues.md` are queued as follow-up targets: RunState alias clarity, pyproject coverage cleanup, namespace migration-plan documentation, and coverage/type-check policy review.
+- External audit items from `HappyMeasureClone-Issues.md` were queued as follow-up targets: RunState alias clarity, pyproject coverage cleanup, namespace migration-plan documentation, and coverage/type-check policy review.
+
+### External audit quick fixes
+
+- Clarified `RunState.RUNNING` as a deprecated compatibility alias for canonical `RunState.SWEEPING`; added `RunState.from_legacy_text()` for display/persisted legacy strings such as `running`.
+- Removed the redundant `src/happymeasure/diagnostics/*` coverage omit entry because `src/happymeasure/*` already covers the wrapper namespace.
+- Added `docs/MIGRATION_PLAN.md` to document the staged `keith_ivt` -> `happymeasure` namespace migration strategy.
+- Recorded strict mypy and coverage-threshold changes as deferred engineering-policy decisions rather than next-release blockers.

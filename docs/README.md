@@ -32,6 +32,7 @@ Use in this order before real DUT measurement:
 ## Architecture and developer references
 
 - `ARCHITECTURE_CURRENT.md` — current architecture map.
+- `MIGRATION_PLAN.md` — staged `keith_ivt` -> `happymeasure` namespace migration plan.
 - `STATE_MACHINE.md` — run/connection state contracts.
 - `TRACE_SCHEMA.md` — CSV v2 trace metadata/import/export contract.
 - `SETTINGS_MIGRATION.md` — settings-schema migration notes.

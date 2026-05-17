@@ -53,6 +53,7 @@ def test_docs_index_lists_release_owner_documents() -> None:
         "HARDWARE_VALIDATION_PROTOCOL.md",
         "WINDOWS_PORTABLE_BUILD.md",
         "WINDOWS_PYTHON314_BUILD.md",
+        "MIGRATION_PLAN.md",
         "AGENT_HANDOFF.md",
         "NEW_THREAD_CONTEXT.md",
         "DOCS_AUDIT.md",
@@ -69,3 +70,13 @@ def test_docs_audit_records_owner_map_and_future_cleanup() -> None:
     assert "## Future cleanup candidates" in text
     assert "RELEASE_CHECKLIST.md" in text
     assert "CODEX_DIARY_TEMP.md" in text
+
+
+def test_migration_plan_documents_namespace_phases() -> None:
+    text = _read(DOCS / "MIGRATION_PLAN.md")
+    assert "happymeasure" in text
+    assert "keith_ivt" in text
+    assert "Phase 1" in text
+    assert "Phase 2" in text
+    assert "Phase 3" in text
+    assert "Run_HappyMeasure.bat" in text

@@ -9,18 +9,38 @@ import threading
 
 
 class RunState(Enum):
-    """Central run-state values used by the UI and future controllers."""
+    """Central run-state values used by the UI and future controllers.
+
+    ``SWEEPING`` is the canonical active-measurement state. ``RUNNING`` is a
+    deprecated compatibility alias retained for older tests/call sites that
+    predate the AppState migration.  Keep the alias explicit and tested so the
+    UI has one canonical state while legacy code can still ask for RUNNING.
+    """
 
     IDLE = "idle"
     PREPARING = "preparing"
     SWEEPING = "sweeping"
-    RUNNING = "sweeping"  # legacy alias retained for old call sites
+    RUNNING = "sweeping"  # deprecated legacy alias for SWEEPING
     PAUSED = "paused"
     STOPPING = "stopping"
     STOPPED = "stopped"
     COMPLETED = "completed"
     ERROR = "error"
     ABORTED = "aborted"
+
+    @classmethod
+    def from_legacy_text(cls, value: str) -> "RunState":
+        """Parse persisted/legacy run-state text into canonical AppState values.
+
+        Older UI code used the display word ``running`` while AppState now uses
+        the canonical enum value ``sweeping``.  Both inputs intentionally resolve
+        to :attr:`SWEEPING`.
+        """
+
+        normalized = str(value).strip().lower()
+        if normalized in {"running", "sweeping"}:
+            return cls.SWEEPING
+        return cls(normalized)
 
 
 class ConnectionState(Enum):

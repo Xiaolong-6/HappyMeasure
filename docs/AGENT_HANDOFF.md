@@ -66,4 +66,4 @@ Legacy source-contract tests have been updated to match the current Canvas statu
 
 Current full-test status after this sync: non-build tests pass. Two remaining full-suite failures are build/packaging contracts and should be resolved in the version-bump/release-build phase unless the user explicitly asks to address packaging earlier.
 
-External audit follow-up queue: review `HappyMeasureClone-Issues.md` findings after the test-contract sync. Priority targets are RunState alias clarity, pyproject coverage omit cleanup, documenting the staged `keith_ivt` -> `happymeasure` migration plan, and deciding whether coverage/type-check thresholds should remain as-is for the alpha stage.
+External audit quick-fix status: RunState alias clarity, redundant coverage omit cleanup, and the staged namespace migration plan have been addressed. `RunState.RUNNING` is intentionally a deprecated alias for canonical `RunState.SWEEPING`; do not split it into a new runtime state without updating AppState transitions and UI status rendering. Strict mypy settings and coverage-threshold changes remain deferred engineering-policy decisions, not next-release blockers.

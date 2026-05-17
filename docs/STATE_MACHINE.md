@@ -19,6 +19,14 @@ ERROR
 ABORTED
 ```
 
+## RUNNING compatibility alias
+
+`SWEEPING` is the canonical active-measurement `RunState`. `RUNNING` remains
+in `RunState.__members__` only as a deprecated compatibility alias for
+`SWEEPING`; `RunState.RUNNING is RunState.SWEEPING` is therefore expected.
+Display-facing legacy strings may still say `running`, but AppState should store
+the canonical enum state.
+
 ## Connection states
 
 ```text
