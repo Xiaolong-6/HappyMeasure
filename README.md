@@ -32,6 +32,24 @@ python -m happymeasure.hardware_preflight COM3 --baud 9600
 
 The legacy `python -m keith_ivt` and `python -m keith_ivt.hardware_preflight` commands remain supported for compatibility.
 
+## Screenshots
+
+Hardware connection page using the debug simulator:
+
+![HappyMeasure hardware simulator page](docs/screenshots/happymeasure-hardware.png)
+
+Completed simulator sweep with the I-V curve and trace list:
+
+![HappyMeasure completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
+
+Keithley-style front-panel popup opened from the status bar:
+
+![HappyMeasure Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
+
+Settings page with simulator, cache, font, scale, and theme controls:
+
+![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
+
 ## What changed in 1.0b1
 
 - Moves HappyMeasure from alpha into a simple `1.0 beta 1` version label after initial hardware smoke testing.
@@ -178,4 +196,3 @@ The debug simulator includes deterministic fault-injection hooks used by tests o
 ### Status icon rendering
 
 The bottom status bar uses UI-scale-aware Canvas icons for connection/debug indicators instead of emoji glyphs. This avoids Windows/Tk emoji fallback problems where red/green lamps can render as monochrome or striped symbols. Status text and icons follow the selected UI scale; the icons do not depend on the selected font family.
-
