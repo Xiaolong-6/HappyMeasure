@@ -38,3 +38,16 @@ Desktop.ini
 # Local one-off maintenance scripts generated during agent handoff.
 LOCAL_*.bat
 LOCAL_*.ps1
+
+# PyInstaller build artifacts
+/build/
+/dist/
+/packaging/build/
+/packaging/dist/
+
+# PyInstaller temporary files
+*.toc
+*.pyz
+*.pkg
+*.manifest
+*.spec.bak
