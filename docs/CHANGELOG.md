@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0b1 — 1.0 beta candidate
+
+- Renamed the release line from pre-hardware alpha to `1.0 beta 1` / `1.0b1` while keeping the simple PEP 440 internal version.
+- Kept `happymeasure` as the public package/CLI namespace and `keith_ivt` as the compatibility implementation namespace.
+- Hardened state-machine behavior, Stop/Abort output-off cleanup, simulator fault injection, and non-finite readback handling.
+- Improved trace workflows: latest-trace selection, visible/hidden markers, multi-select deletion, multi-select export, and factory-setting restore.
+- Improved beta UI smoke behavior: compact status bar, signed V/I/Cmpl live readout, Keithley-style front-panel popup, plot screenshot export, per-view X/Y swap, top-title hover summaries, Log restoration, and duplicate title cleanup.
+- Updated release, migration, trace schema, preflight, and manual smoke documentation for beta handoff.
+- Full hardware bench coverage is deferred to post-release validation; simulator/source validation and manual UI smoke remain the release gate.
+
+
 ## 0.7a1 — Pre-hardware validation and version standardization
 
 - Hardened Windows `.bat` and `.ps1` launchers for project roots containing spaces, hyphens, and university/network-folder names. Added `tests/test_launcher_space_safe.py` to prevent path-quoting regressions.

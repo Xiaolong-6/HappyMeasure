@@ -1,3 +1,10 @@
+## 2026-05-17 release prep
+
+- Prepared simple `1.0b1` / `1.0 beta 1` beta version metadata.
+- Updated `src/keith_ivt/version.py`, `pyproject.toml`, README, changelog, release checklist, docs index, and current beta release notes.
+- Kept build validation as the next step after this version/release-notes commit.
+- Hardware bench coverage remains post-release follow-up; simulator/source validation and manual UI smoke checks are the beta release gate.
+
 ## 2026-05-17 export-selected and settings factory restore
 - Fixed trace context-menu `Export selected...` so a multi-row Treeview selection exports all selected traces into one metadata-preserving combined CSV; single selection still exports one normal CSV.
 - Added a `Restore factory settings` button to the Default Settings dialog. The button resets dialog fields to built-in `AppSettings()` defaults and checks those fields; values are not persisted until `Save Selected` is clicked.

@@ -29,6 +29,6 @@
   "default_interval_s": 0.5,
   "default_adaptive_logic": "values = logspace(1e-3, 1, 31)",
   "ui_font_family": "Verdana",
-  "ui_font_size": 13,
-  "ui_theme": "Dark"
+  "ui_font_size": 10,
+  "ui_theme": "Light"
 }

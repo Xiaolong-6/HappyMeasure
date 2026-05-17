@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `0.7a1` pre-hardware validation alpha.
+Current version: `1.0b1` (1.0 beta 1).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
@@ -32,16 +32,15 @@ python -m happymeasure.hardware_preflight COM3 --baud 9600
 
 The legacy `python -m keith_ivt` and `python -m keith_ivt.hardware_preflight` commands remain supported for compatibility.
 
-## What changed in 0.7a1
+## What changed in 1.0b1
 
-- Standardized the public version style to PEP 440 alpha form: `0.7a1`.
-- Added version consistency tests so `src/keith_ivt/version.py`, `pyproject.toml`, validation scripts, and handoff docs cannot silently drift again.
-- Added pre-hardware safety validation around output-off behavior, mock Keithley command sequencing, and a side-effect-free command-plan helper.
-- Added trace-list multi-select deletion: select several traces with Ctrl/Cmd or Shift, then use Delete/Backspace or right-click deletion. Right-clicking an already selected row preserves the multi-selection.
-- Added a coverage gate for the unit-testable core/hardware subset. Tk widgets and real hardware entrypoints remain covered by smoke/bench procedures instead of fake unit coverage.
-- Preserved the 0.6 live-plot, simulator diode, scroll, mixin, and logging fixes.
-- Hardened Windows launchers for project paths containing spaces, hyphens, and university/network-folder names; added launcher path-safety regression tests.
-- Promoted `happymeasure` to the public package/CLI namespace while retaining `keith_ivt` as a legacy compatibility namespace.
+- Moves HappyMeasure from alpha into a simple `1.0 beta 1` version label after initial hardware smoke testing.
+- Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
+- Hardens run-state handling, Stop/Abort output-off safety, simulator fault injection, and worker error paths.
+- Improves trace selection/export behavior, including multi-select export and factory-setting restore in the Default Settings dialog.
+- Refines the beta UI: compact status bar, live signed V/I/Cmpl readout, top-title hover summaries, Canvas status indicators, and fullscreen plot screenshot export.
+- Documents release, trace schema, hardware preflight, migration, and manual UI smoke procedures.
+- Full bench validation of every hardware feature remains planned after this beta release.
 
 ## Safe validation path
 

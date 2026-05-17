@@ -1,4 +1,4 @@
-# Current architecture — HappyMeasure 0.7a1
+# Current architecture — HappyMeasure 1.0b1
 
 HappyMeasure remains a simulator-first alpha, but the application shell is now split enough for external review without reading a monolithic UI file.
 
@@ -41,7 +41,7 @@ src/keith_ivt/
 
 ## Beta-readiness gap
 
-0.7a1 keeps the 0.6 architectural-refactoring baseline, preserves the live-plot/cache, simulator, mixin, and logging fixes, and adds pre-hardware safety/mock-command validation. Remaining beta work is real Windows/Tk smoke validation, structured bench validation, and wider hardware-integration tests.
+1.0b1 keeps the 0.6 architectural-refactoring baseline, preserves the live-plot/cache, simulator, mixin, and logging fixes, and adds pre-hardware safety/mock-command validation. Remaining beta work is real Windows/Tk smoke validation, structured bench validation, and wider hardware-integration tests.
 
 
 ## 0.5.0-alpha.1 patch note

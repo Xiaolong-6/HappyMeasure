@@ -4,12 +4,15 @@ This checklist is the release-prep source of truth. Run it from a clean working 
 
 ## 0. Release identity
 
+Use simple version labels for public communication. For this release, use `1.0 beta 1` in prose and `1.0b1` in Python/package metadata.
+
+
 Set these values before starting the checklist:
 
-- Release version: `0.7a1` or the next PEP 440 version.
-- Git tag: `v0.7a1` or the matching `vX.Y...` tag.
-- Portable zip name: `HappyMeasure-<version>-windows-portable.zip`.
-- Release channel: `alpha`, `beta`, or `stable`.
+- Release version: `1.0b1`.
+- Git tag: `v1.0b1`.
+- Portable zip name: `HappyMeasure-1.0b1-windows-portable.zip`.
+- Release channel: `beta`.
 - Target Python for source validation: project default from `pyproject.toml`.
 - Target Python for Windows portable build: the build script selected interpreter; Python 3.12 is preferred when available, Python 3.14 remains experimental.
 

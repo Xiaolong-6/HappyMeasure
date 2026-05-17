@@ -1,4 +1,4 @@
-# Hardware validation protocol — HappyMeasure 0.7a1
+# Hardware validation protocol — HappyMeasure 1.0b1
 
 This is a human bench protocol. Do not treat simulator, mock serial, or coverage success as proof of physical hardware safety.
 

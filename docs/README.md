@@ -27,7 +27,7 @@ Use in this order before real DUT measurement:
 - `WINDOWS_PORTABLE_BUILD.md` — standard Windows portable-folder build.
 - `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-specific build notes and caveats.
 - `RELEASE_CHECKLIST.md` — final release-prep sequence; build validation is intentionally a late step after version updates.
-- `RELEASE_NOTES_v0.7a1.md` — current alpha release-note draft.
+- `RELEASE_NOTES_v1.0b1.md` — current beta release-note draft.
 
 ## Architecture and developer references
 

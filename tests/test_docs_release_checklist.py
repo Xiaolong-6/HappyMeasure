@@ -57,6 +57,7 @@ def test_docs_index_lists_release_owner_documents() -> None:
         "AGENT_HANDOFF.md",
         "NEW_THREAD_CONTEXT.md",
         "DOCS_AUDIT.md",
+        "RELEASE_NOTES_v1.0b1.md",
     ]
 
     for doc_name in required_docs:

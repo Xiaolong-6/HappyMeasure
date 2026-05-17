@@ -49,3 +49,8 @@ The release-blocking quick fixes from the external audit are now tracked as foll
 - The redundant `src/happymeasure/diagnostics/*` coverage omit entry was removed because `src/happymeasure/*` already covers it.
 - The staged namespace migration is documented in `docs/MIGRATION_PLAN.md`.
 - Strict mypy settings and altered coverage thresholds are deferred policy decisions for a later engineering pass, not next-release blockers.
+
+
+## 1.0b1 release-note update
+
+The current beta release note is `docs/RELEASE_NOTES_v1.0b1.md`. Historical `0.7a1` references may remain only where they describe the previous alpha release.
