@@ -40,28 +40,40 @@ class TeeTextIO(io.TextIOBase):
     flash or closes the window.
     """
 
-    def __init__(self, original: TextIO, log_file: TextIO) -> None:
+    def __init__(self, original: TextIO | None, log_file: TextIO) -> None:
         self.original = original
         self.log_file = log_file
 
     @property
     def encoding(self):  # pragma: no cover - delegates to host console
-        return getattr(self.original, "encoding", "utf-8")
+        return getattr(self.original, "encoding", "utf-8") or "utf-8"
 
     def writable(self) -> bool:
         return True
 
     def write(self, text: str) -> int:
+        if self.original is not None:
+            try:
+                self.original.write(text)
+            except Exception:
+                pass
         try:
-            self.original.write(text)
-        finally:
             self.log_file.write(text)
             self.log_file.flush()
+        except Exception:
+            pass
         return len(text)
 
     def flush(self) -> None:
-        self.original.flush()
-        self.log_file.flush()
+        if self.original is not None:
+            try:
+                self.original.flush()
+            except Exception:
+                pass
+        try:
+            self.log_file.flush()
+        except Exception:
+            pass
 
 
 def install_console_logging(log_dir: str | Path = _LOG_DIR) -> None:
@@ -109,9 +121,15 @@ def install_excepthook(log_dir: str | Path = _LOG_DIR) -> None:
 def install_tk_exception_logging(root, log_dir: str | Path = _LOG_DIR) -> None:
     """Capture Tk callback exceptions, which otherwise only print to stderr."""
     def _report(exc_type, exc, tb):
-        logger = _runtime_logger(log_dir)
-        logger.error("Tk callback exception", exc_info=(exc_type, exc, tb))
-        traceback.print_exception(exc_type, exc, tb)
+        try:
+            logger = _runtime_logger(log_dir)
+            logger.error("Tk callback exception", exc_info=(exc_type, exc, tb))
+        except Exception:
+            pass
+        try:
+            traceback.print_exception(exc_type, exc, tb)
+        except Exception:
+            pass
 
     root.report_callback_exception = _report
 

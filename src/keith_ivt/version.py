@@ -8,16 +8,14 @@ tests, and local launch scripts used during the alpha migration.
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.0 beta"
-VERSION = "1.0b1"
+APP_CODENAME = "1.1 beta"
+VERSION = "1.1b1"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.0b1: first beta candidate after alpha hardware smoke testing; "
-    "keeps HappyMeasure as the public package/entry namespace, retains "
-    "keith_ivt compatibility, hardens sweep safety/state handling, improves "
-    "trace export and UI smoke behavior, and keeps full bench validation as "
-    "post-release follow-up."
+    "1.1b1: beta update branch with startup update checks, external updater "
+    "handoff for GitHub portable release zips, preserved user settings/presets/logs, "
+    "and recent sweep/plot/front-panel refinements."
 )
 __build_note__ = BUILD_NOTE

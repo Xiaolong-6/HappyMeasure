@@ -61,13 +61,57 @@ def _result(
     message: str,
     latest_version: str | None = None,
     release_url: str | None = None,
+    asset_name: str | None = None,
+    asset_download_url: str | None = None,
 ) -> dict[str, str | None]:
     return {
         "status": status,
         "message": message,
         "latest_version": latest_version,
         "release_url": release_url,
+        "asset_name": asset_name,
+        "asset_download_url": asset_download_url,
     }
+
+
+def select_portable_zip_asset(release: dict) -> tuple[str | None, str | None]:
+    """Return the preferred Windows portable zip asset from a GitHub release.
+
+    GitHub automatically exposes source-code archives for every tag; those are
+    not runnable PyInstaller builds.  The updater therefore only accepts an
+    explicit release asset whose name looks like the HappyMeasure Windows
+    portable package.
+    """
+    assets = release.get("assets") if isinstance(release, dict) else None
+    if not isinstance(assets, list):
+        return None, None
+
+    candidates: list[tuple[int, str, str]] = []
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        name = str(asset.get("name") or "").strip()
+        url = str(asset.get("browser_download_url") or "").strip()
+        lowered = name.lower()
+        if not name or not url or not lowered.endswith(".zip"):
+            continue
+        if "source" in lowered:
+            continue
+        score = 0
+        if "happymeasure" in lowered:
+            score += 3
+        if "windows" in lowered or "win" in lowered:
+            score += 2
+        if "portable" in lowered:
+            score += 2
+        if score >= 5:
+            candidates.append((-score, name, url))
+
+    if not candidates:
+        return None, None
+    candidates.sort()
+    _score, name, url = candidates[0]
+    return name, url
 
 
 def check_github_release(
@@ -125,12 +169,16 @@ def check_github_release(
         return _result("error", f"Update check unavailable: {exc}")
 
     display_version = tag_name if tag_name.startswith("v") else f"v{tag_name}"
+    asset_name, asset_download_url = select_portable_zip_asset(latest_release)
     if remote > current:
+        installer_note = " Ready to download and install." if asset_download_url else " Open the release page to download manually."
         return _result(
             "newer",
-            f"New version available: {display_version}. Please upgrade manually.",
+            f"New version available: {display_version}.{installer_note}",
             display_version,
             str(release_url) if release_url else None,
+            asset_name,
+            asset_download_url,
         )
     if remote < current:
         return _result(
@@ -138,6 +186,8 @@ def check_github_release(
             f"Local version is newer than the latest published release ({display_version}).",
             display_version,
             str(release_url) if release_url else None,
+            asset_name,
+            asset_download_url,
         )
 
     return _result(
@@ -145,4 +195,6 @@ def check_github_release(
         "You are using the latest published version.",
         display_version,
         str(release_url) if release_url else None,
+        asset_name,
+        asset_download_url,
     )

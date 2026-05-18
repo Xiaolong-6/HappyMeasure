@@ -1,3 +1,11 @@
+## 2026-05-18 axis-range popup hotfix
+
+- `ui/plot_controls.py` no longer opens the axis range editor directly from the Tk popup menu command. `Set X range...` and `Set Y range...` now call `_schedule_axis_range_dialog()`, which returns immediately and opens the editor after 250 ms so the native menu can unpost naturally.
+- Removed the previous focus/menu hacks (`focus_force`, root `update()`, explicit menu destroy/unpost sequences). They kept the ghost menu visible in Windows packaged builds and collapsed the hover dock.
+- Replaced the built-in modal string prompt with a small custom non-modal `Toplevel` editor using `ttk.Entry`, OK, Cancel, Return, and Escape. This avoids the `wait_visibility` TclError path from `tkinter.simpledialog`.
+- `diagnostics/runtime_logging.py` now tolerates `sys.stdout`/`sys.stderr` being `None` and suppresses secondary logging failures while reporting Tk callback exceptions.
+- Regression command: `set PYTHONPATH=src && python -m pytest tests\test_axis_dialog_runtime_regression.py tests\test_plot_connection_regression.py -q`.
+
 ## 2026-05-17 release prep
 
 - Prepared simple `1.0b1` / `1.0 beta 1` beta version metadata.
@@ -65,6 +73,11 @@ Start gating in `ui/sweep_controller.py` must stay aligned with `AppState.can_st
 
 `keith_ivt.instrument.simulator.SimulatorFaultProfile` is for deterministic test faults only. Keep normal debug-simulator behavior inert by default. Current fault coverage intentionally exercises connect failures, read failures, non-finite readbacks, and output-off failures without real hardware. `SweepRunner` and `MeasurementService` must reject NaN/Inf readbacks before data reaches `DatasetStore` or CSV export paths.
 
+
+## Plot interaction note
+
+Main plot interactivity lives in `src/keith_ivt/ui/plot_panel.py` and `src/keith_ivt/ui/plot_controls.py`. The primary canvas uses Matplotlib event hooks for `button_press_event`, `button_release_event`, and `motion_notify_event`. Left-button drag pans the axis under the pointer, while motion without an active drag performs nearest-visible-point hit testing and shows an X/Y annotation when the pointer is close enough to a plotted point. Keep this path non-modal and avoid forcing Tk focus; the context-menu axis-range editor intentionally stays scheduled after the popup command returns to avoid Windows/Tk ghost menus and hover-dock collapse.
+
 ## Known limitations
 
 - Real hardware validation is still required before external release.
@@ -104,3 +117,30 @@ External audit quick-fix status: RunState alias clarity, redundant coverage omit
 ## Beta UI polish note
 
 The left navigation rail uses user-facing hover summaries for each tab; keep these concise and task-oriented. The About page must always show a non-empty update status, even before/without a successful update check. Dark-theme About labels should use About-specific card-background styles rather than native/default label backgrounds.
+
+## Front-panel popup automation note
+
+The Keithley-style front-panel popup is implemented in `src/keith_ivt/ui/status_bar.py`. The user can still open it manually by double-clicking the status readout, but `show_front_panel_on_start` now controls automatic behavior. `ui/sweep_controller.py` opens it when a sweep enters `running` and closes only the auto-opened popup on Stop, completion, or error. Keep the `_front_panel_auto_opened` flag so a future manual-only popup path is not accidentally closed by unrelated state refreshes.
+
+Regression command: `set PYTHONPATH=src && python -m pytest tests\test_front_panel_auto_popup_regression.py -q`.
+
+
+### 2026-05-18 follow-up hotfix
+- Fixed Settings save feedback so `Auto-open Front Panel on Start = No` updates the live `BooleanVar` immediately, not only after restart.
+- Changed factory default debug/simulator mode to disabled (`default_debug = false`) in legacy and v2 settings models plus `config/settings.json`.
+- Regression: `python -m pytest tests/test_front_panel_auto_popup_regression.py -q`.
+
+## Sweep delay / timing-estimate note
+
+The Sweep panel now has a common `Delay (s)` field immediately after `NPLC`. It is stored as `SweepConfig.delay_s` and persisted as `default_delay_s`. Default is `0.0` so existing workflows do not slow down unless the user explicitly sets a delay.
+
+Timing estimate owner functions are in `src/keith_ivt/models.py`:
+- `minimum_interval_seconds(nplc, line_frequency_hz=50.0, overhead_s=0.03, delay_s=0.0)`
+- `estimate_point_seconds(nplc, mode="STEP", interval_s=None, delay_s=0.0)`
+
+The estimate intentionally models the Keithley 2400-class aperture as `NPLC / line_frequency`, then adds user delay and serial/readback overhead. If hardware validation shows a consistent offset for a specific connection mode, tune `overhead_s` or add an instrument-profile-specific timing constant rather than hiding it in UI code.
+
+Hardware command intent is covered by `drivers/command_plan.py` and `instrument/serial_2400.py`, both sending `:SOUR:DEL <delay_s>`. `SweepRunner` also sleeps `delay_s` after setting the source and before `:READ?` so debug/simulator and legacy serial behavior remain aligned.
+
+Regression command:
+`set PYTHONPATH=src && python -m pytest tests\test_delay_timing_regression.py tests\test_core_coverage_gaps.py tests\test_settings_v2.py tests\test_data_import_export_store.py tests\test_mock_visa_command_sequence.py tests\test_pre_hardware_safety.py tests\test_services_drivers_more.py -q`

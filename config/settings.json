@@ -10,7 +10,7 @@
   "default_baud_rate": 9600,
   "default_terminal": "REAR",
   "default_sense_mode": "2W",
-  "default_debug": true,
+  "default_debug": false,
   "default_debug_model": "Linear resistor 10 k\u03a9",
   "default_device_name": "Device_1",
   "default_operator": "",
@@ -30,5 +30,8 @@
   "default_adaptive_logic": "values = logspace(1e-3, 1, 31)",
   "ui_font_family": "Verdana",
   "ui_font_size": 10,
-  "ui_theme": "Light"
+  "ui_theme": "Light",
+  "show_front_panel_on_start": true,
+  "default_delay_s": 0.0,
+  "check_updates_on_startup": true
 }

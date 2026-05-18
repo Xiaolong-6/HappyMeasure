@@ -91,6 +91,7 @@ class SMUDriver(Protocol):
         measure_mode: MeasureMode,
         compliance: float,
         nplc: float,
+        delay_s: float = 0.0,
         autorange: bool = True,
         source_range: float | None = None,
         measure_range: float | None = None,

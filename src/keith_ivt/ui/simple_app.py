@@ -91,6 +91,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.adaptive_logic = StringVar(value=getattr(self.settings, "default_adaptive_logic", DEFAULT_ADAPTIVE_LOGIC))
         self.compliance = DoubleVar(value=self.settings.default_compliance)
         self.nplc = DoubleVar(value=self.settings.default_nplc)
+        self.delay_s = DoubleVar(value=getattr(self.settings, "default_delay_s", 0.0))
         self.autorange = BooleanVar(value=self.settings.default_autorange)
         self.auto_source_range = BooleanVar(value=self.settings.default_autorange)
         self.auto_measure_range = BooleanVar(value=self.settings.default_autorange)
@@ -111,6 +112,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.ui_font_family = StringVar(value=getattr(self.settings, "ui_font_family", "Verdana"))
         self.ui_font_size = IntVar(value=getattr(self.settings, "ui_font_size", 10))
         self.ui_theme = StringVar(value=getattr(self.settings, "ui_theme", "Light"))
+        self.show_front_panel_on_start = BooleanVar(value=getattr(self.settings, "show_front_panel_on_start", True))
         self.ui_scale_choice = StringVar(value=f"{int(self.ui_font_size.get())} pt")
         self.adaptive_start = DoubleVar(value=0.001)
         self.adaptive_stop = DoubleVar(value=1.0)
@@ -168,6 +170,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._last_source_value = None
         self._last_measured_value = None
         self._front_panel_window = None
+        self._front_panel_auto_opened = False
 
         self._build_layout()
         self._bind_variables()
@@ -179,7 +182,8 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._redraw_all_plots()
         self.log_event("UI ready. Three-panel simulator-first alpha path active.")
         self.root.after(100, self._process_queue)
-        self.root.after(500, self._check_for_updates_async)
+        if bool(getattr(self.settings, "check_updates_on_startup", True)):
+            self.root.after(500, lambda: self._check_for_updates_async(prompt_install=True))
 
 
     def _normalize_ui_font_setting(self) -> None:
@@ -236,6 +240,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             step=float(self.step.get()),
             compliance=float(self.compliance.get()),
             nplc=float(self.nplc.get()),
+            delay_s=float(self.delay_s.get()),
             port=self.port.get(),
             baud_rate=int(self.baud_rate.get()),
             terminal=Terminal(self._terminal_scpi(self.terminal.get())),

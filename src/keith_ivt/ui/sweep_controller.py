@@ -30,7 +30,7 @@ class SweepControllerMixin:
             # Adaptive table/logic is parsed by SweepRunner; it no longer requires
             # a separate validate click before a debug or real run.
             if config.sweep_kind is SweepKind.CONSTANT_TIME:
-                min_interval = minimum_interval_seconds(config.nplc)
+                min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate)
                 if config.interval_s < min_interval:
                     messagebox.showerror("Interval too short", f"NPLC={config.nplc} needs interval >= {min_interval:.3f} s.")
                     return
@@ -52,10 +52,19 @@ class SweepControllerMixin:
         except Exception:
             pass
         self._set_run_state("running")
+        self._open_front_panel_for_sweep_start()
         self._redraw_all_plots(live_only=True)
         self.log_event(f"Sweep started: {config.mode.value} / {config.sweep_kind.value}.")
         t = threading.Thread(target=self._run_sweep_thread, args=(config,), daemon=True)
         t.start()
+
+    def _open_front_panel_for_sweep_start(self) -> None:
+        try:
+            enabled = bool(self.show_front_panel_on_start.get())
+        except Exception:
+            enabled = True
+        if enabled:
+            self._open_front_panel_popup(auto_open=True)
 
     def _run_sweep_thread(self, config: SweepConfig) -> None:
         try:
@@ -109,6 +118,8 @@ class SweepControllerMixin:
         except Exception:
             pass
         self._set_run_state("stopping")
+        self._reset_live_measurement_status()
+        self._close_auto_front_panel_popup()
         self.log_event("Emergency stop requested.")
 
     def _manual_output_interlock(self, config: SweepConfig) -> None:
@@ -194,12 +205,14 @@ class SweepControllerMixin:
             self.log_event(f"Sweep completed. Auto-backup saved: {self._last_backup_path}")
         except Exception as exc:
             self.log_event(f"Sweep completed, backup failed: {exc}")
-        self._refresh_live_measurement_status()
+        self._reset_live_measurement_status()
+        self._close_auto_front_panel_popup()
 
     def _handle_error(self, exc: Exception) -> None:
         self.app_state.dispatch(AppAction.SWEEP_ERROR, error=str(exc))
         self._refresh_run_status_from_state()
         self._update_run_button_states()
-        self._refresh_live_measurement_status()
+        self._reset_live_measurement_status()
+        self._close_auto_front_panel_popup()
         self.log_event(f"Error: {exc}")
         messagebox.showerror("Sweep error", str(exc))

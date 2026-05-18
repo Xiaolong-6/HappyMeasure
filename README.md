@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `1.0b1` (1.0 beta 1).
+Current version: `1.1b1` (1.1 beta).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
@@ -50,9 +50,11 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
 
-## What changed in 1.0b1
+## What changed in 1.1b1
 
-- Moves HappyMeasure from alpha into a simple `1.0 beta 1` version label after initial hardware smoke testing.
+- Adds startup update checking controlled from Settings. When enabled, HappyMeasure checks GitHub Releases after launch and asks before installing a newer Windows portable zip.
+- Adds an external updater handoff that downloads the release zip, preserves user settings/presets/logs/exports/backups/data, replaces program files in the original portable folder, and restarts HappyMeasure.
+- Keeps the 1.0 beta hardware-safety baseline while moving to the 1.1 beta update branch.
 - Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
 - Hardens run-state handling, Stop/Abort output-off safety, simulator fault injection, and worker error paths.
 - Improves trace selection/export behavior, including multi-select export and factory-setting restore in the Default Settings dialog.

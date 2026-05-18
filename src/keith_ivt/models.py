@@ -35,6 +35,7 @@ class SweepConfig:
     step: float
     compliance: float
     nplc: float = 1.0
+    delay_s: float = 0.0
     port: str = "COM3"
     baud_rate: int = 9600
     terminal: Terminal = Terminal.REAR
@@ -116,18 +117,60 @@ def make_source_values(start: float, stop: float, step: float) -> list[float]:
     return values
 
 
-def minimum_interval_seconds(nplc: float, line_frequency_hz: float = 50.0, overhead_s: float = 0.03) -> float:
-    """Conservative per-point interval estimate for constant-time mode.
+def serial_round_trip_seconds(
+    baud_rate: int = 9600,
+    *,
+    source_chars: int = 20,
+    query_chars: int = 8,
+    response_chars: int = 28,
+    framing_bits: int = 10,
+    turnaround_s: float = 0.055,
+) -> float:
+    """Return a practical serial round-trip time estimate for one point.
 
-    NPLC integration time is approximately nplc / line_frequency. Real serial
-    communication and source settling add overhead, so this returns an alpha
-    lower bound rather than a Keithley specification.
+    For a software-driven 2400 sweep, each point usually sends a new source
+    command, then a ``:READ?`` query, then receives an ASCII response with the
+    formatted source/measurement pair.  At RS-232 rates this transfer time is
+    often a visible part of the point-to-point cadence.
     """
-    return max(0.0, float(nplc)) / float(line_frequency_hz) + float(overhead_s)
+    try:
+        baud = max(1200.0, float(baud_rate))
+    except Exception:
+        baud = 9600.0
+    total_chars = max(0, int(source_chars)) + max(0, int(query_chars)) + max(0, int(response_chars))
+    serial_s = (total_chars * max(1, int(framing_bits))) / baud
+    return serial_s + max(0.0, float(turnaround_s))
 
 
-def estimate_point_seconds(nplc: float, mode: str = "STEP", interval_s: float | None = None) -> float:
-    base = minimum_interval_seconds(nplc)
+def minimum_interval_seconds(
+    nplc: float,
+    line_frequency_hz: float = 50.0,
+    overhead_s: float | None = None,
+    delay_s: float = 0.0,
+    baud_rate: int = 9600,
+) -> float:
+    """Keithley-2400-style per-point timing estimate.
+
+    The 2400 integration aperture is approximately ``NPLC / line_frequency``.
+    The estimate also includes the user-requested source settling delay and a
+    practical software/communication overhead term: source-program command,
+    ``:READ?`` query, ASCII response transfer, and a small instrument/UI
+    turnaround allowance.
+    """
+    aperture_s = max(0.0, float(nplc)) / float(line_frequency_hz)
+    serial_s = serial_round_trip_seconds(baud_rate=baud_rate)
+    extra_overhead = serial_s if overhead_s is None else max(0.0, float(overhead_s))
+    return aperture_s + max(0.0, float(delay_s)) + extra_overhead
+
+
+def estimate_point_seconds(
+    nplc: float,
+    mode: str = "STEP",
+    interval_s: float | None = None,
+    delay_s: float = 0.0,
+    baud_rate: int = 9600,
+) -> float:
+    base = minimum_interval_seconds(nplc, delay_s=delay_s, baud_rate=baud_rate)
     if mode == SweepKind.CONSTANT_TIME.value and interval_s is not None:
         return max(float(interval_s), base)
     return base
@@ -149,7 +192,7 @@ def validate_config(config: SweepConfig) -> None:
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
         if not config.continuous_time:
             make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
-        min_interval = minimum_interval_seconds(config.nplc)
+        min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate)
         if config.interval_s < min_interval:
             raise ValueError(f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s.")
     elif config.sweep_kind is SweepKind.ADAPTIVE:
@@ -165,3 +208,5 @@ def validate_config(config: SweepConfig) -> None:
         raise ValueError("Compliance must be positive.")
     if not (0.01 <= config.nplc <= 10):
         raise ValueError("NPLC should normally be between 0.01 and 10.")
+    if config.delay_s < 0:
+        raise ValueError("Delay must be zero or positive.")

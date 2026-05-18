@@ -44,6 +44,7 @@ def result_metadata(result: SweepResult) -> dict:
         "continuous_time": cfg.continuous_time,
         "compliance": cfg.compliance,
         "nplc": cfg.nplc,
+        "delay_s": cfg.delay_s,
         "terminal": cfg.terminal.value,
         "sense_mode": cfg.sense_mode.value,
         "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
@@ -109,7 +110,7 @@ def _write_trace_metadata_table(writer: csv.writer, results: list[SweepResult]) 
     writer.writerow(["# section", "trace_metadata"])
     writer.writerow([
         "trace_index", "device_name", "operator", "mode", "sweep_type", "points",
-        "start", "stop", "step", "compliance", "nplc", "source_range", "measure_range",
+        "start", "stop", "step", "compliance", "nplc", "delay_s", "source_range", "measure_range",
         "auto_source_range", "auto_measure_range", "data_fingerprint", "trace_uid",
     ])
     for index, result in enumerate(results, start=1):
@@ -126,6 +127,7 @@ def _write_trace_metadata_table(writer: csv.writer, results: list[SweepResult]) 
             m["step"],
             m["compliance"],
             m["nplc"],
+            m.get("delay_s", 0.0),
             m["source_range"],
             m["measure_range"],
             m["auto_source_range"],

@@ -29,6 +29,7 @@ stop
 step
 compliance
 nplc
+delay_s
 port
 baud_rate
 terminal

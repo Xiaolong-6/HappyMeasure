@@ -20,6 +20,7 @@ def build_keithley2400_sweep_command_plan(config: SweepConfig, *, include_output
         f":SENS:FUNC '{meas}'",
         f":SENS:{meas}:PROT {config.compliance:.12g}",
         f":SENS:{meas}:NPLC {config.nplc:.12g}",
+        f":SOUR:DEL {config.delay_s:.12g}",
     ]
     if config.auto_source_range:
         commands.append(f":SOUR:{src}:RANG:AUTO ON")

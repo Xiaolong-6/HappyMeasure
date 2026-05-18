@@ -72,6 +72,9 @@ class SweepRunner:
                     if _should_stop():
                         break
                     index += 1
+                    _interruptible_sleep(config.delay_s, _should_stop)
+                    if _should_stop():
+                        break
                     reported_source, measured = self.instrument.read_source_and_measure()
                     reported_source, measured = self._validated_readback(reported_source, measured)
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
@@ -91,6 +94,9 @@ class SweepRunner:
                     if _should_stop():
                         break
                     self.instrument.set_source(config.source_scpi, source_value)
+                    _interruptible_sleep(config.delay_s, _should_stop)
+                    if _should_stop():
+                        break
                     reported_source, measured = self.instrument.read_source_and_measure()
                     reported_source, measured = self._validated_readback(reported_source, measured)
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))

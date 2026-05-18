@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_runtime_version_is_pep440_beta_and_matches_pyproject() -> None:
-    assert version.VERSION == "1.0b1"
+    assert version.VERSION == "1.1b1"
     assert re.fullmatch(r"\d+\.\d+b\d+", version.VERSION)
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert data["project"]["version"] == version.VERSION

@@ -34,15 +34,23 @@ class MeasurementService:
         if plan.execution_kind is SweepExecutionKind.MANUAL_OUTPUT:
             raise ValueError("Manual output is not a normal measurement plan.")
         self.driver.reset()
-        self.driver.configure_source_measure(
+        configure_kwargs = dict(
             source_mode=plan.source_mode,
             measure_mode=plan.measure_mode,
             compliance=plan.compliance,
             nplc=plan.nplc,
+            delay_s=plan.delay_s,
             autorange=plan.autorange,
             source_range=plan.source_range,
             measure_range=plan.measure_range,
         )
+        try:
+            self.driver.configure_source_measure(**configure_kwargs)
+        except TypeError as exc:
+            if "delay_s" not in str(exc):
+                raise
+            configure_kwargs.pop("delay_s", None)
+            self.driver.configure_source_measure(**configure_kwargs)
         self.driver.output_on()
         reads: list[DriverReadback] = []
         stopped_by_operator = False
@@ -66,6 +74,7 @@ class MeasurementService:
                 if _should_stop():
                     break
                 self.driver.set_source(plan.source_mode, value)
+                time.sleep(max(0.0, plan.delay_s))
                 read = self._validated_readback(self.driver.read())
                 reads.append(read)
                 if on_point is not None:

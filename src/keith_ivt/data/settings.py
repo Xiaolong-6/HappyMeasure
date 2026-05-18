@@ -21,11 +21,12 @@ class AppSettings:
     default_step: float = 0.1
     default_compliance: float = 0.01
     default_nplc: float = 1.0
+    default_delay_s: float = 0.0
     default_port: str = "COM3"
     default_baud_rate: int = 9600
     default_terminal: str = "REAR"
     default_sense_mode: str = "2W"
-    default_debug: bool = True
+    default_debug: bool = False
     default_debug_model: str = "Linear resistor 10 kΩ"
     default_device_name: str = "Device_1"
     default_operator: str = ""
@@ -46,6 +47,8 @@ class AppSettings:
     ui_font_family: str = "Verdana"
     ui_font_size: int = 10
     ui_theme: str = "Light"
+    show_front_panel_on_start: bool = True
+    check_updates_on_startup: bool = True
 
 
 DEFAULT_SETTINGS_PATH = Path("config") / "settings.json"
@@ -151,13 +154,14 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         "default_step",
         "default_compliance",
         "default_nplc",
+        "default_delay_s",
         "default_source_range",
         "default_measure_range",
         "default_constant_value",
         "default_duration_s",
         "default_interval_s",
     ):
-        minimum = 0.0 if key in {"default_step", "default_compliance", "default_nplc", "default_duration_s", "default_interval_s"} else None
+        minimum = 0.0 if key in {"default_step", "default_compliance", "default_nplc", "default_delay_s", "default_duration_s", "default_interval_s"} else None
         merged[key] = _coerce_float(merged.get(key), defaults[key], minimum=minimum)
 
     for key in (
@@ -167,6 +171,8 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         "auto_measure_range",
         "default_constant_until_stop",
         "default_debug",
+        "show_front_panel_on_start",
+        "check_updates_on_startup",
     ):
         merged[key] = _coerce_bool(merged.get(key), defaults[key])
 

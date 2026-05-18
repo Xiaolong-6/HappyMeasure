@@ -37,7 +37,7 @@ dist\HappyMeasure\
 For handoff, zip that folder:
 
 ```powershell
-Compress-Archive -Path dist\HappyMeasure -DestinationPath dist\HappyMeasure-1.0b1-windows-portable.zip -CompressionLevel Optimal
+Compress-Archive -Path dist\HappyMeasure -DestinationPath dist\HappyMeasure-1.1b1-windows-portable.zip -CompressionLevel Optimal
 ```
 
 The zip should contain `HappyMeasure.exe`, `_internal`, `README_FIRST.txt`,

@@ -138,6 +138,11 @@ class SweepSettings(BaseModel):
         ge=0.01,
         le=10.0,
     )
+    default_delay_s: float = Field(
+        default=0.0,
+        description="Default per-point source delay in seconds",
+        ge=0.0,
+    )
     default_sweep_kind: SweepKind = Field(
         default=SweepKind.STEP,
         description="Default sweep type",
@@ -226,6 +231,14 @@ class UISettings(BaseModel):
         default=PlotLayout.AUTO,
         description="Default plot subplot arrangement",
     )
+    show_front_panel_on_start: bool = Field(
+        default=True,
+        description="Automatically open the front-panel popup when a sweep starts",
+    )
+    check_updates_on_startup: bool = Field(
+        default=True,
+        description="Check GitHub releases for updates after app startup",
+    )
 
 
 class DataSettings(BaseModel):
@@ -258,7 +271,7 @@ class DataSettings(BaseModel):
         max_length=100,
     )
     default_debug: bool = Field(
-        default=True,
+        default=False,
         description="Enable debug/simulator mode by default",
     )
 
@@ -330,6 +343,7 @@ class AppSettings(BaseModel):
             "default_step": self.sweep.default_step,
             "default_compliance": self.sweep.default_compliance,
             "default_nplc": self.sweep.default_nplc,
+            "default_delay_s": self.sweep.default_delay_s,
             "default_baud_rate": self.hardware.default_baud_rate,
             "default_terminal": self.hardware.default_terminal.value,
             "default_sense_mode": self.hardware.default_sense_mode.value,
@@ -349,6 +363,8 @@ class AppSettings(BaseModel):
             "ui_font_size": self.ui.ui_font_size,
             "ui_theme": self.ui.ui_theme.value,
             "default_plot_layout": self.ui.default_plot_layout.value,
+            "show_front_panel_on_start": self.ui.show_front_panel_on_start,
+            "check_updates_on_startup": self.ui.check_updates_on_startup,
             "log_max_bytes": self.data.log_max_bytes,
             "cache_enabled": self.data.cache_enabled,
             "cache_interval_points": self.data.cache_interval_points,
@@ -425,13 +441,13 @@ def _migrate_legacy(data: dict[str, Any]) -> AppSettings:
     hardware_keys = {"default_port", "default_baud_rate", "default_terminal",
                      "default_sense_mode", "default_debug_model"}
     sweep_keys = {"default_mode", "default_start", "default_stop", "default_step",
-                  "default_compliance", "default_nplc", "default_sweep_kind",
+                  "default_compliance", "default_nplc", "default_delay_s", "default_sweep_kind",
                   "default_autorange", "auto_source_range", "auto_measure_range",
                   "default_source_range", "default_measure_range",
                   "default_constant_value", "default_duration_s",
                   "default_constant_until_stop", "default_interval_s",
                   "default_adaptive_logic"}
-    ui_keys = {"ui_font_family", "ui_font_size", "ui_theme", "default_plot_layout"}
+    ui_keys = {"ui_font_family", "ui_font_size", "ui_theme", "default_plot_layout", "show_front_panel_on_start", "check_updates_on_startup"}
     data_keys = {"log_max_bytes", "cache_enabled", "cache_interval_points",
                  "default_device_name", "default_operator", "default_debug"}
 

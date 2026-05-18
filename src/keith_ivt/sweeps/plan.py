@@ -30,6 +30,8 @@ class SweepPlan:
     compliance: float
     nplc: float
     execution_kind: SweepExecutionKind
+    delay_s: float = 0.0
+    baud_rate: int = 9600
     interval_s: float | None = None
     autorange: bool = True
     source_range: float | None = None
@@ -43,7 +45,7 @@ class SweepPlan:
 
     @property
     def estimated_seconds(self) -> float:
-        base = minimum_interval_seconds(self.nplc)
+        base = minimum_interval_seconds(self.nplc, delay_s=self.delay_s, baud_rate=self.baud_rate)
         if self.execution_kind is SweepExecutionKind.CONSTANT_TIME and self.interval_s is not None:
             return self.point_count * max(self.interval_s, base)
         return self.point_count * base
@@ -84,6 +86,8 @@ def plan_from_config(config: SweepConfig) -> SweepPlan:
         compliance=config.compliance,
         nplc=config.nplc,
         execution_kind=kind,
+        delay_s=config.delay_s,
+        baud_rate=config.baud_rate,
         interval_s=config.interval_s if config.sweep_kind is SweepKind.CONSTANT_TIME else None,
         autorange=config.autorange,
         source_range=None if config.autorange else config.source_range,
@@ -105,6 +109,8 @@ def make_plan(
     values: Iterable[float],
     compliance: float,
     nplc: float,
+    delay_s: float = 0.0,
+    baud_rate: int = 9600,
     execution_kind: SweepExecutionKind = SweepExecutionKind.STEP,
     interval_s: float | None = None,
     autorange: bool = True,
@@ -119,6 +125,8 @@ def make_plan(
         raise ValueError("Compliance must be positive.")
     if nplc <= 0:
         raise ValueError("NPLC must be positive.")
+    if delay_s < 0:
+        raise ValueError("Delay must be zero or positive.")
     if not autorange:
         if source_range is None or source_range <= 0 or measure_range is None or measure_range <= 0:
             raise ValueError("Fixed source_range and measure_range are required when autorange is disabled.")
@@ -129,6 +137,8 @@ def make_plan(
         compliance=float(compliance),
         nplc=float(nplc),
         execution_kind=execution_kind,
+        delay_s=float(delay_s),
+        baud_rate=int(baud_rate),
         interval_s=interval_s,
         autorange=autorange,
         source_range=source_range,

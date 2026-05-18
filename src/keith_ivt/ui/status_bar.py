@@ -37,8 +37,8 @@ class StatusBarMixin:
         ttk.Label(self.status_bar, textvariable=self.status, style="StatusCell.TLabel").grid(row=0, column=1, sticky="ew", padx=(0, 8))
         live = ttk.Label(self.status_bar, textvariable=self.measurement_status_text, style="StatusCell.TLabel")
         live.grid(row=0, column=2, sticky="ew")
-        live.bind("<Double-1>", lambda _e: self._open_front_panel_popup())
-        self.connection_light_canvas.bind("<Double-1>", lambda _e: self._open_front_panel_popup())
+        live.bind("<Double-1>", lambda _e: self._open_front_panel_popup(auto_open=False))
+        self.connection_light_canvas.bind("<Double-1>", lambda _e: self._open_front_panel_popup(auto_open=False))
 
     def _status_icon_size(self) -> int:
         try:
@@ -152,15 +152,17 @@ class StatusBarMixin:
         self._refresh_front_panel_popup()
 
     def _reset_live_measurement_status(self) -> None:
-        self._last_source_value = None
-        self._last_measured_value = None
+        # After STOP/output-off, show the instrument display as zeroed rather
+        # than leaving the last measured value on the status bar/front panel.
+        self._last_source_value = 0.0
+        self._last_measured_value = 0.0
         self._refresh_live_measurement_status()
 
-    def _open_front_panel_popup(self) -> None:
+    def _open_front_panel_popup(self, *, auto_open: bool = False) -> None:
         if getattr(self, "_front_panel_window", None) is not None:
             try:
                 if self._front_panel_window.winfo_exists():
-                    self._front_panel_window.deiconify(); self._front_panel_window.lift(); self._refresh_front_panel_popup(); return
+                    self._front_panel_window.deiconify(); self._front_panel_window.lift(); self._front_panel_auto_opened = bool(auto_open); self._refresh_front_panel_popup(); return
             except Exception:
                 pass
         win = Toplevel(self.root)
@@ -168,6 +170,7 @@ class StatusBarMixin:
         win.geometry("700x260")
         win.configure(background="#CFCFCB")
         self._front_panel_window = win
+        self._front_panel_auto_opened = bool(auto_open)
         main = tk.Frame(win, bg="#CFCFCB", padx=12, pady=12)
         main.pack(fill="both", expand=True)
         display = tk.Frame(main, bg="#030507", highlightbackground="#5F666C", highlightthickness=2)
@@ -182,9 +185,26 @@ class StatusBarMixin:
         self._front_panel_meta.pack(anchor="w", padx=6, pady=(0, 8))
         btns = ttk.Frame(main)
         btns.pack(fill="x")
-        ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
-        win.protocol("WM_DELETE_WINDOW", win.destroy)
+        ttk.Button(btns, text="Close", command=self._close_front_panel_popup).pack(side="right")
+        win.protocol("WM_DELETE_WINDOW", self._close_front_panel_popup)
         self._refresh_front_panel_popup()
+
+    def _close_front_panel_popup(self) -> None:
+        win = getattr(self, "_front_panel_window", None)
+        self._front_panel_auto_opened = False
+        if win is None:
+            return
+        try:
+            if win.winfo_exists():
+                win.destroy()
+        except Exception:
+            pass
+        self._front_panel_window = None
+
+    def _close_auto_front_panel_popup(self) -> None:
+        if not getattr(self, "_front_panel_auto_opened", False):
+            return
+        self._close_front_panel_popup()
 
     def _refresh_front_panel_popup(self) -> None:
         win = getattr(self, "_front_panel_window", None)

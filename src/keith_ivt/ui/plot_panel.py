@@ -67,6 +67,8 @@ class PlotPanelMixin:
         self.canvas_widget.bind("<Button-3>", self._show_plot_context_menu_tk, add="+")
         self.canvas_widget.bind("<Control-Button-1>", self._show_plot_context_menu_tk, add="+")
         self._mpl_double_click_cid = self.canvas.mpl_connect("button_press_event", self._on_mpl_plot_click)
+        self._mpl_release_cid = self.canvas.mpl_connect("button_release_event", self._on_mpl_plot_release)
+        self._mpl_motion_cid = self.canvas.mpl_connect("motion_notify_event", self._on_mpl_plot_motion)
         self._mpl_toolbar = None
 
         # Initialize plot performance optimizer
@@ -548,6 +550,8 @@ class PlotPanelMixin:
 
     def _redraw_all_plots(self, live_only: bool = False) -> None:
         self._plot_live_only = bool(live_only)
+        self._plot_hover_annotation = None
+        self._plot_pan_state = None
 
         # Use incremental update for live-only plots (much faster)
         if live_only and hasattr(self, "_plot_renderer"):
@@ -568,20 +572,156 @@ class PlotPanelMixin:
         if str(button).lower().endswith("right") or button == 3:
             self._show_plot_context_menu(event)
             return
-        if not getattr(event, "dblclick", False):
+        if getattr(event, "dblclick", False):
+            if event.inaxes is None:
+                self.open_plot_fullscreen()
+                return
+            ax = event.inaxes
+            bbox = ax.get_window_extent()
+            # Double-click close to the bottom/left axis areas for axis-specific input.
+            if event.y is not None and event.y < bbox.y0 + 35:
+                self.set_axis_range_dialog(axis="x", ax=ax)
+            elif event.x is not None and event.x < bbox.x0 + 45:
+                self.set_axis_range_dialog(axis="y", ax=ax)
+            else:
+                self.open_plot_fullscreen()
             return
-        if event.inaxes is None:
-            self.open_plot_fullscreen()
+        if button == 1 or str(button).lower().endswith("left"):
+            self._start_plot_pan(event)
+
+    def _on_mpl_plot_release(self, event) -> None:
+        self._plot_pan_state = None
+
+    def _start_plot_pan(self, event) -> None:
+        if event.inaxes is None or event.xdata is None or event.ydata is None:
             return
-        ax = event.inaxes
-        bbox = ax.get_window_extent()
-        # Double-click close to the bottom/left axis areas for axis-specific input.
-        if event.y is not None and event.y < bbox.y0 + 35:
-            self.set_axis_range_dialog(axis="x", ax=ax)
-        elif event.x is not None and event.x < bbox.x0 + 45:
-            self.set_axis_range_dialog(axis="y", ax=ax)
-        else:
-            self.open_plot_fullscreen()
+        self._plot_pan_state = {
+            "ax": event.inaxes,
+            "press_x": float(event.xdata),
+            "press_y": float(event.ydata),
+            "xlim": tuple(event.inaxes.get_xlim()),
+            "ylim": tuple(event.inaxes.get_ylim()),
+            "xscale": event.inaxes.get_xscale(),
+            "yscale": event.inaxes.get_yscale(),
+        }
+        self._hide_plot_hover_annotation()
+
+    def _on_mpl_plot_motion(self, event) -> None:
+        state = getattr(self, "_plot_pan_state", None)
+        if state is not None:
+            self._drag_pan_plot(event)
+            return
+        self._update_plot_hover_annotation(event)
+
+    def _drag_pan_plot(self, event) -> None:
+        state = getattr(self, "_plot_pan_state", None)
+        if state is None or event.inaxes is not state.get("ax"):
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+        ax = state["ax"]
+        x0, x1 = state["xlim"]
+        y0, y1 = state["ylim"]
+        press_x = state["press_x"]
+        press_y = state["press_y"]
+        try:
+            if state.get("xscale") == "log" and press_x > 0 and event.xdata > 0:
+                ratio_x = press_x / float(event.xdata)
+                ax.set_xlim(x0 * ratio_x, x1 * ratio_x)
+            else:
+                dx = press_x - float(event.xdata)
+                ax.set_xlim(x0 + dx, x1 + dx)
+            if state.get("yscale") == "log" and press_y > 0 and event.ydata > 0:
+                ratio_y = press_y / float(event.ydata)
+                ax.set_ylim(y0 * ratio_y, y1 * ratio_y)
+            else:
+                dy = press_y - float(event.ydata)
+                ax.set_ylim(y0 + dy, y1 + dy)
+            self.canvas.draw_idle()
+        except Exception:
+            self._plot_pan_state = None
+
+    def _format_hover_value(self, value: float) -> str:
+        try:
+            value = float(value)
+        except Exception:
+            return str(value)
+        if value == 0:
+            return "0"
+        abs_value = abs(value)
+        if abs_value >= 1e4 or abs_value < 1e-3:
+            return f"{value:.4e}"
+        return f"{value:.6g}"
+
+    def _hide_plot_hover_annotation(self) -> None:
+        annotation = getattr(self, "_plot_hover_annotation", None)
+        if annotation is not None:
+            try:
+                annotation.set_visible(False)
+                self.canvas.draw_idle()
+            except Exception:
+                pass
+
+    def _nearest_visible_plot_point(self, event, max_distance_px: float = 14.0):
+        ax = getattr(event, "inaxes", None)
+        if ax is None or event.x is None or event.y is None:
+            return None
+        best = None
+        best_d2 = float(max_distance_px) ** 2
+        for line in getattr(ax, "lines", []):
+            if not line.get_visible():
+                continue
+            try:
+                xdata = list(line.get_xdata(orig=False))
+                ydata = list(line.get_ydata(orig=False))
+            except Exception:
+                continue
+            n = min(len(xdata), len(ydata))
+            if n <= 0:
+                continue
+            step = max(1, n // 2000)
+            for idx in range(0, n, step):
+                try:
+                    x = float(xdata[idx])
+                    y = float(ydata[idx])
+                    px, py = ax.transData.transform((x, y))
+                except Exception:
+                    continue
+                dx = px - float(event.x)
+                dy = py - float(event.y)
+                d2 = dx * dx + dy * dy
+                if d2 <= best_d2:
+                    best_d2 = d2
+                    best = (ax, line, x, y)
+        return best
+
+    def _update_plot_hover_annotation(self, event) -> None:
+        nearest = self._nearest_visible_plot_point(event)
+        if nearest is None:
+            self._hide_plot_hover_annotation()
+            return
+        ax, line, x, y = nearest
+        annotation = getattr(self, "_plot_hover_annotation", None)
+        if annotation is None or getattr(annotation, "axes", None) is not ax:
+            annotation = ax.annotate(
+                "",
+                xy=(x, y),
+                xytext=(10, 10),
+                textcoords="offset points",
+                fontsize=9,
+                color=self._palette.get("fg", "black"),
+                bbox={"boxstyle": "round,pad=0.25", "fc": self._palette.get("card", "white"), "ec": self._palette.get("grid", "0.7"), "alpha": 0.92},
+                arrowprops={"arrowstyle": "->", "color": self._palette.get("muted", "0.4"), "lw": 0.8},
+                zorder=10,
+            )
+            self._plot_hover_annotation = annotation
+        label = line.get_label()
+        if label.startswith("_"):
+            label = "point"
+        annotation.xy = (x, y)
+        annotation.set_text(f"{label}\nX: {self._format_hover_value(x)}\nY: {self._format_hover_value(y)}")
+        annotation.set_visible(True)
+        self.canvas.draw_idle()
 
     def autoscale_plots(self) -> None:
         self._redraw_all_plots()

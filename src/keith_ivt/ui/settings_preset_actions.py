@@ -14,7 +14,7 @@ class SettingsPresetMixin:
     def _current_settings(self) -> AppSettings:
         return AppSettings(
             log_max_bytes=int(self.log_max_kb.get()) * 1024, default_mode=self.mode.get(), default_start=float(self.start.get()), default_stop=float(self.stop.get()), default_step=float(self.step.get()),
-            default_compliance=float(self.compliance.get()), default_nplc=float(self.nplc.get()), default_port=self.port.get(), default_baud_rate=int(self.baud_rate.get()),
+            default_compliance=float(self.compliance.get()), default_nplc=float(self.nplc.get()), default_delay_s=float(self.delay_s.get()), default_port=self.port.get(), default_baud_rate=int(self.baud_rate.get()),
             default_terminal=self._terminal_scpi(self.terminal.get()), default_sense_mode=self._sense_scpi(self.sense_mode.get()), default_debug=bool(self.debug.get()), default_debug_model=self.debug_model.get(), default_device_name=self.device_name.get(), default_operator=self.operator.get(),
             default_plot_layout=self.arrangement.get(), cache_enabled=bool(self.cache_enabled.get()), cache_interval_points=int(self.cache_interval_points.get()), default_autorange=bool(self.auto_source_range.get() and self.auto_measure_range.get()),
             auto_source_range=bool(self.auto_source_range.get()),
@@ -22,6 +22,7 @@ class SettingsPresetMixin:
             default_source_range=float(self.source_range.get()), default_measure_range=float(self.measure_range.get()), default_sweep_kind=self.sweep_kind.get(), default_constant_value=float(self.constant_value.get()),
             default_duration_s=float(self.duration_s.get()), default_constant_until_stop=bool(self.constant_until_stop.get()), default_interval_s=float(self.interval_s.get()), default_adaptive_logic=self._adaptive_logic_from_table(),
             ui_font_family=self.ui_font_family.get(), ui_font_size=int(self.ui_font_size.get()), ui_theme=self.ui_theme.get(),
+            show_front_panel_on_start=bool(self.show_front_panel_on_start.get()),
         )
 
     def _review_dict_dialog(self, title: str, fields: dict, choices: dict | None = None) -> dict | None:
@@ -224,7 +225,7 @@ class SettingsPresetMixin:
                 categories["Hardware Connection"][key] = value
             elif key in ("default_plot_layout",):
                 categories["Plot & Display"][key] = value
-            elif key in ("ui_font_family", "ui_font_size", "ui_theme"):
+            elif key in ("ui_font_family", "ui_font_size", "ui_theme", "show_front_panel_on_start"):
                 categories["UI Appearance"][key] = value
             elif key in ("default_debug", "default_debug_model"):
                 categories["Debug Settings"][key] = value
@@ -251,12 +252,15 @@ class SettingsPresetMixin:
             "ui_font_family": "UI Font",
             "ui_font_size": "Font Size",
             "ui_theme": "Theme",
+            "show_front_panel_on_start": "Auto-open Front Panel on Start",
+            "check_updates_on_startup": "Check Updates on Startup",
             "default_mode": "Source Mode",
             "default_start": "Start",
             "default_stop": "Stop",
             "default_step": "Step",
             "default_compliance": "Compliance",
             "default_nplc": "NPLC",
+            "default_delay_s": "Delay (s)",
             "default_sweep_kind": "Sweep Type",
             "default_constant_value": "Constant Value",
             "default_duration_s": "Duration (s)",
@@ -293,6 +297,8 @@ class SettingsPresetMixin:
             "ui_font_family": settings.ui_font_family,
             "ui_font_size": settings.ui_font_size,
             "ui_theme": settings.ui_theme,
+            "show_front_panel_on_start": settings.show_front_panel_on_start,
+            "check_updates_on_startup": settings.check_updates_on_startup,
             
             # Debug Settings
             "default_debug": settings.default_debug,
@@ -326,14 +332,21 @@ class SettingsPresetMixin:
 
 
     def _apply_saved_settings_feedback(self, data: dict, chosen: dict, path: Path) -> None:
-        """Apply non-destructive settings feedback after a review-save action."""
-        self.app_log.set_max_bytes(int(data.get("log_max_bytes", self.app_log.max_bytes)))
-        try:
-            self.log_max_kb.set(max(10, int((int(data.get("log_max_bytes", self.app_log.max_bytes)) + 1023) // 1024)))
-            self.log_max_bytes.set(int(data.get("log_max_bytes", self.app_log.max_bytes)))
-        except Exception:
-            pass
-        self.settings = AppSettings(**data)
+        """Apply non-destructive settings feedback after a review-save action.
+
+        Keep live Tk variables synchronized with the saved settings.  The
+        review dialog returns plain Python values, but the running UI still
+        reads BooleanVar/StringVar objects such as show_front_panel_on_start
+        when Start is pressed.  Without this explicit sync, a user could save
+        Auto-open Front Panel on Start = No and still get one more auto-popup
+        until the next application restart.
+        """
+        from keith_ivt.data.settings import sanitize_settings_dict
+
+        sanitized = sanitize_settings_dict(data)
+        self.app_log.set_max_bytes(int(sanitized.get("log_max_bytes", self.app_log.max_bytes)))
+        self._apply_settings_dict(sanitized)
+        self.settings = AppSettings(**sanitized)
         self._init_style()
         self._refresh_instrument_indicator()
         self.log_event(f"Settings saved: {path}; keys={', '.join(sorted(chosen))}")
@@ -448,6 +461,7 @@ class SettingsPresetMixin:
             "default_interval_s": float(self.interval_s.get()),
             "default_compliance": float(self.compliance.get()),
             "default_nplc": float(self.nplc.get()),
+            "default_delay_s": float(self.delay_s.get()),
             "default_autorange": bool(self.auto_source_range.get() and self.auto_measure_range.get()),
             "default_source_range": float(self.source_range.get()),
             "default_measure_range": float(self.measure_range.get()),
@@ -458,11 +472,11 @@ class SettingsPresetMixin:
     def _apply_settings_dict(self, data: dict):
         mapping = {
             "default_mode": self.mode, "default_start": self.start, "default_stop": self.stop, "default_step": self.step, "default_sweep_kind": self.sweep_kind, "default_constant_value": self.constant_value,
-            "default_duration_s": self.duration_s, "default_constant_until_stop": self.constant_until_stop, "default_interval_s": self.interval_s, "default_compliance": self.compliance, "default_nplc": self.nplc, "default_port": self.port,
+            "default_duration_s": self.duration_s, "default_constant_until_stop": self.constant_until_stop, "default_interval_s": self.interval_s, "default_compliance": self.compliance, "default_nplc": self.nplc, "default_delay_s": self.delay_s, "default_port": self.port,
             "default_baud_rate": self.baud_rate, "default_terminal": self.terminal, "default_sense_mode": self.sense_mode, "default_debug": self.debug, "default_debug_model": self.debug_model, "default_device_name": self.device_name,
             "default_operator": self.operator, "default_plot_layout": self.arrangement, "cache_enabled": self.cache_enabled, "cache_interval_points": self.cache_interval_points,
             "default_autorange": self.autorange, "auto_source_range": self.auto_source_range, "auto_measure_range": self.auto_measure_range, "default_source_range": self.source_range, "default_measure_range": self.measure_range, "default_adaptive_logic": self.adaptive_logic,
-            "log_max_bytes": self.log_max_bytes, "log_max_kb": self.log_max_kb, "ui_font_family": self.ui_font_family, "ui_font_size": self.ui_font_size, "ui_theme": self.ui_theme,
+            "log_max_bytes": self.log_max_bytes, "log_max_kb": self.log_max_kb, "ui_font_family": self.ui_font_family, "ui_font_size": self.ui_font_size, "ui_theme": self.ui_theme, "show_front_panel_on_start": self.show_front_panel_on_start,
         }
         for k, var in mapping.items():
             if k in data:

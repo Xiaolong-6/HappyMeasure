@@ -69,8 +69,9 @@ class PanelBuilderMixin:
         self.common_box.columnconfigure(2, weight=0, minsize=84)
         self._entry(self.common_box, self.compliance_label, self.compliance, 0, "Compliance limit. Units depend on source mode.")
         self._entry(self.common_box, "NPLC", self.nplc, 1, "Power-line cycles per integration. Higher NPLC improves noise but increases minimum interval.")
-        self.source_range_row = self._range_control_row(self.common_box, "Source range", self.source_range, self.auto_source_range, 2, "Fixed source range when Auto source range is disabled.")
-        self.measure_range_row = self._range_control_row(self.common_box, "Measure range", self.measure_range, self.auto_measure_range, 3, "Fixed measure range when Auto measure range is disabled.")
+        self._entry(self.common_box, "Delay (s)", self.delay_s, 2, "Per-point source-settling delay before readback. Default 0 s. Included in the time estimate and Keithley 2400 source delay command.")
+        self.source_range_row = self._range_control_row(self.common_box, "Source range", self.source_range, self.auto_source_range, 3, "Fixed source range when Auto source range is disabled.")
+        self.measure_range_row = self._range_control_row(self.common_box, "Measure range", self.measure_range, self.auto_measure_range, 4, "Fixed measure range when Auto measure range is disabled.")
         self.dynamic_box = ttk.Frame(parent, style="Card.TFrame", padding=(10, 8))
         self.dynamic_box.pack(fill="x", padx=10, pady=(4, 8))
         self._update_dynamic_sweep_fields()
@@ -256,6 +257,7 @@ class PanelBuilderMixin:
 
     def _build_about_panel(self, parent) -> None:
         self._section_title(parent, "About")
+        self._set_update_check_message(self.update_notice_text.get())
         if not self._show_cached_update_check_result():
             self._check_for_updates_async()
         

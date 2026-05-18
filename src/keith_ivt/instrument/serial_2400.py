@@ -80,6 +80,7 @@ class Keithley2400Serial(SourceMeter):
         self.write(f":SENS:FUNC '{meas}'")
         self.write(f":SENS:{meas}:PROT {config.compliance:.12g}")
         self.write(f":SENS:{meas}:NPLC {config.nplc:.12g}")
+        self.write(f":SOUR:DEL {config.delay_s:.12g}")
         if config.auto_source_range:
             self.write(f":SOUR:{src}:RANG:AUTO ON")
         else:

@@ -105,6 +105,7 @@ def _config_from_metadata(metadata: dict[str, Any], fallback_name: str = "Import
         step=_float_or_default(metadata.get("step"), 1.0),
         compliance=_float_or_default(metadata.get("compliance"), 0.0),
         nplc=_float_or_default(metadata.get("nplc"), 1.0),
+        delay_s=_float_or_default(metadata.get("delay_s"), 0.0),
         port=str(metadata.get("port") or ""),
         baud_rate=_int_or_default(metadata.get("baud_rate"), 9600),
         terminal=_terminal_from_text(metadata.get("terminal")),

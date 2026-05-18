@@ -12,7 +12,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from keith_ivt.services import update_check
-from keith_ivt.services.update_check import check_github_release, is_newer_version, parse_version
+from keith_ivt.services.update_check import check_github_release, is_newer_version, parse_version, select_portable_zip_asset
 
 
 class DummyResponse:
@@ -69,6 +69,10 @@ def test_remote_newer_release(monkeypatch) -> None:
                 "html_url": (
                     "https://github.com/Xiaolong-6/HappyMeasure/releases/tag/v0.7.0-alpha.2"
                 ),
+                "assets": [
+                    {"name": "Source code (zip)", "browser_download_url": "source"},
+                    {"name": "HappyMeasure-v0.7.0-alpha.2-windows-portable.zip", "browser_download_url": "portable"},
+                ],
             }
         ],
     )
@@ -77,8 +81,9 @@ def test_remote_newer_release(monkeypatch) -> None:
 
     assert result["status"] == "newer"
     assert result["latest_version"] == "v0.7.0-alpha.2"
-    assert result["message"] == "New version available: v0.7.0-alpha.2. Please upgrade manually."
+    assert result["message"] == "New version available: v0.7.0-alpha.2. Ready to download and install."
     assert result["release_url"].endswith("/v0.7.0-alpha.2")
+    assert result["asset_download_url"] == "portable"
 
 
 def test_remote_current_release(monkeypatch) -> None:
@@ -163,3 +168,14 @@ def test_ui_update_check_cache_contract() -> None:
     assert "UPDATE_CHECK_CACHE_SECONDS = 30 * 60" in update_source
     assert "_has_fresh_update_check_result" in update_source
     assert "_show_cached_update_check_result()" in panel_source
+
+
+def test_select_portable_zip_asset_ignores_source_archives() -> None:
+    name, url = select_portable_zip_asset({
+        "assets": [
+            {"name": "Source code (zip)", "browser_download_url": "bad"},
+            {"name": "HappyMeasure-v1.1b1-windows-portable.zip", "browser_download_url": "good"},
+        ]
+    })
+    assert name == "HappyMeasure-v1.1b1-windows-portable.zip"
+    assert url == "good"

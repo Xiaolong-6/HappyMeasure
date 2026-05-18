@@ -1,6 +1,19 @@
 # Changelog
 
+## 1.1b1 — Startup updater beta
+
+- Added `Check Updates on Startup` in Settings. When enabled, HappyMeasure checks GitHub Releases shortly after launch.
+- Extended the About/update-check path to prompt before installing a newer Windows portable release zip.
+- Added an external PowerShell updater handoff that runs after HappyMeasure exits, downloads the latest portable zip, backs up old program files, preserves user data folders (`config`, `logs`, `exports`, `backups`, `cache`, `data`), replaces program files in the original path, and restarts the app.
+- Kept update installation blocked while a sweep is running or paused.
+- Updated runtime/package metadata to `1.1b1`.
+
 ## 1.0b1 — 1.0 beta candidate
+
+- Added optional automatic Keithley-style front-panel popup behavior: Start opens the live front-panel popup by default, Stop/completion/error closes the auto-opened popup, and Settings now exposes `Auto-open Front Panel on Start` with a default of enabled.
+- Fixed the plot context-menu axis-range editor on Windows/Tk packaged builds: Set X/Y range is now scheduled after the popup-menu callback returns and uses a small custom non-modal Toplevel editor instead of the built-in modal prompt. This avoids persistent ghost menus, dock auto-collapse from focus hacks, and the previous wait_visibility crash path.
+- Hardened runtime console mirroring and Tk exception reporting so missing stdout/stderr streams in packaged builds cannot trigger a secondary AttributeError while logging the original exception.
+- Added plot mouse interactions: left-drag pans the active plot axes, and hovering near a visible data point shows a small X/Y coordinate annotation for that point.
 
 - Renamed the release line from pre-hardware alpha to `1.0 beta 1` / `1.0b1` while keeping the simple PEP 440 internal version.
 - Kept `happymeasure` as the public package/CLI namespace and `keith_ivt` as the compatibility implementation namespace.
@@ -127,3 +140,23 @@ The Windows portable build launcher now verifies actual interpreter availability
 - Batch build now uses a single `:pick_python` routine and prefers Python 3.12, then 3.11, then 3.13, with PATH `python` as fallback.
 - PowerShell build script now uses valid version checks and the same selection order.
 - Added `tests/test_windows_build_script_integrity.py` to catch duplicated/corrupted build script blocks.
+
+
+### 2026-05-18 follow-up hotfix
+- Fixed Settings save feedback so `Auto-open Front Panel on Start = No` updates the live `BooleanVar` immediately, not only after restart.
+- Changed factory default debug/simulator mode to disabled (`default_debug = false`) in legacy and v2 settings models plus `config/settings.json`.
+- Regression: `python -m pytest tests/test_front_panel_auto_popup_regression.py -q`.
+
+### 2026-05-18 sweep timing hotfix
+- Added a common `Delay (s)` sweep control directly after `NPLC`; default is `0.0 s`.
+- Added `delay_s` to `SweepConfig`, settings, export/import metadata, persistent trace storage, and driver-neutral sweep plans.
+- Keithley 2400 command planning and serial configuration now include `:SOUR:DEL <delay_s>` so the configured source-delay intent is visible before hardware use.
+- Sweep timing estimates now include Keithley-style NPLC aperture (`NPLC / line_frequency`), user delay, and serial/readback overhead. Constant-time estimates use the larger of the requested interval and the per-point acquisition lower bound.
+- `SweepRunner` applies the user delay between source programming and readback so simulator/debug timing follows the same UI setting.
+- Regression: `PYTHONPATH=src python -m pytest tests/test_delay_timing_regression.py tests/test_core_coverage_gaps.py tests/test_settings_v2.py tests/test_data_import_export_store.py tests/test_mock_visa_command_sequence.py tests/test_pre_hardware_safety.py tests/test_services_drivers_more.py -q`.
+
+- Sweep timing estimate now includes NPLC aperture, user delay, and a baud-rate-aware serial communication overhead (source command + `:READ?` + ASCII response), so predicted time is closer to real Keithley 2400 runs.
+- Adaptive sweep table no longer shows a nested internal scrollbar; the page-level scrollbar now handles the whole Sweep panel.
+
+- Fixed Sweep/Adaptive page scrolling after removing the nested adaptive-table scrollbar: the page-level scrollregion is now refreshed after dynamic table rebuilds.
+- STOP/completion/error paths now zero the live status-bar and Keithley-style front-panel readout instead of leaving stale last-point values.

@@ -65,6 +65,7 @@ class SimulatedSMUDriver:
         measure_mode: MeasureMode,
         compliance: float,
         nplc: float,
+        delay_s: float = 0.0,
         autorange: bool = True,
         source_range: float | None = None,
         measure_range: float | None = None,
@@ -73,6 +74,7 @@ class SimulatedSMUDriver:
         self.measure_mode = measure_mode
         self.compliance = float(compliance)
         self.nplc = float(nplc)
+        self.delay_s = float(delay_s)
 
     def set_source(self, source_mode: SourceMode, value: float) -> None:
         self.source_mode = source_mode

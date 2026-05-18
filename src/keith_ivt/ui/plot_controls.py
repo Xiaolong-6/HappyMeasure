@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tkinter import Toplevel, filedialog, messagebox, simpledialog
+from tkinter import Toplevel, filedialog, messagebox
 from tkinter import ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -39,8 +39,8 @@ class PlotInteractionMixin:
         menu.add_command(label="Open fullscreen", command=lambda a=ax: self.open_plot_fullscreen(a))
         menu.add_command(label="Save plot image...", command=self.save_figure)
         menu.add_separator()
-        menu.add_command(label="Set X range...", command=lambda: self.set_axis_range_dialog(axis="x", ax=ax))
-        menu.add_command(label="Set Y range...", command=lambda: self.set_axis_range_dialog(axis="y", ax=ax))
+        menu.add_command(label="Set X range...", command=lambda a=ax: self._schedule_axis_range_dialog(axis="x", ax=a))
+        menu.add_command(label="Set Y range...", command=lambda a=ax: self._schedule_axis_range_dialog(axis="y", ax=a))
         menu.add_separator()
         arrangement_menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
         for label in ["Auto", "Vertical", "Horizontal"]:
@@ -101,38 +101,102 @@ class PlotInteractionMixin:
         ttk.Button(btns, text="Save screenshot...", command=_save_fullscreen_snapshot).pack(side="right", padx=(0, 6))
         ttk.Button(btns, text="Close", command=win.destroy).pack(side="right")
 
+    def _schedule_axis_range_dialog(self, axis: str | None = None, ax=None) -> None:
+        """Open the axis range editor after the context menu command returns.
+
+        Native Tk popup menus on Windows are only reliably unposted after the
+        menu command callback has returned to the event loop.  Opening a modal
+        dialog directly from the callback can leave the menu painted on top of
+        the app until the window loses focus.  Do not force focus, destroy the
+        menu, or call ``update()`` here; those actions interact badly with the
+        hover-collapsible dock.
+        """
+        try:
+            self.root.after(250, lambda: self.set_axis_range_dialog(axis=axis, ax=ax))
+        except Exception:
+            self.set_axis_range_dialog(axis=axis, ax=ax)
+
+    def _axis_range_prompt_and_initial(self, axis: str | None, ax) -> tuple[str, str]:
+        x0, x1 = ax.get_xlim(); y0, y1 = ax.get_ylim()
+        if axis == "x":
+            return "Enter xmin,xmax", f"{x0:.6g},{x1:.6g}"
+        if axis == "y":
+            return "Enter ymin,ymax", f"{y0:.6g},{y1:.6g}"
+        return "Enter xmin,xmax,ymin,ymax", f"{x0:.6g},{x1:.6g},{y0:.6g},{y1:.6g}"
+
+    def _apply_axis_range_text(self, axis: str | None, ax, text: str) -> None:
+        vals = [float(v.strip()) for v in text.replace(";", ",").split(",") if v.strip()]
+        if axis == "x":
+            if len(vals) != 2:
+                raise ValueError("Need two numbers: xmin,xmax")
+            ax.set_xlim(vals[0], vals[1])
+        elif axis == "y":
+            if len(vals) != 2:
+                raise ValueError("Need two numbers: ymin,ymax")
+            ax.set_ylim(vals[0], vals[1])
+        else:
+            if len(vals) != 4:
+                raise ValueError("Need four numbers: xmin,xmax,ymin,ymax")
+            ax.set_xlim(vals[0], vals[1]); ax.set_ylim(vals[2], vals[3])
+        self.canvas.draw_idle()
+
     def set_axis_range_dialog(self, axis: str | None = None, ax=None) -> None:
         if ax is None:
             if not self._axes:
-                messagebox.showinfo("No plot", "No plot axis is available yet."); return
+                messagebox.showinfo("No plot", "No plot axis is available yet.")
+                return
             ax = self._axes[0]
-        x0, x1 = ax.get_xlim(); y0, y1 = ax.get_ylim()
-        if axis == "x":
-            prompt = "Enter xmin,xmax"
-            initial = f"{x0:.6g},{x1:.6g}"
-        elif axis == "y":
-            prompt = "Enter ymin,ymax"
-            initial = f"{y0:.6g},{y1:.6g}"
-        else:
-            prompt = "Enter xmin,xmax,ymin,ymax"
-            initial = f"{x0:.6g},{x1:.6g},{y0:.6g},{y1:.6g}"
-        text = simpledialog.askstring("Set axis range", prompt, initialvalue=initial)
-        if not text:
-            return
+        prompt, initial = self._axis_range_prompt_and_initial(axis, ax)
+
+        # Use a small non-modal Toplevel editor. The previous built-in modal
+        # prompt waited on visibility/grab transitions internally; when launched
+        # from a Tk popup menu in packaged Windows builds, that could leave the
+        # context menu visible or raise wait_visibility TclError.
+        win = Toplevel(self.root)
+        win.title("Set axis range")
+        win.resizable(False, False)
         try:
-            vals = [float(v.strip()) for v in text.replace(";", ",").split(",")]
-            if axis == "x":
-                if len(vals) != 2: raise ValueError("Need two numbers: xmin,xmax")
-                ax.set_xlim(vals[0], vals[1])
-            elif axis == "y":
-                if len(vals) != 2: raise ValueError("Need two numbers: ymin,ymax")
-                ax.set_ylim(vals[0], vals[1])
-            else:
-                if len(vals) != 4: raise ValueError("Need four numbers: xmin,xmax,ymin,ymax")
-                ax.set_xlim(vals[0], vals[1]); ax.set_ylim(vals[2], vals[3])
-            self.canvas.draw_idle()
-        except Exception as exc:
-            messagebox.showerror("Invalid axis range", str(exc))
+            win.transient(self.root)
+        except Exception:
+            pass
+
+        frame = ttk.Frame(win, padding=(10, 8))
+        frame.grid(row=0, column=0, sticky="nsew")
+        ttk.Label(frame, text=prompt).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        value_var = getattr(self, "_axis_range_dialog_var", None)
+        if value_var is None:
+            import tkinter as tk
+            value_var = tk.StringVar()
+            self._axis_range_dialog_var = value_var
+        value_var.set(initial)
+        entry = ttk.Entry(frame, textvariable=value_var, width=max(28, len(initial) + 4))
+        entry.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 8))
+        frame.columnconfigure(0, weight=1)
+
+        def _close() -> None:
+            try:
+                win.destroy()
+            except Exception:
+                pass
+
+        def _ok() -> None:
+            try:
+                self._apply_axis_range_text(axis, ax, value_var.get())
+            except Exception as exc:
+                messagebox.showerror("Invalid axis range", str(exc), parent=win)
+                return
+            _close()
+
+        ttk.Button(frame, text="OK", command=_ok).grid(row=2, column=0, sticky="ew", padx=(0, 6))
+        ttk.Button(frame, text="Cancel", command=_close).grid(row=2, column=1, sticky="ew")
+        win.bind("<Return>", lambda _event: _ok())
+        win.bind("<Escape>", lambda _event: _close())
+        win.protocol("WM_DELETE_WINDOW", _close)
+        try:
+            entry.selection_range(0, "end")
+            win.after(50, entry.focus_set)
+        except Exception:
+            pass
 
     def _axis_under_mouse(self, event):
         """Return the single Matplotlib axis under a Tk mouse event."""

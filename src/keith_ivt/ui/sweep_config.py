@@ -60,7 +60,7 @@ class SweepConfigMixin:
     def _bind_variables(self) -> None:
         self.mode.trace_add("write", self._on_mode_changed)
         self.sweep_kind.trace_add("write", self._on_sweep_kind_changed)
-        for var in [self.start, self.stop, self.step, self.constant_value, self.duration_s, self.interval_s, self.nplc, self.adaptive_logic, self.adaptive_start, self.adaptive_stop, self.adaptive_step, self.debug_model]:
+        for var in [self.start, self.stop, self.step, self.constant_value, self.duration_s, self.interval_s, self.nplc, self.delay_s, self.adaptive_logic, self.adaptive_start, self.adaptive_stop, self.adaptive_step, self.debug_model]:
             var.trace_add("write", lambda *_: self._update_point_count())
         self.constant_until_stop.trace_add("write", lambda *_: (self._update_time_duration_state(), self._update_point_count()))
         self.debug.trace_add("write", self._on_debug_changed)
@@ -170,6 +170,10 @@ class SweepConfigMixin:
         elif kind == SweepKind.ADAPTIVE.value:
             self._build_adaptive_segment_table(self.dynamic_box)
         self._update_point_count()
+        try:
+            self._refresh_content_scrollregion_later()
+        except Exception:
+            pass
 
     def _update_time_duration_state(self) -> None:
         pair = getattr(self, "duration_row", None)
@@ -206,102 +210,26 @@ class SweepConfigMixin:
                 self.adaptive_rows.append(self._make_adaptive_row(start, stop, step))
 
     def _build_adaptive_segment_table(self, parent) -> None:
-        """Build a compact adaptive segment editor with an internal scroll area.
-
-        Adaptive mode can contain many rows and the left Sweep page must remain
-        usable at large UI scale.  Keep the editor compact and give the table
-        its own small vertical scroll area instead of letting rows disappear
-        below the fold.
-        """
+        """Build a full adaptive segment table using the page scrollbar only."""
         self._ensure_adaptive_rows()
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(0, weight=1)
 
         holder = ttk.Frame(parent, style="Card.TFrame")
         holder.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 4))
-        holder.columnconfigure(0, weight=1)
-        holder.rowconfigure(0, weight=1)
-
-        try:
-            font_size = int(self.ui_font_size.get())
-        except Exception:
-            font_size = int(getattr(self.settings, "ui_font_size", 10))
-        row_height = max(28, font_size + 22)
-        visible_rows = min(max(len(self.adaptive_rows), 4), 8)
-        table_height = min(340, row_height * (visible_rows + 1) + 14)
-
-        bg = getattr(self, "_palette", {}).get("card", "#FFFFFF")
-        adaptive_canvas = tk.Canvas(
-            holder,
-            height=table_height,
-            highlightthickness=0,
-            borderwidth=0,
-            background=bg,
-        )
-        adaptive_scroll = ttk.Scrollbar(
-            holder,
-            orient="vertical",
-            command=adaptive_canvas.yview,
-            style="Vertical.TScrollbar",
-        )
-        adaptive_canvas.configure(yscrollcommand=adaptive_scroll.set)
-        adaptive_canvas.grid(row=0, column=0, sticky="ew")
-        adaptive_scroll.grid(row=0, column=1, sticky="ns")
-
-        table = ttk.Frame(adaptive_canvas, style="ToolbarInner.TFrame", padding=(4, 2))
-        win_id = adaptive_canvas.create_window((0, 0), window=table, anchor="nw")
-
-        def sync_scrollregion(_event=None) -> None:
-            try:
-                adaptive_canvas.configure(scrollregion=adaptive_canvas.bbox("all"))
-            except Exception:
-                pass
-
-        def sync_width(event) -> None:
-            try:
-                adaptive_canvas.itemconfigure(win_id, width=event.width)
-                sync_scrollregion()
-            except Exception:
-                pass
-
-        def table_wheel(event):
-            try:
-                delta = -1 * int(event.delta / 120) if getattr(event, "delta", 0) else (1 if getattr(event, "num", None) == 5 else -1)
-                adaptive_canvas.yview_scroll(delta, "units")
-                return "break"
-            except Exception:
-                return None
-
-        def bind_wheel_recursive(widget) -> None:
-            try:
-                widget.bind("<MouseWheel>", table_wheel, add="+")
-                widget.bind("<Button-4>", table_wheel, add="+")
-                widget.bind("<Button-5>", table_wheel, add="+")
-                for child in widget.winfo_children():
-                    bind_wheel_recursive(child)
-            except Exception:
-                pass
-
-        adaptive_canvas.bind("<Configure>", sync_width, add="+")
-        table.bind("<Configure>", sync_scrollregion, add="+")
-
-        table.columnconfigure(0, weight=0, minsize=32)
+        holder.columnconfigure(0, weight=0, minsize=32)
         for c in range(1, 4):
-            table.columnconfigure(c, weight=1, uniform="adaptive_compact", minsize=72)
+            holder.columnconfigure(c, weight=1, uniform="adaptive_compact", minsize=72)
 
-        ttk.Label(table, text="#", style="Muted.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 3))
+        ttk.Label(holder, text="#", style="Muted.TLabel").grid(row=0, column=0, sticky="w", padx=(8, 6), pady=(6, 3))
         for c, title in enumerate(["Start", "Stop", "Step"], start=1):
-            ttk.Label(table, text=title, style="Muted.TLabel").grid(row=0, column=c, sticky="w", padx=3, pady=(0, 3))
+            ttk.Label(holder, text=title, style="Muted.TLabel").grid(row=0, column=c, sticky="w", padx=3, pady=(6, 3))
 
         for r, row in enumerate(self.adaptive_rows, start=1):
-            ttk.Label(table, text=str(r), style="Muted.TLabel").grid(row=r, column=0, sticky="w", padx=(0, 6), pady=2)
+            ttk.Label(holder, text=str(r), style="Muted.TLabel").grid(row=r, column=0, sticky="w", padx=(8, 6), pady=2)
             for c, key in enumerate(["start", "stop", "step"], start=1):
-                ent = ttk.Entry(table, textvariable=row[key], width=8)
+                ent = ttk.Entry(holder, textvariable=row[key], width=8)
                 ent.grid(row=r, column=c, sticky="ew", padx=3, pady=2)
                 add_tip(ent, f"Adaptive segment {r}: {key} value.")
-
-        bind_wheel_recursive(table)
-        adaptive_canvas.after_idle(sync_scrollregion)
 
         btns = ttk.Frame(parent, style="ToolbarInner.TFrame")
         btns.grid(row=1, column=0, sticky="ew", padx=1, pady=(6, 0))
@@ -319,6 +247,14 @@ class SweepConfigMixin:
             justify="left",
         )
         note.grid(row=2, column=0, sticky="ew", padx=3, pady=(6, 2))
+
+        # Force geometry and canvas scrollregion to catch up after a mode switch.
+        try:
+            holder.update_idletasks()
+            parent.update_idletasks()
+            self._refresh_content_scrollregion_later()
+        except Exception:
+            pass
 
     def _add_adaptive_row(self) -> None:
         self._ensure_adaptive_rows()
@@ -392,20 +328,20 @@ class SweepConfigMixin:
             if kind == SweepKind.CONSTANT_TIME.value:
                 if self.constant_until_stop.get():
                     values = [float(self.constant_value.get())]
-                    per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get())
+                    per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get(), self.delay_s.get(), int(self.baud_rate.get()))
                     self.points_text.set(f"Points: continuous · Interval: {per_point:.2f}s")
                     self.controls_title_text.set(f"Controls (continuous, {per_point:.2f} s/pt)")
                     self._set_sweep_fields_state()
                     return
                 values = make_constant_time_values(self.constant_value.get(), self.duration_s.get(), self.interval_s.get())
-                per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get())
+                per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get(), self.delay_s.get(), int(self.baud_rate.get()))
             elif kind == SweepKind.ADAPTIVE.value:
                 logic = self.adaptive_logic.get() if getattr(self, "_adaptive_advanced_active", False) else self._adaptive_logic_from_table()
                 values = adaptive_values_from_logic(logic)
-                per_point = estimate_point_seconds(self.nplc.get())
+                per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             else:
                 values = make_source_values(self.start.get(), self.stop.get(), self.step.get())
-                per_point = estimate_point_seconds(self.nplc.get())
+                per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             total_s = len(values) * per_point
             self.points_text.set(f"Points: {len(values)} · Est: {total_s:.1f}s")
             self.controls_title_text.set(f"Controls ({len(values)} pts, {total_s:.1f} sec)")
