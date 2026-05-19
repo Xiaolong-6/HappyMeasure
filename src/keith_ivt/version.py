@@ -8,14 +8,14 @@ tests, and local launch scripts used during the alpha migration.
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.1 beta"
-VERSION = "1.1b1"
+APP_CODENAME = "1.1 beta 2"
+VERSION = "1.1b2"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.1b1: beta update branch with startup update checks, external updater "
-    "handoff for GitHub portable release zips, preserved user settings/presets/logs, "
-    "and recent sweep/plot/front-panel refinements."
+    "1.1b2: adds optional forward/reverse hysteresis for finite Step and "
+    "Adaptive sweeps, keeps the option off by default, and preserves the "
+    "hysteresis flag in exported/imported metadata."
 )
 __build_note__ = BUILD_NOTE
