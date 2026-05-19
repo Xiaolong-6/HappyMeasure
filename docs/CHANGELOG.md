@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1b2 — Step/Adaptive hysteresis sweep beta
+
+- Added optional forward/reverse hysteresis for finite Step and Adaptive sweeps. The default is OFF so existing presets and workflows keep their previous one-way source sequence.
+- Placed the hysteresis toggle directly below `Sweep type`, replacing the stale Sweep-panel workflow note.
+- Centralized finite source-sequence generation so UI point estimates and the sweep runner use the same Step/Adaptive hysteresis behavior.
+- Preserved the hysteresis flag in CSV export metadata and restored it during HappyMeasure CSV import.
+- Added regression coverage in `tests/test_hysteresis_sweep_values.py` and updated version consistency checks for `1.1b2`.
+
 ## 1.1b1 — Startup updater beta
 
 - Added `Check Updates on Startup` in Settings. When enabled, HappyMeasure checks GitHub Releases shortly after launch.
@@ -39,7 +47,7 @@
 ## 0.6.0-alpha.5 — Architecture/logging consolidation
 
 - Reduced the public `SimpleKeithIVtApp` direct inheritance chain from 18 mixins to three grouped composition layers in `ui/app_mixins.py`: app chrome, workflow, and plot/trace.
-- Kept focused implementation modules intact to avoid a risky rewrite while making the composition root easier for agents to inspect.
+- Kept focused implementation modules intact to avoid a risky rewrite while making the composition root easier to validate and prevents the old monolithic UI file from growing back.
 - Routed runtime errors, uncaught exceptions, and Tk callback exceptions through the central `logging_config.setup_logging()` path.
 - Kept `AppLog` as the single user-visible `logs/log.txt` writer and mirrored UI events to the developer logger without duplicating `log.txt` writes.
 - Updated agent docs to lower release blockers: mixin grouping and logging unification are now addressed; full real-hardware bench validation remains a human pre-beta checklist item.
