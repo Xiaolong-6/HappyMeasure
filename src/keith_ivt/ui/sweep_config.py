@@ -18,6 +18,7 @@ from keith_ivt.models import (
     make_constant_time_values,
     make_source_values,
     minimum_interval_seconds,
+    source_values_for_config,
 )
 
 
@@ -62,6 +63,7 @@ class SweepConfigMixin:
         self.sweep_kind.trace_add("write", self._on_sweep_kind_changed)
         for var in [self.start, self.stop, self.step, self.constant_value, self.duration_s, self.interval_s, self.nplc, self.delay_s, self.adaptive_logic, self.adaptive_start, self.adaptive_stop, self.adaptive_step, self.debug_model]:
             var.trace_add("write", lambda *_: self._update_point_count())
+        self.hysteresis.trace_add("write", lambda *_: self._update_point_count())
         self.constant_until_stop.trace_add("write", lambda *_: (self._update_time_duration_state(), self._update_point_count()))
         self.debug.trace_add("write", self._on_debug_changed)
 
@@ -88,6 +90,7 @@ class SweepConfigMixin:
         self._last_sweep_kind_value = new_value
         self._apply_default_views_for_sweep_kind(new_value)
         self._update_dynamic_sweep_fields()
+        self._update_hysteresis_state()
         self._update_point_count()
 
     def _confirm_clear_existing_data(self, reason: str) -> bool:
@@ -146,6 +149,19 @@ class SweepConfigMixin:
             self.const_label.set("Const value (A)")
             self.compliance_label.set("Compliance (V)")
 
+    def _update_hysteresis_state(self) -> None:
+        enabled_kind = self.sweep_kind.get() in {SweepKind.STEP.value, SweepKind.ADAPTIVE.value}
+        if not enabled_kind:
+            self.hysteresis.set(False)
+        btn = getattr(self, "hysteresis_check", None)
+        try:
+            if btn and btn.winfo_exists():
+                run_state = getattr(self, "_run_state", "idle")
+                editable = bool(getattr(self, "_connected", False) and run_state in {"idle", "stopped", "completed", "aborted"})
+                btn.configure(state="normal" if enabled_kind and editable else "disabled")
+        except Exception:
+            self.hysteresis_check = None
+
     def _update_dynamic_sweep_fields(self) -> None:
         if not hasattr(self, "dynamic_box") or not self.dynamic_box.winfo_exists():
             return
@@ -169,6 +185,7 @@ class SweepConfigMixin:
             self._update_time_duration_state()
         elif kind == SweepKind.ADAPTIVE.value:
             self._build_adaptive_segment_table(self.dynamic_box)
+        self._update_hysteresis_state()
         self._update_point_count()
         try:
             self._refresh_content_scrollregion_later()
@@ -333,14 +350,12 @@ class SweepConfigMixin:
                     self.controls_title_text.set(f"Controls (continuous, {per_point:.2f} s/pt)")
                     self._set_sweep_fields_state()
                     return
-                values = make_constant_time_values(self.constant_value.get(), self.duration_s.get(), self.interval_s.get())
+                cfg = self._make_config()
+                values = source_values_for_config(cfg)
                 per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get(), self.delay_s.get(), int(self.baud_rate.get()))
-            elif kind == SweepKind.ADAPTIVE.value:
-                logic = self.adaptive_logic.get() if getattr(self, "_adaptive_advanced_active", False) else self._adaptive_logic_from_table()
-                values = adaptive_values_from_logic(logic)
-                per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             else:
-                values = make_source_values(self.start.get(), self.stop.get(), self.step.get())
+                cfg = self._make_config()
+                values = source_values_for_config(cfg)
                 per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             total_s = len(values) * per_point
             self.points_text.set(f"Points: {len(values)} · Est: {total_s:.1f}s")
