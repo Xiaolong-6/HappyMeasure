@@ -16,9 +16,9 @@ from keith_ivt.models import (
     Terminal,
     estimate_point_seconds,
     make_constant_time_values,
+    make_hysteresis_values,
     make_source_values,
     minimum_interval_seconds,
-    source_values_for_config,
 )
 
 
@@ -350,12 +350,18 @@ class SweepConfigMixin:
                     self.controls_title_text.set(f"Controls (continuous, {per_point:.2f} s/pt)")
                     self._set_sweep_fields_state()
                     return
-                cfg = self._make_config()
-                values = source_values_for_config(cfg)
+                values = make_constant_time_values(self.constant_value.get(), self.duration_s.get(), self.interval_s.get())
                 per_point = estimate_point_seconds(self.nplc.get(), kind, self.interval_s.get(), self.delay_s.get(), int(self.baud_rate.get()))
+            elif kind == SweepKind.ADAPTIVE.value:
+                logic = self.adaptive_logic.get() if getattr(self, "_adaptive_advanced_active", False) else self._adaptive_logic_from_table()
+                values = adaptive_values_from_logic(logic)
+                if self.hysteresis.get():
+                    values = make_hysteresis_values(values)
+                per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             else:
-                cfg = self._make_config()
-                values = source_values_for_config(cfg)
+                values = make_source_values(self.start.get(), self.stop.get(), self.step.get())
+                if self.hysteresis.get():
+                    values = make_hysteresis_values(values)
                 per_point = estimate_point_seconds(self.nplc.get(), delay_s=self.delay_s.get(), baud_rate=int(self.baud_rate.get()))
             total_s = len(values) * per_point
             self.points_text.set(f"Points: {len(values)} · Est: {total_s:.1f}s")
