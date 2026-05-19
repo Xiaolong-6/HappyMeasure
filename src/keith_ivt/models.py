@@ -45,6 +45,7 @@ class SweepConfig:
     debug: bool = False
     output_off_after_run: bool = True
     sweep_kind: SweepKind = SweepKind.STEP
+    hysteresis: bool = False
     constant_value: float = 0.0
     duration_s: float = 10.0
     continuous_time: bool = False
@@ -115,6 +116,35 @@ def make_source_values(start: float, stop: float, step: float) -> list[float]:
             values.append(float(x))
             x += step
     return values
+
+
+def make_hysteresis_values(values: list[float]) -> list[float]:
+    """Return a forward-then-reverse source sequence without duplicating the turn point."""
+    if not values:
+        return []
+    if len(values) == 1:
+        return [float(values[0])]
+    return [float(v) for v in values] + [float(v) for v in reversed(values[:-1])]
+
+
+def source_values_for_config(config: SweepConfig) -> list[float]:
+    """Generate the actual finite source sequence used by the sweep runner.
+
+    Hysteresis is intentionally limited to finite Step and Adaptive sweeps. Time
+    sweeps keep their fixed-value sampling semantics, and continuous Time mode
+    has no precomputed sequence.
+    """
+    if config.sweep_kind is SweepKind.CONSTANT_TIME:
+        if config.continuous_time:
+            return []
+        return make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
+    if config.sweep_kind is SweepKind.ADAPTIVE:
+        from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
+
+        values = adaptive_values_from_logic(config.adaptive_logic)
+        return make_hysteresis_values(values) if config.hysteresis else values
+    values = make_source_values(config.start, config.stop, config.step)
+    return make_hysteresis_values(values) if config.hysteresis else values
 
 
 def serial_round_trip_seconds(
@@ -191,15 +221,14 @@ def validate_config(config: SweepConfig) -> None:
         pass
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
         if not config.continuous_time:
-            make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
+            source_values_for_config(config)
         min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate)
         if config.interval_s < min_interval:
             raise ValueError(f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s.")
     elif config.sweep_kind is SweepKind.ADAPTIVE:
-        from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
-        adaptive_values_from_logic(config.adaptive_logic)
+        source_values_for_config(config)
     else:
-        make_source_values(config.start, config.stop, config.step)
+        source_values_for_config(config)
     if not config.auto_source_range and config.source_range <= 0:
         raise ValueError("Fixed source range must be positive when Auto source range is off.")
     if not config.auto_measure_range and config.measure_range <= 0:
