@@ -54,13 +54,17 @@ class PanelBuilderMixin:
         top.columnconfigure(1, weight=1)
         self.mode_combo = self._combo(top, "1. Mode", self.mode, self._available_modes(), 0, "Capability-aware source mode. Current-source or voltage-source IV mode.")
         self.sweep_kind_combo = self._combo(top, "2. Sweep type", self.sweep_kind, self._available_sweep_kinds(), 1, "Sweep algorithm for IV testing. Use Time for fixed-value time traces.")
+        self.hysteresis_check = self._check(
+            top,
+            "Forward/reverse hysteresis",
+            self.hysteresis,
+            2,
+            "For Step and Adaptive sweeps, measure the forward source sequence and then sweep back through the same values. Default OFF.",
+            command=lambda: self._update_point_count(),
+        )
         self.debug_model_row = None
-        note_row = 2
         if self.debug.get():
-            self.debug_model_row = self._combo(top, "3. Debug load model", self.debug_model, debug_model_names(), 2, "Simulator-only load/response model. In voltage-source mode it returns current; in current-source mode it returns voltage.")
-            note_row = 3
-        self.sweep_capability_note = ttk.Label(top, text=self._sweep_capability_note(), style="Muted.TLabel", wraplength=360, justify="left")
-        self.sweep_capability_note.grid(row=note_row, column=0, columnspan=2, sticky="ew", pady=(8, 0))
+            self.debug_model_row = self._combo(top, "3. Debug load model", self.debug_model, debug_model_names(), 3, "Simulator-only load/response model. In voltage-source mode it returns current; in current-source mode it returns voltage.")
         # Common safety/range controls stay above the sweep-specific editor so
         # Adaptive mode cannot push range/compliance fields out of view.
         self.common_box = ttk.Frame(parent, style="Card.TFrame", padding=(10, 8))
@@ -74,6 +78,7 @@ class PanelBuilderMixin:
         self.measure_range_row = self._range_control_row(self.common_box, "Measure range", self.measure_range, self.auto_measure_range, 4, "Fixed measure range when Auto measure range is disabled.")
         self.dynamic_box = ttk.Frame(parent, style="Card.TFrame", padding=(10, 8))
         self.dynamic_box.pack(fill="x", padx=10, pady=(4, 8))
+        self._update_hysteresis_state()
         self._update_dynamic_sweep_fields()
         self._update_range_state()
 
@@ -84,7 +89,6 @@ class PanelBuilderMixin:
         box.columnconfigure(1, weight=1)
         self._check(box, "Use debug simulator", self.debug, 0, "Keep enabled until simulator, UI, export, and import paths are stable.")
         self._entry(box, "Log max KB", self.log_max_kb, 1, "Rotating log size limit in KB. When logs/log.txt would exceed this limit, a new log file is created.")
-        # Apply log rotation limit immediately when the KB value changes
         try:
             self.log_max_kb.trace_add("write", lambda *_args: self._on_log_max_kb_changed())
         except Exception:
@@ -105,8 +109,6 @@ class PanelBuilderMixin:
             ttk.Label(box, text="UI appearance controls are shown only in debug mode.", style="Muted.TLabel", wraplength=360, justify="left").grid(row=4, column=0, columnspan=2, sticky="ew", pady=(10, 0))
             save_row = 5
         ttk.Button(box, text="Default Settings...", command=self.review_and_save_settings).grid(row=save_row, column=0, columnspan=2, sticky="ew", pady=(10, 0))
-        
-        # Restart UI button for quick reload during development
         restart_row = save_row + 1
         ttk.Button(box, text="Restart UI", command=self._restart_ui, style="Soft.TButton").grid(row=restart_row, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
@@ -120,74 +122,38 @@ class PanelBuilderMixin:
             pass
 
     def _on_log_max_kb_changed(self) -> None:
-        """Apply log rotation limit immediately when KB value changes in UI."""
         try:
             kb_value = int(self.log_max_kb.get())
             if kb_value < 1:
                 return
             new_max_bytes = kb_value * 1024
-            # Update the AppLog instance with the new limit
             if hasattr(self, 'app_log'):
                 self.app_log.set_max_bytes(new_max_bytes)
-            # Also update the legacy mirror variable for consistency
             if hasattr(self, 'log_max_bytes'):
                 self.log_max_bytes.set(new_max_bytes)
         except Exception:
             pass
 
     def _restart_ui(self) -> None:
-        """Restart the UI by relaunching the application.
-        
-        Restart behavior depends on how the app was launched:
-        - From .bat file: Restarts the batch process (production mode)
-        - From Python directly: Restarts the Python script (development mode)
-        
-        Note: For production releases, consider implementing a proper restart
-        mechanism that detects the launcher (.bat/.exe) and restarts accordingly.
-        """
         from tkinter import messagebox
         import sys
         import os
         import subprocess
-        
-        # Confirm restart
         if not messagebox.askyesno("Restart UI", "Restart the HappyMeasure UI?\n\nAny unsaved changes will be lost."):
             return
-        
         try:
-            # Determine the restart method based on how the app was launched
             executable = sys.executable
             script_path = os.path.abspath(sys.argv[0])
-            
-            # Check if running from a .bat file or similar launcher
-            # In production, you might want to detect if running from an .exe
             if script_path.endswith('.py'):
-                # Development mode: restart Python script
                 args = [executable, script_path] + sys.argv[1:]
             else:
-                # Production mode: restart the executable/launcher
                 args = [script_path] + sys.argv[1:]
-            
-            # Start new instance
             if sys.platform == "win32":
-                # Windows: use DETACHED_PROCESS to start independently
-                subprocess.Popen(
-                    args,
-                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-                    close_fds=True
-                )
+                subprocess.Popen(args, creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
             else:
-                # Unix-like systems
-                subprocess.Popen(
-                    args,
-                    start_new_session=True,
-                    close_fds=True
-                )
-            
-            # Close current instance
+                subprocess.Popen(args, start_new_session=True, close_fds=True)
             self.root.quit()
             self.root.destroy()
-            
         except Exception as e:
             messagebox.showerror("Restart Failed", f"Failed to restart UI:\n{e}\n\nPlease restart manually.")
 
@@ -212,43 +178,27 @@ class PanelBuilderMixin:
         y = ttk.Scrollbar(box, orient="vertical", command=self.log_text.yview)
         y.grid(row=1, column=1, sticky="ns")
         self.log_text.configure(yscrollcommand=y.set)
-        
-        # Initialize log font size
         self._log_font_size = int(getattr(self.settings, "ui_font_size", 10))
         self._update_log_font()
-        
-        # Bind Ctrl+MouseWheel for font size adjustment
         self.log_text.bind("<Control-MouseWheel>", self._on_log_font_zoom, add="+")
-        
-        # Add tooltip
         from keith_ivt.ui.widgets import add_tip
         add_tip(self.log_text, "Ctrl+Scroll to adjust font size")
-        
         try:
             p = Path("logs") / "log.txt"
             if p.exists():
                 self.log_text.insert(END, p.read_text(encoding="utf-8")[-6000:])
         except Exception:
             pass
-    
-    def _on_log_font_zoom(self, event) -> None:
-        """Adjust log text font size with Ctrl+MouseWheel."""
-        # Get the direction (up = increase, down = decrease)
+
+    def _on_log_font_zoom(self, event) -> str:
         delta = int(event.delta / 120)
-        
-        # Adjust font size (range: 8-18)
-        new_size = self._log_font_size + delta
-        new_size = max(8, min(new_size, 18))
-        
+        new_size = max(8, min(self._log_font_size + delta, 18))
         if new_size != self._log_font_size:
             self._log_font_size = new_size
             self._update_log_font()
-        
-        # Prevent default scrolling
         return "break"
-    
+
     def _update_log_font(self) -> None:
-        """Update the log text widget font."""
         try:
             font_family = getattr(self.settings, "ui_font_family", "Verdana")
             self.log_text.configure(font=(font_family, self._log_font_size))
@@ -260,41 +210,21 @@ class PanelBuilderMixin:
         self._set_update_check_message(self.update_notice_text.get())
         if not self._show_cached_update_check_result():
             self._check_for_updates_async()
-        
         import tkinter as tk
-        
-        # Main container with scrolling support
         try:
             parent.rowconfigure(0, weight=1)
             parent.columnconfigure(0, weight=1)
         except Exception:
             pass
-        
-        # Create canvas and scrollbar for scrollable content.  Use the card
-        # palette explicitly; native Tk canvases do not inherit ttk styles,
-        # which otherwise leaves a light patch in the Dark About page.
         about_bg = self._palette.get("card", self._palette.get("panel", "#FFFFFF"))
         canvas = tk.Canvas(parent, highlightthickness=0, background=about_bg, bd=0)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         scroll_frame = ttk.Frame(canvas, padding=(16, 14), style="Card.TFrame")
-        
-        scroll_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
+        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Bind canvas resize to update scroll_frame width
-        def _on_canvas_resize(event):
-            canvas.itemconfig("all", width=event.width)
-        
-        canvas.bind("<Configure>", _on_canvas_resize)
-        
-        # Bind mouse wheel only to the About panel widgets.  A previous global
-        # bind_all callback survived page rebuilds and tried to scroll destroyed
-        # canvases, producing TclError: invalid command name ...canvas.
+        canvas.bind("<Configure>", lambda event: canvas.itemconfig("all", width=event.width))
+
         def _on_mousewheel(event):
             try:
                 if not canvas.winfo_exists():
@@ -318,45 +248,22 @@ class PanelBuilderMixin:
 
         canvas.bind("<MouseWheel>", _on_mousewheel, add="+")
         scroll_frame.bind("<MouseWheel>", _on_mousewheel, add="+")
-        
-        # Pack canvas and scrollbar
         canvas.pack(side="left", fill="both", expand=True, padx=(0, 4))
         scrollbar.pack(side="right", fill="y")
-        
         box = scroll_frame
         box.columnconfigure(0, weight=1)
-        
         row = 0
-        
-        # App name and version - prominent header
         app_header = f"{APP_NAME} v{__version__}"
-        ttk.Label(box, text=app_header, style="AboutTitle.TLabel", 
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)) + 2, "bold")
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 4))
+        ttk.Label(box, text=app_header, style="AboutTitle.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 2, "bold")).grid(row=row, column=0, sticky="w", pady=(0, 4))
         row += 1
-        
-        ttk.Label(box, textvariable=self.update_notice_text, style="AboutStatus.TLabel",
-                 wraplength=450, justify="left"
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 6))
+        ttk.Label(box, textvariable=self.update_notice_text, style="AboutStatus.TLabel", wraplength=450, justify="left").grid(row=row, column=0, sticky="w", pady=(0, 6))
         row += 1
-
-        # Manual release page button - full width, right below update notice
-        update_btn = ttk.Button(box, text="Open Latest Release Download Page", 
-                               command=self._open_update_release_page,
-                               style="Soft.TButton")
+        update_btn = ttk.Button(box, text="Open Latest Release Download Page", command=self._open_update_release_page, style="Soft.TButton")
         update_btn.grid(row=row, column=0, sticky="ew", pady=(0, 16))
         add_tip(update_btn, "Open the latest HappyMeasure release page if known; otherwise open the project repository.")
         row += 1
-        
-        # What is HappyMeasure?
-        section_title_style = "Card.TLabel"
-        ttk.Label(box, text="What is HappyMeasure?", style="AboutTitle.TLabel",
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)), "bold")
-                 ).grid(row=row, column=0, sticky="w", pady=(8, 4))
+        ttk.Label(box, text="What is HappyMeasure?", style="AboutTitle.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)), "bold")).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        
         description = (
             f"Release stage: {__release_stage__}.\n\n"
             "HappyMeasure is a professional measurement UI for characterizing electronic devices "
@@ -364,19 +271,13 @@ class PanelBuilderMixin:
             "interface for performing IV (current-voltage) sweeps, time-based measurements, "
             "and adaptive testing with real-time visualization and data export."
         )
-        ttk.Label(box, text=description, style="AboutBody.TLabel", wraplength=450, justify="left"
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 12))
+        ttk.Label(box, text=description, style="AboutBody.TLabel", wraplength=450, justify="left").grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
-        
-        # Key Features
-        ttk.Label(box, text="Key Features", style="AboutTitle.TLabel",
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)), "bold")
-                 ).grid(row=row, column=0, sticky="w", pady=(8, 4))
+        ttk.Label(box, text="Key Features", style="AboutTitle.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)), "bold")).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        
         features = [
             "• Multiple sweep modes: Step, Time (constant), and Adaptive",
+            "• Optional forward/reverse hysteresis for Step and Adaptive sweeps",
             "• Voltage or current source operation",
             "• Real-time plotting with multiple view options",
             "• Automatic data backup and recovery",
@@ -386,62 +287,28 @@ class PanelBuilderMixin:
             "• Multi-trace comparison and analysis",
         ]
         for feature in features:
-            ttk.Label(box, text=feature, style="AboutBody.TLabel", wraplength=450
-                     ).grid(row=row, column=0, sticky="w", pady=1)
+            ttk.Label(box, text=feature, style="AboutBody.TLabel", wraplength=450).grid(row=row, column=0, sticky="w", pady=1)
             row += 1
-        
-        row += 1  # Extra spacing
-        
-        # Supported Hardware
-        ttk.Label(box, text="Supported Hardware", style="AboutTitle.TLabel",
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)), "bold")
-                 ).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        
-        hardware = (
-            "• Keithley 2400 Series SourceMeter (via RS-232)\n"
-            "• Keithley 2450 Series SourceMeter (via RS-232)\n"
-            "• Built-in simulator for offline testing"
-        )
-        ttk.Label(box, text=hardware, style="AboutBody.TLabel", wraplength=450, justify="left"
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 12))
+        ttk.Label(box, text="Supported Hardware", style="AboutTitle.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)), "bold")).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        
-        # Safety Notice
-        ttk.Label(box, text="Safety Notice", style="AboutTitle.TLabel",
-                 font=(getattr(self.settings, "ui_font_family", "Verdana"), 
-                      int(getattr(self.settings, "ui_font_size", 10)), "bold")
-                 ).grid(row=row, column=0, sticky="w", pady=(8, 4))
+        hardware = "• Keithley 2400 Series SourceMeter (via RS-232)\n• Keithley 2450 Series SourceMeter (via RS-232)\n• Built-in simulator for offline testing"
+        ttk.Label(box, text=hardware, style="AboutBody.TLabel", wraplength=450, justify="left").grid(row=row, column=0, sticky="w", pady=(0, 12))
         row += 1
-        
-        safety = (
-            "⚠ Always use the debug simulator before connecting real hardware.\n"
-            "⚠ Verify wiring and compliance limits externally.\n"
-            "⚠ The Emergency Stop button requests output-off at the next safe point."
-        )
-        ttk.Label(box, text=safety, style="AboutBody.TLabel", wraplength=450, justify="left",
-                 foreground=self._palette.get("danger", "#d9534f")
-                 ).grid(row=row, column=0, sticky="w", pady=(0, 16))
+        ttk.Label(box, text="Safety Notice", style="AboutTitle.TLabel", font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)), "bold")).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        
+        safety = "⚠ Always use the debug simulator before connecting real hardware.\n⚠ Verify wiring and compliance limits externally.\n⚠ The Emergency Stop button requests output-off at the next safe point."
+        ttk.Label(box, text=safety, style="AboutBody.TLabel", wraplength=450, justify="left", foreground=self._palette.get("danger", "#d9534f")).grid(row=row, column=0, sticky="w", pady=(0, 16))
         _bind_about_mousewheel(scroll_frame)
-
-        # Set reasonable max height for canvas
         parent.update_idletasks()
         max_height = min(parent.winfo_screenheight() * 0.7, 600)
         canvas.config(height=int(max_height))
-        
-        # Bind resize event for wraplength adjustment (bind to parent, not box)
         parent.bind("<Configure>", lambda e: self._update_about_wraplength(scroll_frame, canvas), add="+")
-    
+
     def _update_about_wraplength(self, scroll_frame, canvas) -> None:
-        """Update wraplength for all labels when window is resized."""
         try:
-            # Calculate wraplength based on canvas width minus padding and scrollbar
             canvas_width = canvas.winfo_width()
-            new_wraplength = max(280, canvas_width - 60)  # Account for padding and scrollbar
-            
+            new_wraplength = max(280, canvas_width - 60)
             for child in scroll_frame.winfo_children():
                 if isinstance(child, ttk.Label):
                     try:
@@ -450,9 +317,8 @@ class PanelBuilderMixin:
                         pass
         except Exception:
             pass
-    
+
     def _check_for_updates(self) -> None:
         """Compatibility hook for app classes that provide async update checks."""
         if hasattr(self, "_check_for_updates_async"):
             self._check_for_updates_async()
-
