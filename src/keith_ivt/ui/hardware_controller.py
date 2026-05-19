@@ -124,7 +124,7 @@ class HardwareControllerMixin:
     def _sweep_capability_note(self) -> str:
         if not self._connected:
             return "Connect a real instrument or debug simulator before editing/running sweeps."
-        return "Keithley 2400-series IV workflow: Step, Time, and Adaptive sweeps are available."
+        return ""
 
     def _refresh_capability_widgets(self) -> None:
         mode_combo = self._widget_alive("mode_combo")
@@ -248,6 +248,10 @@ class HardwareControllerMixin:
                 import logging
                 logger = logging.getLogger("keith_ivt.ui.hardware_controller")
                 logger.debug(f"Failed to update dynamic controls state: {e}")
+        try:
+            self._update_hysteresis_state()
+        except Exception:
+            pass
         self._update_range_state()
 
     def _set_operator_identity_state(self) -> None:
