@@ -7,8 +7,7 @@ import math
 from datetime import datetime
 
 from keith_ivt.instrument.base import SourceMeter
-from keith_ivt.models import SweepConfig, SweepKind, SweepPoint, SweepResult, make_constant_time_values, make_source_values, validate_config
-from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
+from keith_ivt.models import SweepConfig, SweepKind, SweepPoint, SweepResult, validate_config, source_values_for_config
 
 PointCallback = Callable[[SweepPoint, int, int], None]
 StopCallback = Callable[[], bool]
@@ -37,14 +36,7 @@ class SweepRunner:
         validate_config(config)
         if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
             raise ValueError("MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path.")
-        if config.sweep_kind is SweepKind.CONSTANT_TIME and not config.continuous_time:
-            values = make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
-        elif config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time:
-            values = []
-        elif config.sweep_kind is SweepKind.ADAPTIVE:
-            values = adaptive_values_from_logic(config.adaptive_logic)
-        else:
-            values = make_source_values(config.start, config.stop, config.step)
+        values = source_values_for_config(config)
         points: list[SweepPoint] = []
         t0 = time.monotonic()
         stopped_by_operator = False
