@@ -35,6 +35,7 @@ def result_metadata(result: SweepResult) -> dict:
         "operator": cfg.operator,
         "mode": cfg.mode.value,
         "sweep_kind": cfg.sweep_kind.value,
+        "hysteresis": getattr(cfg, "hysteresis", False),
         "start": cfg.start,
         "stop": cfg.stop,
         "step": cfg.step,
@@ -64,6 +65,7 @@ def result_metadata(result: SweepResult) -> dict:
         "step": cfg.step,
         "compliance": cfg.compliance,
         "nplc": cfg.nplc,
+        "delay_s": cfg.delay_s,
         "port": cfg.port,
         "baud_rate": cfg.baud_rate,
         "terminal": cfg.terminal.value,
@@ -72,6 +74,7 @@ def result_metadata(result: SweepResult) -> dict:
         "output_off_after_run": cfg.output_off_after_run,
         "point_count": len(result.points),
         "sweep_kind": cfg.sweep_kind.value,
+        "hysteresis": getattr(cfg, "hysteresis", False),
         "constant_value": cfg.constant_value,
         "duration_s": cfg.duration_s,
         "continuous_time": cfg.continuous_time,
@@ -109,7 +112,7 @@ def save_csv(result: SweepResult, path: str | Path) -> Path:
 def _write_trace_metadata_table(writer: csv.writer, results: list[SweepResult]) -> None:
     writer.writerow(["# section", "trace_metadata"])
     writer.writerow([
-        "trace_index", "device_name", "operator", "mode", "sweep_type", "points",
+        "trace_index", "device_name", "operator", "mode", "sweep_type", "hysteresis", "points",
         "start", "stop", "step", "compliance", "nplc", "delay_s", "source_range", "measure_range",
         "auto_source_range", "auto_measure_range", "data_fingerprint", "trace_uid",
     ])
@@ -121,6 +124,7 @@ def _write_trace_metadata_table(writer: csv.writer, results: list[SweepResult]) 
             m.get("operator", ""),
             m["mode"],
             m["sweep_kind"],
+            m.get("hysteresis", False),
             m["point_count"],
             m["start"],
             m["stop"],
