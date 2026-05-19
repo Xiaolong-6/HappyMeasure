@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `1.1b1` (1.1 beta).
+Current version: `1.1b2` (1.1 beta 2).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
@@ -50,16 +50,14 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
 
-## What changed in 1.1b1
+## What changed in 1.1b2
 
-- Adds startup update checking controlled from Settings. When enabled, HappyMeasure checks GitHub Releases after launch and asks before installing a newer Windows portable zip.
-- Adds an external updater handoff that downloads the release zip, preserves user settings/presets/logs/exports/backups/data, replaces program files in the original portable folder, and restarts HappyMeasure.
-- Keeps the 1.0 beta hardware-safety baseline while moving to the 1.1 beta update branch.
+- Adds optional forward/reverse hysteresis for finite Step and Adaptive sweeps. Default is OFF, and Time sweeps keep their fixed-value timing behavior.
+- Places the hysteresis toggle directly below `Sweep type`, replacing the stale workflow note in the Sweep panel.
+- Persists the hysteresis flag in CSV metadata and restores it when importing previous HappyMeasure exports.
+- Adds regression coverage for Step, Adaptive, and Time sweep source-sequence behavior.
+- Keeps the 1.1b1 startup updater path: Settings-controlled update checking, external updater handoff, preserved user settings/presets/logs/exports/backups/data, and active-sweep install blocking.
 - Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
-- Hardens run-state handling, Stop/Abort output-off safety, simulator fault injection, and worker error paths.
-- Improves trace selection/export behavior, including multi-select export and factory-setting restore in the Default Settings dialog.
-- Refines the beta UI: compact status bar, live signed V/I/Cmpl readout, top-title hover summaries, Canvas status indicators, and fullscreen plot screenshot export.
-- Documents release, trace schema, hardware preflight, migration, and manual UI smoke procedures.
 - Full bench validation of every hardware feature remains planned after this beta release.
 
 ## Safe validation path
@@ -76,6 +74,12 @@ Run simulator/unit validation first:
 python tests\run_full_validation.py
 python -m pytest -q
 python -m pytest --cov=keith_ivt -q
+```
+
+Run the hysteresis regression tests:
+
+```text
+python -m pytest tests/test_hysteresis_sweep_values.py tests/test_version_consistency.py -q
 ```
 
 Run the update reminder tests:
@@ -129,6 +133,7 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 - During an active measurement, the plot shows live data only; stored traces return after completion.
 - Trace export/import/rename/delete actions live in the trace-list context menu. Plot right-click is for plot view/range/image actions.
 - Trace visibility is display-only. **Export all traces** includes hidden traces; **Export visible** filters to ticked/visible traces only. Renamed traces are exported with their edited names.
+- Step and Adaptive sweeps can optionally run forward then reverse through the same source values; the turn point is not duplicated. Time sweeps ignore hysteresis.
 - The bottom status-bar connection/debug indicators are UI-scale-aware Canvas drawings, so they do not depend on Windows emoji fallback or the selected font family.
 - Start is valid from `idle`, `stopped`, `completed`, and `aborted` ready states; repeated simulator runs should not require restarting the app.
 
