@@ -84,6 +84,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.start = DoubleVar(value=self.settings.default_start)
         self.stop = DoubleVar(value=self.settings.default_stop)
         self.step = DoubleVar(value=self.settings.default_step)
+        self.hysteresis = BooleanVar(value=False)
         self.constant_value = DoubleVar(value=getattr(self.settings, "default_constant_value", 0.0))
         self.duration_s = DoubleVar(value=getattr(self.settings, "default_duration_s", 10.0))
         self.constant_until_stop = BooleanVar(value=getattr(self.settings, "default_constant_until_stop", False))
@@ -249,6 +250,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             operator=self.operator.get().strip(),
             debug=bool(self.debug.get()),
             sweep_kind=sweep_kind,
+            hysteresis=bool(self.hysteresis.get()) if sweep_kind in {SweepKind.STEP, SweepKind.ADAPTIVE} else False,
             constant_value=float(self.constant_value.get()),
             duration_s=float(self.duration_s.get()),
             continuous_time=bool(self.constant_until_stop.get()),
