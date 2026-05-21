@@ -173,23 +173,33 @@ or:
 .\tools\build\Build_Portable_Windows_App.ps1
 ```
 
-The output is `dist\HappyMeasure\HappyMeasure.exe`. Distribute the entire `dist\HappyMeasure` folder as a zip; do not copy only the exe. See `docs/WINDOWS_PORTABLE_BUILD.md`.
+The outputs are `dist\HappyMeasure\HappyMeasure.exe` and
+`dist\HappyMeasure-<version>-windows-portable.zip`. Distribute the generated
+zip or the entire `dist\HappyMeasure` folder; do not copy only the exe. See
+`docs/WINDOWS_PORTABLE_BUILD.md`.
 
 
 
-### Windows build note: Python 3.14 / temp log PermissionError
+### Windows build note: Python versions and temp permissions
 
-The portable-app build scripts now reject stale or unsupported `.venv` environments and rebuild with Python 3.11-3.13. This avoids Windows `PermissionError: [WinError 32]` failures seen when Python 3.14 keeps temporary log files open during validation. If the build still fails, delete `.venv`, close any running HappyMeasure/Python windows, and rerun `tools\build\Build_Portable_Windows_App.bat`.
+The standard portable-app build script rejects stale or unsupported `.venv`
+environments and rebuilds with Python 3.12, 3.11, or 3.13. Python 3.14 has a
+separate script that skips full pytest during packaging and uses explicit
+runtime/dev dependency installs with `PYTHONPATH=src` to avoid editable-install
+temp-directory permission failures. If the build still fails, close any running
+HappyMeasure/Python windows and rerun the matching script in `tools\build`.
 
 ## Windows portable build with Python 3.14
 
 To build a Python-free portable Windows folder app using your installed Python 3.14, double-click:
 
 ```text
-tools\build\Build_Portable_Windows_App.bat
+tools\build\Build_Portable_Windows_App_Python314.bat
 ```
 
-The output is `dist\HappyMeasure\HappyMeasure.exe`. Distribute the whole `dist\HappyMeasure` folder, not only the exe. See `docs/WINDOWS_PYTHON314_BUILD.md`.
+The script also supports `.\tools\build\Build_Portable_Windows_App_Python314.ps1`.
+It creates the same folder and versioned portable zip. See
+`docs/WINDOWS_PYTHON314_BUILD.md`.
 
 ### Measurement safety note
 

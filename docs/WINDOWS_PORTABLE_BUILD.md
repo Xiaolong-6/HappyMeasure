@@ -17,8 +17,8 @@ or:
 .\tools\build\Build_Portable_Windows_App.ps1
 ```
 
-The current build path targets Python 3.14, runs an import smoke check, then
-builds:
+The standard build path searches for Python 3.12, 3.11, then 3.13, runs the
+test suite, then builds:
 
 ```text
 dist\HappyMeasure\HappyMeasure.exe
@@ -28,33 +28,36 @@ Do not copy only `HappyMeasure.exe`; the `_internal` folder is required.
 
 ## Output To Deliver
 
-The build artifact is the whole folder:
+The build artifacts are the whole folder and the generated zip:
 
 ```text
 dist\HappyMeasure\
-```
-
-For handoff, zip that folder:
-
-```powershell
-Compress-Archive -Path dist\HappyMeasure -DestinationPath dist\HappyMeasure-1.1b1-windows-portable.zip -CompressionLevel Optimal
+dist\HappyMeasure-<version>-windows-portable.zip
 ```
 
 The zip should contain `HappyMeasure.exe`, `_internal`, `README_FIRST.txt`,
-`HARDWARE_VALIDATION_PROTOCOL.md`, and `HARDWARE_DRY_RUN_GUIDE.md`.
+`config`, `examples`, `HARDWARE_VALIDATION_PROTOCOL.md`, and
+`HARDWARE_DRY_RUN_GUIDE.md`.
+
+The temporary `build\HappyMeasure` directory is only PyInstaller's work area.
+It may contain intermediate executables, `.toc` files, and warning reports
+during packaging. Do not distribute anything from `build`; successful scripts
+remove the `build` directory after the portable zip is created.
 
 ## Python Version For Building
 
-Use Python 3.14 on Windows. The current build script searches in this order:
+Use Python 3.12, 3.11, or 3.13 on Windows for the standard build. The current
+build script searches in this order:
 
 ```text
-py -3.14
-python
+py -3.12
+py -3.11
+py -3.13
+python, if it is one of those versions
 ```
 
-Run source validation separately before packaging. The Python 3.14 build path
-skips full pytest during packaging because Windows/Python 3.14 can keep
-temporary files locked during cleanup.
+For Python 3.14, use `tools\build\Build_Portable_Windows_App_Python314.bat`
+or `.\tools\build\Build_Portable_Windows_App_Python314.ps1`.
 
 ## Why Onedir, Not Onefile
 
@@ -93,7 +96,8 @@ error looks like:
 PermissionError: [Errno 13] Permission denied: ... pip-26.1.1-py3-none-any.whl
 ```
 
-If that happens, use a local dependency target instead of `.venv`:
+If that happens before the build script can create `.venv`, use a local
+dependency target instead of `.venv`:
 
 ```powershell
 $root = (Resolve-Path .).Path
@@ -107,13 +111,19 @@ python -c "from PyInstaller.__main__ import run; run(['--noconfirm','--clean','-
 Pop-Location
 ```
 
+The maintained scripts normally avoid editable install during packaging and set
+`PYTHONPATH=src`, so this workaround should only be needed when `.venv`
+creation itself fails.
+
 Then copy the portable first-run files:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path dist\HappyMeasure\logs,dist\HappyMeasure\examples
+New-Item -ItemType Directory -Force -Path dist\HappyMeasure\logs,dist\HappyMeasure\examples,dist\HappyMeasure\config
 Copy-Item packaging\README_FIRST_PORTABLE.txt dist\HappyMeasure\README_FIRST.txt
 Copy-Item docs\HARDWARE_VALIDATION_PROTOCOL.md dist\HappyMeasure\
 Copy-Item docs\HARDWARE_DRY_RUN_GUIDE.md dist\HappyMeasure\
+Copy-Item config\*.json dist\HappyMeasure\config\
+Copy-Item examples\* dist\HappyMeasure\examples\
 ```
 
 The local `.build-deps`, `.pip-cache`, `.tmp-build`, `build`, and `dist`

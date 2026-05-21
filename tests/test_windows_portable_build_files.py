@@ -4,8 +4,8 @@ from pathlib import Path
 def test_pyinstaller_entry_exists_and_imports_main():
     entry = Path("packaging/happymeasure_entry.py")
     text = entry.read_text(encoding="utf-8")
-    assert "from keith_ivt.ui.simple_app import main" in text
-    assert "main()" in text
+    assert "from happymeasure.__main__ import run" in text
+    assert "run()" in text
 
 
 def test_windows_build_scripts_are_space_path_safe():

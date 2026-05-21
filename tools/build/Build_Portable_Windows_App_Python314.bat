@@ -17,6 +17,8 @@ call :log ==========================================
 
 if exist "build" rmdir /s /q "build"
 if exist "dist" rmdir /s /q "dist"
+if exist "packaging\build" rmdir /s /q "packaging\build"
+if exist "packaging\dist" rmdir /s /q "packaging\dist"
 
 rem This build script intentionally targets Python 3.14 only.
 rem It does not search for 3.13/3.12/3.11.
@@ -48,7 +50,8 @@ if errorlevel 1 (
 
 python -m pip install --upgrade pip
 if errorlevel 1 goto :fail
-python -m pip install -e ".[dev]"
+set "PYTHONPATH=%PROJECT_ROOT%\src"
+python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff black mypy
 if errorlevel 1 goto :fail
 python -m pip install --upgrade pyinstaller
 if errorlevel 1 goto :fail
@@ -62,10 +65,10 @@ call :log Reason: Windows/Python 3.14 can keep temporary log files locked during
 call :log Run simulator + hardware preflight manually after packaging.
 
 call :log Running PyInstaller...
-pushd packaging
-pyinstaller --noconfirm --clean HappyMeasure.spec
+if not exist "build" mkdir "build"
+if not exist "dist" mkdir "dist"
+pyinstaller --noconfirm --clean --distpath dist --workpath build packaging\HappyMeasure.spec
 set "PI_STATUS=%ERRORLEVEL%"
-popd
 if not "%PI_STATUS%"=="0" goto :fail
 
 if not exist "dist\HappyMeasure\HappyMeasure.exe" (
@@ -75,9 +78,19 @@ if not exist "dist\HappyMeasure\HappyMeasure.exe" (
 
 if not exist "dist\HappyMeasure\logs" mkdir "dist\HappyMeasure\logs"
 if not exist "dist\HappyMeasure\examples" mkdir "dist\HappyMeasure\examples"
+if not exist "dist\HappyMeasure\config" mkdir "dist\HappyMeasure\config"
 copy /Y "packaging\README_FIRST_PORTABLE.txt" "dist\HappyMeasure\README_FIRST.txt" >nul 2>&1
 copy /Y "docs\HARDWARE_VALIDATION_PROTOCOL.md" "dist\HappyMeasure\HARDWARE_VALIDATION_PROTOCOL.md" >nul 2>&1
 copy /Y "docs\HARDWARE_DRY_RUN_GUIDE.md" "dist\HappyMeasure\HARDWARE_DRY_RUN_GUIDE.md" >nul 2>&1
+xcopy /E /I /Y "config\*.json" "dist\HappyMeasure\config\" >nul 2>&1
+xcopy /E /I /Y "examples\*" "dist\HappyMeasure\examples\" >nul 2>&1
+
+for /f "usebackq delims=" %%V in (`python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"`) do set "APP_VERSION=%%V"
+set "ZIP_PATH=dist\HappyMeasure-%APP_VERSION%-windows-portable.zip"
+if exist "%ZIP_PATH%" del /q "%ZIP_PATH%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path 'dist\HappyMeasure' -DestinationPath '%ZIP_PATH%' -CompressionLevel Optimal"
+if errorlevel 1 goto :fail
+if exist "build" rmdir /s /q "build"
 
 call :log ==========================================
 call :log Build finished.
@@ -85,8 +98,10 @@ call :log Portable app folder:
 call :log "%CD%\dist\HappyMeasure"
 call :log Main executable:
 call :log "%CD%\dist\HappyMeasure\HappyMeasure.exe"
+call :log Portable zip:
+call :log "%CD%\%ZIP_PATH%"
 call :log ==========================================
-call :log Next step: zip the whole dist\HappyMeasure folder, not only HappyMeasure.exe.
+call :log Deliver the zip or the whole dist\HappyMeasure folder, not only HappyMeasure.exe.
 
 echo.
 echo Press any key to continue . . .

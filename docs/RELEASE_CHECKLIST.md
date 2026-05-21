@@ -4,17 +4,18 @@ This checklist is the release-prep source of truth. Run it from a clean working 
 
 ## 0. Release identity
 
-Use simple version labels for public communication. For this release, use `1.1 beta` in prose and `1.1b1` in Python/package metadata.
+Use simple version labels for public communication. For this release, use `1.1 beta` in prose and `1.1b2` in Python/package metadata.
 
 
 Set these values before starting the checklist:
 
-- Release version: `1.1b1`.
-- Git tag: `v1.1b1`.
-- Portable zip name: `HappyMeasure-1.1b1-windows-portable.zip`.
+- Release version: `1.1b2`.
+- Git tag: `v1.1b2`.
+- Portable zip name: `HappyMeasure-1.1b2-windows-portable.zip`.
 - Release channel: `beta`.
 - Target Python for source validation: project default from `pyproject.toml`.
-- Target Python for Windows portable build: the build script selected interpreter; Python 3.12 is preferred when available, Python 3.14 remains experimental.
+- Target Python for Windows portable build: standard script selects Python 3.12,
+  3.11, then 3.13; use the dedicated Python 3.14 script on 3.14-only machines.
 
 ## 1. Source tree hygiene
 
@@ -190,22 +191,22 @@ If PowerShell blocks unsigned scripts, run:
 tools\build\Build_Portable_Windows_App.bat
 ```
 
-If Python 3.14 `.venv` creation fails in `ensurepip`, use the local `.build-deps` workaround in `docs\WINDOWS_PORTABLE_BUILD.md`.
+If building with Python 3.14, use
+`tools\build\Build_Portable_Windows_App_Python314.bat` or
+`.\tools\build\Build_Portable_Windows_App_Python314.ps1`.
 
 Confirm:
 
 - `dist\HappyMeasure\HappyMeasure.exe` exists.
 - `dist\HappyMeasure\_internal` exists.
 - `README_FIRST.txt`, `HARDWARE_VALIDATION_PROTOCOL.md`, and `HARDWARE_DRY_RUN_GUIDE.md` are copied into `dist\HappyMeasure`.
+- `config\settings.json`, `config\presets.json`, and `examples\simple_cli_sweep.py` are copied into `dist\HappyMeasure`.
+- `dist\HappyMeasure-<version>-windows-portable.zip` exists and contains the whole `HappyMeasure` folder.
+- `build` is absent after a successful script run; if present, treat it only as
+  temporary PyInstaller diagnostics and do not publish it.
 - The packaged exe launches once and stays running.
 - About/update-check UI opens without import errors.
 - Debug simulator can connect and run one short sweep in the packaged app.
-
-Zip the whole folder, not only the exe:
-
-```powershell
-Compress-Archive -Path dist\HappyMeasure -DestinationPath dist\HappyMeasure-<version>-windows-portable.zip -CompressionLevel Optimal
-```
 
 ## 9. Git and GitHub release
 

@@ -135,12 +135,18 @@ Added Windows portable-app packaging support: `packaging/happymeasure_entry.py`,
 
 ### Windows build note: Python 3.14 / temp log PermissionError
 
-The portable-app build scripts now reject stale or unsupported `.venv` environments and rebuild with Python 3.11-3.13. This avoids Windows `PermissionError: [WinError 32]` failures seen when Python 3.14 keeps temporary log files open during validation. If the build still fails, delete `.venv`, close any running HappyMeasure/Python windows, and rerun `tools\build\Build_Portable_Windows_App.bat`.
+The standard portable-app build scripts now reject stale or unsupported `.venv`
+environments and rebuild with Python 3.12, 3.11, or 3.13. Python 3.14 now has
+dedicated `.bat` and `.ps1` launchers that skip full pytest during packaging and
+avoid editable-install temp-directory permission failures by installing explicit
+dependencies with `PYTHONPATH=src`.
 
 
 ### Build launcher Python detection fix
 
-The Windows portable build launcher now verifies actual interpreter availability before selecting `py -3.13` / `py -3.12` / `py -3.11`. If only Python 3.14+ is installed, the launcher attempts a fallback build and prints a warning; Python 3.12 remains the recommended release-build interpreter.
+The Windows portable build launcher now verifies actual interpreter
+availability before selecting `py -3.12` / `py -3.11` / `py -3.13`. If only
+Python 3.14 is installed, use the dedicated Python 3.14 launcher.
 
 ### Build script hotfix: Python launcher loop fix
 
@@ -148,6 +154,16 @@ The Windows portable build launcher now verifies actual interpreter availability
 - Batch build now uses a single `:pick_python` routine and prefers Python 3.12, then 3.11, then 3.13, with PATH `python` as fallback.
 - PowerShell build script now uses valid version checks and the same selection order.
 - Added `tests/test_windows_build_script_integrity.py` to catch duplicated/corrupted build script blocks.
+
+### Build script hotfix: portable zip contents
+
+- Build scripts now run PyInstaller from the project root and write directly to
+  `dist\HappyMeasure`, avoiding the previous `packaging\dist` mismatch.
+- Build scripts now copy `config`, `examples`, first-run README, and hardware
+  validation docs into the portable folder.
+- Build scripts now create `dist\HappyMeasure-<version>-windows-portable.zip`
+  automatically and fail fast on dependency, smoke-check, test, or PyInstaller
+  errors.
 
 
 ### 2026-05-18 follow-up hotfix

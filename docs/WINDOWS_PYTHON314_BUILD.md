@@ -8,13 +8,13 @@ path.
 From Windows, double-click:
 
 ```text
-tools\build\Build_Portable_Windows_App.bat
+tools\build\Build_Portable_Windows_App_Python314.bat
 ```
 
-or explicitly:
+or:
 
 ```text
-tools\build\Build_Portable_Windows_App_Python314.bat
+.\tools\build\Build_Portable_Windows_App_Python314.ps1
 ```
 
 The script only uses Python 3.14. It does not search for Python 3.13/3.12/3.11.
@@ -25,6 +25,7 @@ A successful build creates:
 
 ```text
 dist\HappyMeasure\HappyMeasure.exe
+dist\HappyMeasure-<version>-windows-portable.zip
 ```
 
 Distribute the whole folder:
@@ -36,11 +37,18 @@ dist\HappyMeasure\
 Do not distribute only `HappyMeasure.exe`, because PyInstaller onedir builds
 need the bundled internal files.
 
+Ignore `build\HappyMeasure` if you see it during packaging. It is PyInstaller's
+temporary work area, not a deliverable app. Successful scripts remove it after
+the portable zip is created.
+
 ## Validation Policy For This Build Path
 
 The Python 3.14 build script runs an import smoke check and then packages with
 PyInstaller. It intentionally skips the full pytest validation because
 Windows/Python 3.14 can keep temporary log files locked during pytest cleanup.
+It installs explicit runtime/dev dependencies and sets `PYTHONPATH=src` instead
+of using editable install, which avoids temp-directory permission failures seen
+on some Python 3.14 Windows setups.
 
 After packaging, validate manually in this order:
 
@@ -64,19 +72,19 @@ $env:TMP = $env:TEMP
 $env:PIP_CACHE_DIR = Join-Path $root ".pip-cache"
 python -m pip install --target .build-deps matplotlib pyserial pydantic pyinstaller
 $env:PYTHONPATH = (Join-Path $root ".build-deps") + ";" + (Join-Path $root "src")
-Push-Location packaging
-python -c "from PyInstaller.__main__ import run; run(['--noconfirm','--clean','--distpath','..\\dist','--workpath','..\\build','HappyMeasure.spec'])"
-Pop-Location
+python -c "from PyInstaller.__main__ import run; run(['--noconfirm','--clean','--distpath','dist','--workpath','build','packaging\\HappyMeasure.spec'])"
 ```
 
 After PyInstaller finishes, add the same first-run files that the build script
 normally copies:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path dist\HappyMeasure\logs,dist\HappyMeasure\examples
+New-Item -ItemType Directory -Force -Path dist\HappyMeasure\logs,dist\HappyMeasure\examples,dist\HappyMeasure\config
 Copy-Item packaging\README_FIRST_PORTABLE.txt dist\HappyMeasure\README_FIRST.txt
 Copy-Item docs\HARDWARE_VALIDATION_PROTOCOL.md dist\HappyMeasure\
 Copy-Item docs\HARDWARE_DRY_RUN_GUIDE.md dist\HappyMeasure\
+Copy-Item config\*.json dist\HappyMeasure\config\
+Copy-Item examples\* dist\HappyMeasure\examples\
 ```
 
 This workaround was used successfully on Windows 11 with Python 3.14.5,
