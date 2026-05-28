@@ -556,6 +556,8 @@ class PersistentDatasetStore(DatasetStore):
             "auto_measure_range": config.auto_measure_range,
             "source_range": config.source_range,
             "measure_range": config.measure_range,
+            "range_settle_delay_ms": config.range_settle_delay_ms,
+            "discard_after_range_change": config.discard_after_range_change,
             "adaptive_logic": config.adaptive_logic,
             "debug_model": config.debug_model,
         }
@@ -587,6 +589,8 @@ class PersistentDatasetStore(DatasetStore):
             auto_measure_range=data.get("auto_measure_range", True),
             source_range=data.get("source_range", 0.0),
             measure_range=data.get("measure_range", 0.0),
+            range_settle_delay_ms=data.get("range_settle_delay_ms", 300),
+            discard_after_range_change=data.get("discard_after_range_change", 2),
             adaptive_logic=data.get("adaptive_logic", ""),
             debug_model=data.get("debug_model", ""),
         )

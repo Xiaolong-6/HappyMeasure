@@ -95,3 +95,22 @@ def test_current_source_command_sequence_uses_voltage_compliance_and_measurement
     assert ":SENS:VOLT:PROT 5" in commands
     assert ":SOUR:CURR 0.001" in commands
     assert commands[-2:] == [":READ?", ":OUTP OFF"]
+
+
+def test_current_range_scpi_api_uses_keithley_2400_commands() -> None:
+    meter = Keithley2400Serial("COM_FAKE", retry_policy=None)
+    meter.connect()
+    serial = FakeSerial.instances[-1]
+    serial.responses = [b"1\n", b"1e-9\n"]
+
+    assert meter.get_current_autorange() is True
+    meter.set_current_autorange(False)
+    assert meter.get_current_range() == 1e-9
+    meter.set_current_range(10e-9)
+
+    assert serial.commands == [
+        ":SENS:CURR:RANG:AUTO?",
+        ":SENS:CURR:RANG:AUTO OFF",
+        ":SENS:CURR:RANG?",
+        ":SENS:CURR:RANG 1e-08",
+    ]

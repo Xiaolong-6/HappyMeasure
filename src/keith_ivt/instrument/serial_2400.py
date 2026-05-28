@@ -110,3 +110,16 @@ class Keithley2400Serial(SourceMeter):
 
     def output_off(self) -> None:
         OutputOffGuard().turn_off(lambda: self.write(":OUTP OFF"), context="Keithley2400Serial.output_off")
+
+    def get_current_autorange(self) -> bool:
+        raw = self.query(":SENS:CURR:RANG:AUTO?")
+        return raw.strip().upper() in {"1", "ON", "TRUE"}
+
+    def set_current_autorange(self, enabled: bool) -> None:
+        self.write(f":SENS:CURR:RANG:AUTO {'ON' if enabled else 'OFF'}")
+
+    def get_current_range(self) -> float:
+        return float(self.query(":SENS:CURR:RANG?"))
+
+    def set_current_range(self, range_A: float) -> None:
+        self.write(f":SENS:CURR:RANG {float(range_A):.12g}")

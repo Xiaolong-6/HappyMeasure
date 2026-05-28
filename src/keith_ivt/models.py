@@ -55,6 +55,8 @@ class SweepConfig:
     auto_measure_range: bool = True
     source_range: float = 0.0
     measure_range: float = 0.0
+    range_settle_delay_ms: int = 300
+    discard_after_range_change: int = 2
     adaptive_logic: str = "values = logspace(1e-3, 1, 31)"
     debug_model: str = "Linear resistor 10 kΩ"
 
@@ -239,3 +241,7 @@ def validate_config(config: SweepConfig) -> None:
         raise ValueError("NPLC should normally be between 0.01 and 10.")
     if config.delay_s < 0:
         raise ValueError("Delay must be zero or positive.")
+    if config.range_settle_delay_ms < 0:
+        raise ValueError("Range settle delay must be zero or positive.")
+    if config.discard_after_range_change < 0:
+        raise ValueError("Discard readings after range change must be zero or positive.")

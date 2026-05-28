@@ -1,3 +1,11 @@
+## 2026-05-28 Keithley current range front-panel control
+
+- `src/keith_ivt/core/current_range.py` owns current-range display formatting, supported range labels, thread-safe UI-to-runner actions, and range state snapshots.
+- `src/keith_ivt/ui/status_bar.py` now extends the Keithley-style popup with current autorange, actual/fixed range, lock-current, settle-delay, and discard-count controls. The bottom status readout includes `Irange Auto/...` or `Irange Fixed/...`.
+- `src/keith_ivt/core/sweep_runner.py` applies queued range actions in the worker thread and discards configured readings after manual or detected actual-range changes before points enter live traces or saved results.
+- `SimulatedKeithley.force_autorange_current_range_on_read(read_index, range_A)` is the deterministic simulator hook for tests; keep normal simulator autorange behavior non-random.
+- Regression command: `.\.venv\Scripts\python.exe -m pytest tests\test_current_range_control.py tests\test_mock_visa_command_sequence.py tests\test_simulator_behavior.py -q -p no:cacheprovider`.
+
 ## 2026-05-18 axis-range popup hotfix
 
 - `ui/plot_controls.py` no longer opens the axis range editor directly from the Tk popup menu command. `Set X range...` and `Set Y range...` now call `_schedule_axis_range_dialog()`, which returns immediately and opens the editor after 250 ms so the native menu can unpost naturally.

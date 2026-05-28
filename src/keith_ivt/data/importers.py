@@ -97,6 +97,8 @@ def _config_from_metadata(metadata: dict[str, Any], fallback_name: str = "Import
         auto_measure_range=_bool_or_default(metadata.get("auto_measure_range"), autorange),
         source_range=_float_or_default(metadata.get("source_range"), 0.0),
         measure_range=_float_or_default(metadata.get("measure_range"), 0.0),
+        range_settle_delay_ms=_int_or_default(metadata.get("range_settle_delay_ms"), 300),
+        discard_after_range_change=_int_or_default(metadata.get("discard_after_range_change"), 2),
         adaptive_logic=str(metadata.get("adaptive_logic") or "values = logspace(1e-3, 1, 31)"),
         debug_model=str(metadata.get("debug_model") or "Linear resistor 10 kΩ"),
     )

@@ -11,6 +11,7 @@ from tkinter import font as tkfont, ttk
 
 from keith_ivt.diagnostics import install_tk_exception_logging, log_runtime_error
 from keith_ivt.core.adaptive_logic import DEFAULT_ADAPTIVE_LOGIC
+from keith_ivt.core.current_range import CurrentRangeControl
 from keith_ivt.data.dataset_store import DatasetStore, DeviceTrace
 from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.data.settings import load_settings
@@ -77,6 +78,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._last_update_check_result: dict[str, str | None] | None = None
         self._last_update_check_timestamp: float | None = None
         self._update_release_url = self.UPDATE_REPO_URL
+        self._current_range_control = CurrentRangeControl()
 
         # Sweep and metadata variables
         self.mode = StringVar(value=self.settings.default_mode)
@@ -98,6 +100,8 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.auto_measure_range = BooleanVar(value=self.settings.default_autorange)
         self.source_range = DoubleVar(value=self.settings.default_source_range)
         self.measure_range = DoubleVar(value=self.settings.default_measure_range)
+        self.range_settle_delay_ms = IntVar(value=300)
+        self.discard_after_range_change = IntVar(value=2)
         self.device_name = StringVar(value=self.settings.default_device_name)
         self.operator = StringVar(value=self.settings.default_operator)
 
@@ -260,6 +264,8 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             auto_measure_range=bool(self.auto_measure_range.get()),
             source_range=float(self.source_range.get()),
             measure_range=float(self.measure_range.get()),
+            range_settle_delay_ms=int(self.range_settle_delay_ms.get()),
+            discard_after_range_change=int(self.discard_after_range_change.get()),
             adaptive_logic=self.adaptive_logic.get() or DEFAULT_ADAPTIVE_LOGIC,
             debug_model=self.debug_model.get(),
         )

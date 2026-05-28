@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased - Keithley front-panel current range control
+
+- Expanded the Keithley-style front-panel popup with current autorange state, actual current range, fixed-range selection, `Lock current range`, last range-change age, settle delay, and discard-count controls.
+- Added current-range SCPI accessors for Keithley 2400/2401 style drivers and deterministic simulator support for autorange actual-range changes.
+- Added sweep-runner filtering so readings immediately after manual or automatic current-range changes are settled/discarded before they enter live traces, saved results, or CSV export.
+- Added regression coverage in `tests/test_current_range_control.py` plus current-range SCPI assertions in `tests/test_mock_visa_command_sequence.py`.
+
 ## 1.1b2 — Step/Adaptive hysteresis sweep beta
 
 - Added optional forward/reverse hysteresis for finite Step and Adaptive sweeps. The default is OFF so existing presets and workflows keep their previous one-way source sequence.

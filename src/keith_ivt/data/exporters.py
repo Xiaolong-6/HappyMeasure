@@ -52,6 +52,8 @@ def result_metadata(result: SweepResult) -> dict:
         "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
         "source_range": cfg.source_range,
         "measure_range": cfg.measure_range,
+        "range_settle_delay_ms": cfg.range_settle_delay_ms,
+        "discard_after_range_change": cfg.discard_after_range_change,
     }, sort_keys=True).encode("utf-8")).hexdigest()[:16]
     return {
         "schema": "HappyMeasure CSV v2",
@@ -84,6 +86,8 @@ def result_metadata(result: SweepResult) -> dict:
         "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
         "source_range": cfg.source_range,
         "measure_range": cfg.measure_range,
+        "range_settle_delay_ms": cfg.range_settle_delay_ms,
+        "discard_after_range_change": cfg.discard_after_range_change,
         "adaptive_logic": cfg.adaptive_logic,
         "debug_model": cfg.debug_model,
         "data_fingerprint": data_fingerprint,

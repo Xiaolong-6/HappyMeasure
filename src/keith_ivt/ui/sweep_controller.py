@@ -6,6 +6,7 @@ import time
 import traceback
 from tkinter import messagebox, simpledialog
 
+from keith_ivt.core.current_range import CurrentRangeState
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.backup import autosave_result
 from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
@@ -44,6 +45,11 @@ class SweepControllerMixin:
         except Exception:
             pass
         self._x_data.clear(); self._y_data.clear(); self._live_points.clear(); self._live_config = config
+        self._current_range_control.update_state(CurrentRangeState(
+            autorange=bool(config.auto_measure_range),
+            actual_range_A=config.measure_range if (not config.auto_measure_range and config.measure_range > 0) else None,
+            fixed_range_A=config.measure_range if (not config.auto_measure_range and config.measure_range > 0) else None,
+        ))
         self._reset_live_measurement_status()
         try:
             self._measurement_xy.clear()
@@ -77,6 +83,7 @@ class SweepControllerMixin:
                     on_point=self._on_point_thread,
                     should_stop=(stop_event.is_set if stop_event is not None else lambda: self._stop_requested),
                     should_pause=(pause_event.is_set if pause_event is not None else lambda: self._paused),
+                    current_range_control=getattr(self, "_current_range_control", None),
                 )
             self._queue.put(("complete", result))
         except Exception as exc:

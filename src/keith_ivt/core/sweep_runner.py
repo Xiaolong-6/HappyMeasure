@@ -6,6 +6,7 @@ import sys
 import math
 from datetime import datetime
 
+from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.models import SweepConfig, SweepKind, SweepPoint, SweepResult, validate_config, source_values_for_config
 
@@ -32,6 +33,7 @@ class SweepRunner:
         on_point: PointCallback | None = None,
         should_stop: StopCallback | None = None,
         should_pause: PauseCallback | None = None,
+        current_range_control: CurrentRangeControl | None = None,
     ) -> SweepResult:
         validate_config(config)
         if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
@@ -40,6 +42,8 @@ class SweepRunner:
         points: list[SweepPoint] = []
         t0 = time.monotonic()
         stopped_by_operator = False
+        discard_remaining = 0
+        last_actual_range_A: float | None = None
 
         def _should_stop() -> bool:
             nonlocal stopped_by_operator
@@ -50,6 +54,9 @@ class SweepRunner:
 
         self.instrument.reset()
         self.instrument.configure_for_sweep(config)
+        if current_range_control is not None:
+            state = self._refresh_current_range_state(current_range_control)
+            last_actual_range_A = state.actual_range_A
         self.instrument.output_on()
 
         try:
@@ -67,8 +74,15 @@ class SweepRunner:
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
+                    discard_remaining = self._apply_current_range_actions(config, current_range_control, discard_remaining, _should_stop)
                     reported_source, measured = self.instrument.read_source_and_measure()
                     reported_source, measured = self._validated_readback(reported_source, measured)
+                    discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
+                        config, current_range_control, discard_remaining, last_actual_range_A, _should_stop
+                    )
+                    if should_discard:
+                        _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
+                        continue
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -89,8 +103,16 @@ class SweepRunner:
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
+                    discard_remaining = self._apply_current_range_actions(config, current_range_control, discard_remaining, _should_stop)
                     reported_source, measured = self.instrument.read_source_and_measure()
                     reported_source, measured = self._validated_readback(reported_source, measured)
+                    discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
+                        config, current_range_control, discard_remaining, last_actual_range_A, _should_stop
+                    )
+                    if should_discard:
+                        if config.sweep_kind is SweepKind.CONSTANT_TIME and index < total:
+                            _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
+                        continue
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -102,6 +124,94 @@ class SweepRunner:
                 self._safe_output_off_preserving_error()
 
         return SweepResult(config=config, points=points)
+
+    def _refresh_current_range_state(self, control: CurrentRangeControl) -> CurrentRangeState:
+        previous = control.snapshot()
+        warning = None
+        autorange = None
+        actual = None
+        try:
+            autorange = bool(self.instrument.get_current_autorange())
+        except Exception as exc:
+            warning = f"Current autorange query failed: {exc}"
+        try:
+            actual = float(self.instrument.get_current_range())
+        except Exception as exc:
+            warning = f"Current range query failed: {exc}"
+        return control.update_state(CurrentRangeState(
+            autorange=autorange,
+            actual_range_A=actual,
+            fixed_range_A=None if autorange else actual,
+            last_change_monotonic_s=previous.last_change_monotonic_s,
+            warning=warning,
+        ))
+
+    def _mark_range_change(self, control: CurrentRangeControl | None, range_A: float | None = None) -> None:
+        if control is None:
+            return
+        state = control.snapshot()
+        control.update_state(CurrentRangeState(
+            autorange=state.autorange,
+            actual_range_A=range_A if range_A is not None else state.actual_range_A,
+            fixed_range_A=state.fixed_range_A,
+            last_change_monotonic_s=time.monotonic(),
+            warning=state.warning,
+        ))
+
+    def _apply_current_range_actions(
+        self,
+        config: SweepConfig,
+        control: CurrentRangeControl | None,
+        discard_remaining: int,
+        should_stop: StopCallback | None,
+    ) -> int:
+        if control is None:
+            return discard_remaining
+        for action in control.drain_actions():
+            try:
+                if action.kind == "autorange":
+                    self.instrument.set_current_autorange(bool(action.value))
+                elif action.kind == "fixed_range":
+                    self.instrument.set_current_autorange(False)
+                    self.instrument.set_current_range(float(action.value))
+                elif action.kind == "lock_current":
+                    actual = float(self.instrument.get_current_range())
+                    self.instrument.set_current_autorange(False)
+                    self.instrument.set_current_range(actual)
+            except Exception as exc:
+                control.with_warning(f"Current range control failed: {exc}")
+                continue
+            state = self._refresh_current_range_state(control)
+            self._mark_range_change(control, state.actual_range_A)
+            _interruptible_sleep(float(config.range_settle_delay_ms) / 1000.0, should_stop)
+            discard_remaining = max(discard_remaining, int(config.discard_after_range_change))
+        return discard_remaining
+
+    def _range_discard_decision(
+        self,
+        config: SweepConfig,
+        control: CurrentRangeControl | None,
+        discard_remaining: int,
+        last_actual_range_A: float | None,
+        should_stop: StopCallback | None,
+    ) -> tuple[int, float | None, bool]:
+        if control is None:
+            return discard_remaining, last_actual_range_A, False
+        state = self._refresh_current_range_state(control)
+        actual = state.actual_range_A
+        changed = (
+            last_actual_range_A is not None
+            and actual is not None
+            and abs(actual - last_actual_range_A) > max(1e-15, abs(last_actual_range_A) * 1e-6)
+        )
+        if changed:
+            self._mark_range_change(control, actual)
+            _interruptible_sleep(float(config.range_settle_delay_ms) / 1000.0, should_stop)
+            discard_remaining = max(discard_remaining, int(config.discard_after_range_change))
+        last_actual_range_A = actual if actual is not None else last_actual_range_A
+        if discard_remaining > 0:
+            return discard_remaining - 1, last_actual_range_A, True
+        return discard_remaining, last_actual_range_A, False
 
 
     @staticmethod

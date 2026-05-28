@@ -4,6 +4,7 @@ import math
 import tkinter as tk
 from tkinter import Toplevel, ttk
 
+from keith_ivt.core.current_range import current_range_labels, format_current_range, parse_current_range_label
 from keith_ivt.models import SweepMode
 
 
@@ -145,6 +146,7 @@ class StatusBarMixin:
         text = (
             f"{src_label} {self._format_eng_value(getattr(self, '_last_source_value', None), source_unit)} · "
             f"{meas_label} {self._format_eng_value(getattr(self, '_last_measured_value', None), measure_unit)} · "
+            f"Irange {self._current_range_status_fragment()} · "
             f"Cmpl {self._format_eng_value(compliance_value, cmpl_unit)}"
         )
         if hasattr(self, "measurement_status_text"):
@@ -158,6 +160,58 @@ class StatusBarMixin:
         self._last_measured_value = 0.0
         self._refresh_live_measurement_status()
 
+    def _current_range_snapshot(self):
+        control = getattr(self, "_current_range_control", None)
+        if control is None:
+            return None
+        try:
+            return control.snapshot()
+        except Exception:
+            return None
+
+    def _current_range_status_fragment(self) -> str:
+        state = self._current_range_snapshot()
+        if state is not None:
+            return state.status_fragment()
+        try:
+            if bool(self.auto_measure_range.get()):
+                return "Auto/Unknown"
+        except Exception:
+            return "Unknown"
+        try:
+            return f"Fixed/{format_current_range(float(self.measure_range.get()))}"
+        except Exception:
+            return "Fixed/Unknown"
+
+    def _front_panel_autorange_changed(self) -> None:
+        enabled = bool(self.auto_measure_range.get())
+        control = getattr(self, "_current_range_control", None)
+        if control is not None:
+            control.request_autorange(enabled)
+        self._refresh_live_measurement_status()
+
+    def _front_panel_fixed_range_selected(self, _event=None) -> None:
+        combo = getattr(self, "_front_panel_range_combo", None)
+        value = parse_current_range_label(combo.get() if combo is not None else "")
+        if value is None:
+            return
+        self.auto_measure_range.set(False)
+        self.measure_range.set(value)
+        control = getattr(self, "_current_range_control", None)
+        if control is not None:
+            control.request_fixed_range(value)
+        self._refresh_live_measurement_status()
+
+    def _front_panel_lock_current_range(self) -> None:
+        state = self._current_range_snapshot()
+        if state is not None and state.actual_range_A is not None:
+            self.measure_range.set(state.actual_range_A)
+        self.auto_measure_range.set(False)
+        control = getattr(self, "_current_range_control", None)
+        if control is not None:
+            control.request_lock_current()
+        self._refresh_live_measurement_status()
+
     def _open_front_panel_popup(self, *, auto_open: bool = False) -> None:
         if getattr(self, "_front_panel_window", None) is not None:
             try:
@@ -167,7 +221,7 @@ class StatusBarMixin:
                 pass
         win = Toplevel(self.root)
         win.title("Keithley-style front panel")
-        win.geometry("700x260")
+        win.geometry("760x430")
         win.configure(background="#CFCFCB")
         self._front_panel_window = win
         self._front_panel_auto_opened = bool(auto_open)
@@ -181,8 +235,34 @@ class StatusBarMixin:
         self._front_panel_sub_value.pack(fill="x", padx=12, pady=(0, 10))
         meta = ttk.Frame(main, style="Card.TFrame")
         meta.pack(fill="both", expand=True)
+        meta.columnconfigure(0, weight=1)
+        meta.columnconfigure(1, weight=2)
         self._front_panel_meta = ttk.Label(meta, text="", style="Card.TLabel", justify="left")
-        self._front_panel_meta.pack(anchor="w", padx=6, pady=(0, 8))
+        self._front_panel_meta.grid(row=0, column=0, sticky="nw", padx=(6, 12), pady=(0, 8))
+        range_box = ttk.LabelFrame(meta, text="Current range")
+        range_box.grid(row=0, column=1, sticky="ew", padx=6, pady=(0, 8))
+        for col in range(4):
+            range_box.columnconfigure(col, weight=1)
+        self._front_panel_range_headline = ttk.Label(range_box, text="", style="Card.TLabel")
+        self._front_panel_range_headline.grid(row=0, column=0, columnspan=4, sticky="w", padx=6, pady=(4, 2))
+        self._front_panel_range_detail = ttk.Label(range_box, text="", style="Card.TLabel")
+        self._front_panel_range_detail.grid(row=1, column=0, columnspan=4, sticky="w", padx=6, pady=(0, 6))
+        self._front_panel_autorange_check = ttk.Checkbutton(
+            range_box,
+            text="Auto current range",
+            variable=self.auto_measure_range,
+            command=self._front_panel_autorange_changed,
+        )
+        self._front_panel_autorange_check.grid(row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
+        self._front_panel_range_combo = ttk.Combobox(range_box, values=current_range_labels(), state="readonly", width=18)
+        self._front_panel_range_combo.grid(row=2, column=2, sticky="ew", padx=6, pady=4)
+        self._front_panel_range_combo.bind("<<ComboboxSelected>>", self._front_panel_fixed_range_selected)
+        ttk.Button(range_box, text="Lock current range", command=self._front_panel_lock_current_range).grid(row=2, column=3, sticky="ew", padx=6, pady=4)
+        ttk.Label(range_box, text="Range settle delay").grid(row=3, column=0, sticky="w", padx=6, pady=4)
+        ttk.Entry(range_box, textvariable=self.range_settle_delay_ms, width=7).grid(row=3, column=1, sticky="w", padx=6, pady=4)
+        ttk.Label(range_box, text="ms").grid(row=3, column=1, sticky="e", padx=6, pady=4)
+        ttk.Label(range_box, text="Discard readings").grid(row=3, column=2, sticky="w", padx=6, pady=4)
+        ttk.Entry(range_box, textvariable=self.discard_after_range_change, width=6).grid(row=3, column=3, sticky="w", padx=6, pady=4)
         btns = ttk.Frame(main)
         btns.pack(fill="x")
         ttk.Button(btns, text="Close", command=self._close_front_panel_popup).pack(side="right")
@@ -205,6 +285,33 @@ class StatusBarMixin:
         if not getattr(self, "_front_panel_auto_opened", False):
             return
         self._close_front_panel_popup()
+
+    def _refresh_front_panel_range_widgets(self) -> None:
+        if not hasattr(self, "_front_panel_range_headline"):
+            return
+        range_state = self._current_range_snapshot()
+        if range_state is not None:
+            headline = range_state.headline()
+            detail = (
+                f"Autorange: {'ON' if range_state.autorange else 'OFF' if range_state.autorange is False else 'Unknown'}   "
+                f"Actual range: {format_current_range(range_state.actual_range_A)}   "
+                f"Last range change: {range_state.last_change_text()}"
+            )
+            if range_state.warning:
+                detail += f"\nWarning: {range_state.warning}"
+        else:
+            headline = "Current range: Unknown"
+            detail = "Autorange: Unknown   Actual range: Unknown   Last range change: none"
+        self._front_panel_range_headline.configure(text=headline)
+        self._front_panel_range_detail.configure(text=detail)
+        try:
+            fixed_value = float(self.measure_range.get())
+        except Exception:
+            fixed_value = range_state.fixed_range_A if range_state is not None else None
+        label = next((item for item in current_range_labels() if fixed_value is not None and item.startswith(format_current_range(fixed_value))), "")
+        if label:
+            self._front_panel_range_combo.set(label)
+        self._front_panel_range_combo.configure(state="disabled" if bool(self.auto_measure_range.get()) else "readonly")
 
     def _refresh_front_panel_popup(self) -> None:
         win = getattr(self, "_front_panel_window", None)
@@ -239,10 +346,10 @@ class StatusBarMixin:
             model = "--"
         state = getattr(self, "_run_state", "idle")
         conn = self.status_connection_text.get() if hasattr(self, "status_connection_text") else "--"
+        self._refresh_front_panel_range_widgets()
         self._front_panel_meta.configure(text=(
             f"Model: {model}\n"
             f"Connection: {conn}\n"
             f"Run state: {state.title()}\n"
             f"Terminal: {terminal} · Sense: {getattr(self, 'sense_mode', None).get() if hasattr(self, 'sense_mode') else '--'}"
         ))
-

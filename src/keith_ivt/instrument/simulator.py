@@ -12,6 +12,7 @@ from keith_ivt.drivers.base import (
     MeasureMode,
     SourceMode,
 )
+from keith_ivt.core.current_range import CURRENT_RANGE_OPTIONS_A
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.models import SweepConfig
 
@@ -80,6 +81,10 @@ class SimulatedKeithley(SourceMeter):
         self._output = False
         self._set_source_count = 0
         self._read_count = 0
+        self._current_autorange = True
+        self._current_range_A = 1e-6
+        self._last_current_range_change_s: float | None = None
+        self._forced_autorange_ranges: dict[int, float] = {}
 
     def connect(self) -> None:
         self.events.append("connect")
@@ -108,6 +113,9 @@ class SimulatedKeithley(SourceMeter):
         if self.fault_profile.configure_error:
             raise RuntimeError(self.fault_profile.configure_error)
         self._config = config
+        self._current_autorange = bool(config.auto_measure_range)
+        if config.measure_scpi == "CURR" and not self._current_autorange and config.measure_range > 0:
+            self._set_current_range_internal(config.measure_range)
 
     def set_source(self, source_cmd: str, value: float) -> None:
         self._set_source_count += 1
@@ -131,6 +139,7 @@ class SimulatedKeithley(SourceMeter):
         time.sleep(nplc_delay)
         if self._config is None:
             raise RuntimeError("Simulator not configured.")
+        self._maybe_update_autorange_current_range()
         if self._config.source_scpi == "VOLT":
             ideal = self._current_from_voltage(self._last_source)
             noise_floor = 1e-9 if self.noise_fraction > 0 else 0.0
@@ -171,10 +180,42 @@ class SimulatedKeithley(SourceMeter):
         return max(-limit, min(limit, value))
 
     def _apply_measure_range(self, value: float) -> float:
-        if self._config is None or self._config.auto_measure_range or self._config.measure_range <= 0:
+        if self._config is None:
             return value
-        limit = abs(float(self._config.measure_range))
+        if self._config.measure_scpi != "CURR":
+            if self._config.auto_measure_range or self._config.measure_range <= 0:
+                return value
+            limit = abs(float(self._config.measure_range))
+            return max(-limit, min(limit, value))
+        if self._current_autorange or self._current_range_A <= 0:
+            return value
+        limit = abs(float(self._current_range_A))
         return max(-limit, min(limit, value))
+
+    def _set_current_range_internal(self, range_A: float) -> None:
+        new_range = abs(float(range_A))
+        if new_range <= 0:
+            raise ValueError("Current range must be positive.")
+        if abs(new_range - self._current_range_A) > max(1e-15, abs(self._current_range_A) * 1e-6):
+            self._last_current_range_change_s = time.monotonic()
+        self._current_range_A = new_range
+
+    def _nearest_supported_current_range(self, current_A: float) -> float:
+        target = max(abs(float(current_A)) * 1.2, CURRENT_RANGE_OPTIONS_A[0])
+        for option in CURRENT_RANGE_OPTIONS_A:
+            if option >= target:
+                return option
+        return CURRENT_RANGE_OPTIONS_A[-1]
+
+    def _maybe_update_autorange_current_range(self) -> None:
+        if not self._current_autorange:
+            return
+        if self._read_count in self._forced_autorange_ranges:
+            self._set_current_range_internal(self._forced_autorange_ranges.pop(self._read_count))
+            return
+        if self._config is None or self._config.source_scpi != "VOLT":
+            return
+        self._set_current_range_internal(self._nearest_supported_current_range(self._current_from_voltage(self._last_source)))
 
     def _apply_compliance(self, value: float) -> float:
         if self._config is None or self._config.compliance <= 0:
@@ -236,6 +277,28 @@ class SimulatedKeithley(SourceMeter):
         if self.fault_profile.output_off_error:
             raise RuntimeError(self.fault_profile.output_off_error)
         self._output = False
+
+    def get_current_autorange(self) -> bool:
+        return bool(self._current_autorange)
+
+    def set_current_autorange(self, enabled: bool) -> None:
+        self.events.append(f"set_current_autorange:{bool(enabled)}")
+        self._current_autorange = bool(enabled)
+
+    def get_current_range(self) -> float:
+        return float(self._current_range_A)
+
+    def set_current_range(self, range_A: float) -> None:
+        self.events.append(f"set_current_range:{float(range_A):.12g}")
+        self._current_autorange = False
+        self._set_current_range_internal(range_A)
+
+    def force_autorange_current_range_on_read(self, read_index: int, range_A: float) -> None:
+        self._forced_autorange_ranges[int(read_index)] = float(range_A)
+
+    @property
+    def last_current_range_change_s(self) -> float | None:
+        return self._last_current_range_change_s
 
     # === SMUDriver Protocol Compatibility Methods ===
     # These methods allow SimulatedKeithley to be used with new SMUDriver-based code
