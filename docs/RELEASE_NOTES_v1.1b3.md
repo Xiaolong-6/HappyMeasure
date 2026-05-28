@@ -19,9 +19,10 @@ HappyMeasure 1.1b3 adds front-panel current-range control for Keithley 2400/2401
 
 ## Validation
 
-- 337 tests pass (1 skipped)
+- 406 tests pass (1 skipped)
+- Coverage: 95.06% (meets the 95% threshold)
 - Version consistency verified across pyproject.toml, version.py, README.md, and CHANGELOG.md
-- No known hardware regressions
+- No simulator-level regressions found; hardware validation pending
 
 ## Upgrade notes
 

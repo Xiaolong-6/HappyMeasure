@@ -31,7 +31,7 @@ def main() -> None:
     run([sys.executable, str(TEST.relative_to(ROOT))])
     run([sys.executable, "-m", "pytest", "-q"])
     run([sys.executable, "-m", "pytest", "--cov=keith_ivt", "--cov-report=term", "-q"])
-    print("PASS current alpha validation")
+    print("PASS current beta validation")
 
 
 if __name__ == "__main__":

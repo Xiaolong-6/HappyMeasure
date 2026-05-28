@@ -50,12 +50,14 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
 
-## What changed in 1.1b2
+## What changed in 1.1b3
 
-- Adds optional forward/reverse hysteresis for finite Step and Adaptive sweeps. Default is OFF, and Time sweeps keep their fixed-value timing behavior.
-- Places the hysteresis toggle directly below `Sweep type`, replacing the stale workflow note in the Sweep panel.
-- Persists the hysteresis flag in CSV metadata and restores it when importing previous HappyMeasure exports.
-- Adds regression coverage for Step, Adaptive, and Time sweep source-sequence behavior.
+- Adds Keithley front-panel current range control with SCPI accessors, deterministic simulator support, and sweep-runner range-change settling.
+- Polishes the front-panel current-range popup layout so labels/buttons no longer clip, range state is shown as compact Mode / Actual range / Last change summary cells, and range controls are grouped into one readable row.
+- Fixed NPLC validation for constant-time sweeps so the interval check no longer includes serial overhead.
+- Fixed CSV import/export metadata round-trip so device_name, operator, mode, and autorange are preserved correctly.
+- Adds regression coverage in `tests/test_current_range_control.py` plus current-range SCPI assertions in `tests/test_mock_visa_command_sequence.py`.
+- Keeps the 1.1b2 hysteresis sweep feature: optional forward/reverse hysteresis for finite Step and Adaptive sweeps, default OFF.
 - Keeps the 1.1b1 startup updater path: Settings-controlled update checking, external updater handoff, preserved user settings/presets/logs/exports/backups/data, and active-sweep install blocking.
 - Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
 - Full bench validation of every hardware feature remains planned after this beta release.
