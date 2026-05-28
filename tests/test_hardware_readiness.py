@@ -44,7 +44,7 @@ def test_naming_guide_contract():
     naming = (ROOT / "docs" / "NAMING.md").read_text(encoding="utf-8")
     assert "HappyMeasure is the only user-facing product name" in naming
     assert "keith_ivt" in naming
-    grep_targets = [ROOT / "README.md", ROOT / "docs" / "AGENT_HANDOFF.md", ROOT / "docs" / "NEW_THREAD_CONTEXT.md"]
+    grep_targets = [ROOT / "README.md", ROOT / "docs" / "AGENT_HANDOFF.md"]
     for path in grep_targets:
         assert "SMU-IVCV Studio" not in path.read_text(encoding="utf-8")
 

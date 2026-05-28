@@ -75,14 +75,14 @@
 - Cleared the live renderer cache before full redraw and empty-live placeholder paths.
 - Kept the `0.6.0-alpha.2` axis-limit fix: incremental live updates still call `relim()` and `autoscale_view()` so sweeps outside Matplotlib's default `0..1` range remain visible.
 - Added live-plot regression coverage for autoscale, stale artist recreation, and full-redraw cache invalidation contracts.
-- Added `.gitignore`, removed generated logs/caches from release packaging, updated current-version docs, and recorded architecture debt in `docs/TECH_DEBT_AGENT_NOTES.md`.
+- Added `.gitignore`, removed generated logs/caches from release packaging, updated current-version docs, and recorded architecture debt in agent handoff notes.
 
 ## 0.6.0-alpha.2 — Live plot autoscale and agent handoff cleanup
 
 - Fixed real-time plotting in the incremental renderer: after updating cached `Line2D` data, touched axes call `relim()` and `autoscale_view()` so live sweeps outside the default `0..1` Matplotlib limits are visible.
 - Removed transient `Waiting for data...` text when the first live data points arrive.
 - Changed live plot color selection to use the active UI palette accent instead of a hard-coded blue.
-- Clarified handoff structure: `README.md` is human-facing; `docs/AGENT_START_HERE.md` and `docs/AGENT_HANDOFF.md` are agent-facing; `tests/README.md` maps behavior-oriented test names.
+- Clarified handoff structure: `README.md` is human-facing; `docs/AGENT_HANDOFF.md` is agent-facing; `tests/README.md` maps behavior-oriented test names.
 - Renamed historical alpha-numbered tests to behavior-oriented file names and updated validation scripts.
 
 ## 0.6.0-alpha.2 — Trace/log/font/export consolidation

@@ -7,7 +7,7 @@ Current version: `1.1b3` (1.1 beta 3).
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
 
-The product name and public Python package namespace are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains available as a compatibility layer, so existing imports and older local launch commands keep working during the alpha migration.
+The product name and public Python package namespace are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains available as a compatibility layer, so existing imports and older local launch commands keep working during the migration.
 
 ## Start the app
 

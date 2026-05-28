@@ -4,12 +4,10 @@ HappyMeasure uses a **Core Flat + Nordic Lab** style. The UI should feel like a 
 
 ## Navigation
 
-- Use a hidden left drawer, not a permanent tab rail.
-- The current page title bar starts with a hamburger button (`☰`) followed by the page title.
-- Clicking the hamburger opens the drawer from the left.
-- Selecting a drawer item switches the page and closes the drawer.
-- `Esc` or clicking outside the drawer closes it.
-- Active drawer item uses a flat selected background that visually belongs to the page content.
+- Use a push-side rail, not a hidden drawer or permanent tab bar.
+- The rail reserves column 0 and the workspace uses column 1.
+- Clicking a rail button switches the page; the rail does not auto-hide on outside clicks.
+- Active rail button uses a flat selected background that visually belongs to the page content.
 
 ## Color and surfaces
 
@@ -55,13 +53,13 @@ Plot style
 - **Clear Traces** means removing traces from the current workspace.
 
 
-## 0.2.4 layout lock
+## Layout lock
 
 The accepted product shell is Core Flat / clean lab:
 
-- Hidden left drawer opened by the hamburger in the page header.
+- Push-side rail for navigation, not a hidden drawer.
 - Left content pane configures the current workflow; it should not duplicate global execution buttons.
-- The bottom operator bar is the only Start/Pause/Emergency Stop surface.
+- The bottom operator bar is the only Start/Pause/STOP surface.
 - Wide windows use Config | Plot | Traces. Narrow windows stack Traces below Plot automatically.
 - View-specific plot settings live in the plot right-click menu, not in the top toolbar.
-- Buttons must remain visually identifiable: filled green for Start, filled red for Emergency Stop, bordered/soft cards for secondary actions.
+- Buttons must remain visually identifiable: filled green for Start, filled red for STOP, bordered/soft cards for secondary actions.

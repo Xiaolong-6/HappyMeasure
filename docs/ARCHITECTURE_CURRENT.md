@@ -1,6 +1,6 @@
-# Current architecture — HappyMeasure 1.0b1
+# Current architecture — HappyMeasure 1.1b3
 
-HappyMeasure remains a simulator-first alpha, but the application shell is now split enough for external review without reading a monolithic UI file.
+HappyMeasure is a simulator-first beta, with the application shell split into focused UI modules for external review.
 
 ## Runtime layers
 
@@ -37,29 +37,16 @@ src/keith_ivt/
 - Connection state is shown only in the bottom status bar, never in the page header.
 - Plot and Traces live in a vertical `ttk.PanedWindow`; the plot pane must remain present even if every view is disabled.
 - During a run, the trace pane is temporarily hidden and the plot shows live data only. After completion, traces are restored.
-- `AppState` is now instantiated by the UI and synchronized with run/connection transitions, but legacy fields are retained for compatibility during alpha.
+- `AppState` is now instantiated by the UI and synchronized with run/connection transitions.
 
-## Beta-readiness gap
+## Design decisions
 
-1.0b1 keeps the 0.6 architectural-refactoring baseline, preserves the live-plot/cache, simulator, mixin, and logging fixes, and adds pre-hardware safety/mock-command validation. Remaining beta work is real Windows/Tk smoke validation, structured bench validation, and wider hardware-integration tests.
+- **Split by runtime responsibility**: The application was decomposed into small mixin modules because the UI needs fast iteration without introducing a full framework. This keeps Tkinter simple while removing most logic from `simple_app.py`.
+- **State migration strategy**: `ui/app_state.py` is the target single source of truth for run and connection state. It is synchronized with legacy fields rather than replacing them outright to avoid high-risk one-shot migration.
+- **Plot/traces safety contract**: The Matplotlib plot pane must never be removed from the splitter. Trace pane visibility can change during live measurement, but plot must remain stable.
+- **Package size policy**: The project remains source-only. Do not commit virtual environments, `__pycache__`, `.pytest_cache`, generated coverage HTML, large screenshots, or vendor assets.
 
-
-## 0.5.0-alpha.1 patch note
-
-Alpha.2 preserves the alpha.1 module decomposition and fixes the Start/config regression caused by missing model imports in the composition root. It also tightens the visual contract for the plot toolbar, scrollbars, status cells, and operator bar.
-
-
-## 0.5.0-alpha.1 interaction/import/status/theme update
-
-This build preserves the 0.4.0 decomposition and adds targeted UI/workflow fixes: plot context-menu fallback binding, import-overlap prompting, detected COM-port dropdown, checked-trace export, last-save status-bar cell, debug emoji indicator, High contrast theme, and interruptible simulator sleep for Stop responsiveness.
-
-
-## 0.5.0-alpha.1 theme/menu note
-
-This build fixes the trace-column gear menu import regression and changes the UI baseline: `High contrast` is now the default theme, `Light` is no longer selectable, and `Dark` uses integrated dark backgrounds with visible borders for controls. Keep plot/traces display contracts unchanged when editing theme code.
-
-
-## 0.5.0-alpha.1 queue/rendering contract
+## Queue/rendering contract
 
 Worker threads may produce points faster than the UI can redraw. The UI must process worker queue messages in bounded batches and redraw live plots once per tick, not once per point. This is required for responsive Pause/Stop in debug simulator mode.
 

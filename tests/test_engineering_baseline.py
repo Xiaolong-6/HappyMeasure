@@ -65,7 +65,7 @@ def test_thread_safe_xy_buffer_is_populated_by_live_points() -> None:
 
 def test_documentation_tracks_current_architecture() -> None:
     assert "1.1b3" in (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "State migration strategy" in (ROOT / "docs" / "DESIGN_DECISIONS.md").read_text(encoding="utf-8")
+    assert "State migration strategy" in (ROOT / "docs" / "ARCHITECTURE_CURRENT.md").read_text(encoding="utf-8")
     handoff = (ROOT / "docs" / "AGENT_HANDOFF.md").read_text(encoding="utf-8")
     assert "ui/hardware_controller.py" in handoff
     assert "ui/sweep_controller.py" in handoff

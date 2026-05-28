@@ -55,9 +55,8 @@ def test_docs_index_lists_release_owner_documents() -> None:
         "WINDOWS_PYTHON314_BUILD.md",
         "MIGRATION_PLAN.md",
         "AGENT_HANDOFF.md",
-        "NEW_THREAD_CONTEXT.md",
         "DOCS_AUDIT.md",
-        "RELEASE_NOTES_v1.0b1.md",
+        "RELEASE_NOTES_v1.1b3.md",
     ]
 
     for doc_name in required_docs:

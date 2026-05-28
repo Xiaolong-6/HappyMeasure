@@ -1,6 +1,6 @@
 # Driver and sweep extension guide
 
-Version: `0.1.19-alpha`
+Version: `1.1b3`
 
 This document explains the new separation between hardware drivers, sweep planning, and measurement execution. It is written for future agents/developers opening a fresh thread.
 

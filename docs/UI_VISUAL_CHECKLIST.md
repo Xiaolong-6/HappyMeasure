@@ -4,10 +4,10 @@ Run this manually on Windows before handing the package to another agent or user
 
 1. Launch `Run_HappyMeasure.bat`.
 2. Confirm the default page is `Hardware`.
-3. Confirm the page header contains only the hamburger button and page title.
-4. Confirm connection state appears only in the bottom status bar.
+3. Confirm the page header shows the page title.
+4. Confirm connection state appears in the bottom status bar and front-panel popup.
 5. Confirm the status bar shows red when disconnected and green when connected/debug-ready.
-6. Open and close the left drawer; it should slide in/out and not cover the page title permanently.
+6. Click rail buttons to switch pages; the rail should remain visible and not auto-hide.
 7. Resize the window narrowly; plot view controls should wrap rather than disappear.
 8. Change UI scale to 8 pt, 12 pt, and 18 pt; confirm no major overlap.
 9. Run a simulator sweep; during measurement, only the live plot should show and the trace list should be hidden.

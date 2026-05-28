@@ -291,7 +291,7 @@ def test_alpha5_beta_hardening_foundation_files_exist():
     assert 'class ThreadSafeXYBuffer' in source_text("utils/thread_safe.py")
     assert (ROOT / "tests" / "test_app_state.py").exists()
     assert (ROOT / "tests" / "test_thread_safe.py").exists()
-    assert (ROOT / "docs" / "BETA_ROADMAP.md").exists()
+    assert (ROOT / "docs" / "ARCHITECTURE_CURRENT.md").exists()
 
 def test_constant_until_stop_runner_stops_by_callback():
     from keith_ivt.core.sweep_runner import SweepRunner

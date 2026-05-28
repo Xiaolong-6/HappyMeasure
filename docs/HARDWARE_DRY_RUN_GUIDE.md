@@ -85,7 +85,7 @@ Watch the instrument output indicator. Press EMERGENCY STOP if anything looks wr
 
 ## Stop/Abort expectation
 
-The alpha path requests stop from the UI thread and the worker runner sends output off through the instrument context manager. The new serial safety layer retries transient serial failures and uses a best-effort output-off guard, but real hardware output-off must still be visually confirmed on the instrument.
+The stop path requests stop from the UI thread and the worker runner sends output off through the instrument context manager. The new serial safety layer retries transient serial failures and uses a best-effort output-off guard, but real hardware output-off must still be visually confirmed on the instrument.
 
 ## Record results
 

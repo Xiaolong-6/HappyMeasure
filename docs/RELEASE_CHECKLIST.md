@@ -77,9 +77,9 @@ Then confirm the release-relevant docs are current:
 - `docs/HARDWARE_PREFLIGHT.md` — safe preflight behavior.
 - `docs/HARDWARE_VALIDATION_PROTOCOL.md` — staged bench validation.
 - `docs/WINDOWS_PORTABLE_BUILD.md` and `docs/WINDOWS_PYTHON314_BUILD.md` — packaging notes.
-- `docs/AGENT_HANDOFF.md` and `docs/NEW_THREAD_CONTEXT.md` — machine-facing continuation notes.
+- `docs/AGENT_HANDOFF.md` — machine-facing continuation notes.
 
-Do not publish temporary/local-only runtime artifacts. `docs/CODEX_DIARY_TEMP.md` may stay in source control during alpha handoff, but release notes should be prepared from it rather than copied verbatim to end users.
+Do not publish temporary/local-only runtime artifacts. Release notes should be prepared from the agent handoff notes rather than copied verbatim to end users.
 
 ## 4. Source validation
 
@@ -132,7 +132,7 @@ Follow `docs/MANUAL_SMOKE_TESTS.md`. At minimum, confirm:
 - Trace rename/hide/delete/export/import behavior matches `docs/TRACE_SCHEMA.md`.
 - Update reminder remains non-intrusive and does not download, install, or replace files.
 
-Record any deviation in `docs/CODEX_DIARY_TEMP.md` before release notes are finalized.
+Record any deviation in `docs/AGENT_HANDOFF.md` before release notes are finalized.
 
 ## 6. Hardware validation gate
 
@@ -242,4 +242,4 @@ After publishing:
 - Start the previous local version and confirm the manual update reminder reports the new release when network is available.
 - Confirm offline/no-network update checks remain non-blocking.
 - Download the release zip to a fresh folder and launch `HappyMeasure.exe` once.
-- Record final release status in `docs/CODEX_DIARY_TEMP.md` or the permanent changelog.
+- Record final release status in the permanent changelog.
