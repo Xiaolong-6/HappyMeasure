@@ -19,9 +19,9 @@ def ui_text() -> str:
 
 def test_version_and_release_contract():
     from keith_ivt import version
-    assert version.VERSION == "0.7a1"
-    assert "0.7a1" in version.BUILD_NOTE.lower()
-    assert 'version = "0.7a1"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert version.VERSION == "1.1b3"
+    assert "1.1b3" in version.BUILD_NOTE.lower()
+    assert 'version = "1.1b3"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_single_bottom_operator_bar_replaces_content_local_controls():
@@ -36,7 +36,7 @@ def test_single_bottom_operator_bar_replaces_content_local_controls():
     assert 'self.action_bar = ttk.Frame(self.root, style="Operator.TFrame"' in operator
     assert 'self.action_bar.grid(row=1, column=getattr(self, "_workspace_column", 0)' in operator
     assert 'Start' in operator and 'Pause' in operator and 'STOP' in operator
-    assert 'Controls' in operator and 'STOP' in operator
+    assert 'controls_title_text' in operator
 
 
 def test_pause_hover_warning_mentions_output_remains_on():
@@ -62,8 +62,7 @@ def test_root_rows_have_workspace_operator_and_dedicated_status_contract():
     assert 'def _build_status_bar' in status
     assert 'textvariable=self.status_connection_text' in status
     assert 'textvariable=self.status' in status
-    assert 'textvariable=self.points_text' in status
-    assert 'textvariable=self.last_save_text' in status
+    assert 'textvariable=self.measurement_status_text' in status
 
 
 def test_plot_trace_never_overlay_layout_contract():
@@ -152,7 +151,7 @@ def test_settings_review_dialog_uses_local_mousewheel_binding():
 
 def test_statusbar_connection_summary_and_click_outside_drawer():
     s = source_text("ui/simple_app.py")
-    assert 'self.status_connection_text = StringVar(value="Instrument: --")' in s
+    assert 'self.status_connection_text = StringVar(value="No instr")' in s
     assert 'self.header_status = ttk.Label(self.page_header, textvariable=self.status_connection_text' not in s
     status = source_text("ui/status_bar.py")
     nav = source_text("ui/navigation.py")
@@ -193,7 +192,7 @@ def test_plot_panel_initialization_does_not_reference_undefined_or_threshold_wid
 def test_bottom_operator_has_no_duplicate_export_or_status():
     operator = source_text("ui/operator_bar.py")
     assert 'Export Last Data' not in operator
-    assert 'Controls' in operator
+    assert 'controls_title_text' in operator
     assert 'StatusPill.TLabel' not in operator
     assert 'textvariable=self.status' not in operator
 

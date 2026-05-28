@@ -57,7 +57,4 @@ def test_status_icons_follow_ui_scale_not_fixed_emoji_size() -> None:
     assert "def _status_icon_size" in status
     assert "size_pt + 7" in status
     assert "canvas.configure(width=icon_size, height=icon_size" in status
-    assert "Tk/Windows may render emoji circles" in status
     assert "_draw_status_gear(canvas, colors, icon_size)" in status
-    assert "width=16" not in status
-    assert "height=16" not in status

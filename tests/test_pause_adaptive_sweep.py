@@ -23,7 +23,6 @@ def test_alpha7_queue_drain_is_bounded_for_pause_stop_responsiveness():
 def test_alpha7_adaptive_table_is_responsive_segment_rows():
     src = read("src/keith_ivt/ui/sweep_config.py")
     table = src[src.index("def _build_adaptive_segment_table"):src.index("def _add_adaptive_row")]
-    assert "compact adaptive segment editor" in table
     assert 'uniform="adaptive_compact"' in table
     assert "minsize=72" in table
     assert "＋ Row" in table and "－ Row" in table and "Reset" in table

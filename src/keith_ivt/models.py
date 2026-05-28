@@ -224,7 +224,7 @@ def validate_config(config: SweepConfig) -> None:
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
         if not config.continuous_time:
             source_values_for_config(config)
-        min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate)
+        min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, overhead_s=0.0)
         if config.interval_s < min_interval:
             raise ValueError(f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s.")
     elif config.sweep_kind is SweepKind.ADAPTIVE:

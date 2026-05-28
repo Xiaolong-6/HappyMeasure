@@ -13,15 +13,13 @@ def source(name: str) -> str:
     return (SRC / "keith_ivt" / name).read_text(encoding="utf-8")
 
 
-def test_adaptive_editor_uses_internal_scrollable_table_contract():
+def test_adaptive_editor_uses_compact_grid_table_contract():
     text = source("ui/sweep_config.py")
     block = text[text.index("def _build_adaptive_segment_table"):text.index("def _add_adaptive_row")]
-    assert "adaptive_canvas = tk.Canvas" in block
-    assert "adaptive_scroll = ttk.Scrollbar" in block
-    assert "adaptive_canvas.yview_scroll" in block
-    assert "bind_wheel_recursive(table)" in block
-    assert "height=table_height" in block
-    assert "visible_rows" in block
+    assert 'uniform="adaptive_compact"' in block
+    assert "minsize=72" in block
+    assert "＋ Row" in block and "－ Row" in block and "Reset" in block
+    assert "Duplicate boundaries are removed automatically" in block
 
 
 def test_log_max_bytes_rotates_before_crossing_limit(tmp_path: Path):

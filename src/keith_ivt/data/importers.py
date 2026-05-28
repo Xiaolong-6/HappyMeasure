@@ -167,7 +167,7 @@ def load_csv(path: str | Path) -> list[SweepResult]:
     if header is None:
         raise ValueError("CSV data section is missing.")
 
-    if combined_format == "wide-v2" or (len(header) >= 3 and header[0] == "Elapsed_s"):
+    if combined_format == "wide-v2" or (all_metadata and len(header) >= 3 and header[0] == "Elapsed_s"):
         results: list[SweepResult] = []
         source_values = [_float_or_default(r[1], 0.0) for r in data_rows if len(r) >= 2]
         for col in range(2, len(header)):

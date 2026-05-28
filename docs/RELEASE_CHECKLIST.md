@@ -4,14 +4,14 @@ This checklist is the release-prep source of truth. Run it from a clean working 
 
 ## 0. Release identity
 
-Use simple version labels for public communication. For this release, use `1.1 beta` in prose and `1.1b2` in Python/package metadata.
+Use simple version labels for public communication. For this release, use `1.1 beta` in prose and `1.1b3` in Python/package metadata.
 
 
 Set these values before starting the checklist:
 
-- Release version: `1.1b2`.
-- Git tag: `v1.1b2`.
-- Portable zip name: `HappyMeasure-1.1b2-windows-portable.zip`.
+- Release version: `1.1b3`.
+- Git tag: `v1.1b3`.
+- Portable zip name: `HappyMeasure-1.1b3-windows-portable.zip`.
 - Release channel: `beta`.
 - Target Python for source validation: project default from `pyproject.toml`.
 - Target Python for Windows portable build: standard script selects Python 3.12,

@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `1.1b2` (1.1 beta 2).
+Current version: `1.1b3` (1.1 beta 3).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
