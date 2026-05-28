@@ -5,7 +5,7 @@ from typing import Optional
 
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.services.serial_safety import OutputOffGuard, SerialRetryPolicy
-from keith_ivt.models import SenseMode, SweepConfig, Terminal
+from keith_ivt.models import SenseMode, SweepConfig
 
 try:
     import serial

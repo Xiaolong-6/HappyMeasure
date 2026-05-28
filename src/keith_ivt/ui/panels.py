@@ -7,7 +7,6 @@ from tkinter import font as tkfont, ttk
 from keith_ivt.instrument.simulator import debug_model_names
 from keith_ivt.ui.widgets import add_tip
 from keith_ivt.version import APP_NAME, __release_stage__, __version__
-from keith_ivt.models import SweepKind
 
 
 class PanelBuilderMixin:

@@ -8,7 +8,6 @@ from keith_ivt.drivers.base import (
     DriverCapabilities,
     DriverReadback,
     MeasureMode,
-    SMUDriver,
     SourceMode,
 )
 

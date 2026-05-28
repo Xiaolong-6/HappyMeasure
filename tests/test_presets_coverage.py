@@ -10,7 +10,6 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from keith_ivt.data.presets import (
-    PRESETS_PATH,
     SWEEP_PRESET_KEYS,
     _clean,
     default_sweep_preset,

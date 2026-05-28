@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -10,7 +9,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from keith_ivt.instrument.base import SourceMeter
-from keith_ivt.models import SweepConfig, SweepMode
+from keith_ivt.models import SweepConfig
 from keith_ivt.drivers.adapter import SourceMeterAdapter
 from keith_ivt.drivers.base import ConnectionProfile, DriverReadback, MeasureMode, SourceMode
 

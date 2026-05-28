@@ -64,7 +64,7 @@ def write_diagnostics_report(root: str | os.PathLike[str] | None = None, path: s
     out = Path(path) if path is not None else paths.logs / "diagnostics_report.txt"
     checks = collect_diagnostics(paths.root)
     lines = [
-        f"HappyMeasure diagnostics report",
+        "HappyMeasure diagnostics report",
         f"created_at: {datetime.now().isoformat(timespec='seconds')}",
         "",
         *[check.line() for check in checks],

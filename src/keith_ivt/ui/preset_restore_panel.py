@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tkinter import StringVar, END
+from tkinter import StringVar
 from tkinter import ttk
 
 from keith_ivt.data.backup import default_backup_dir

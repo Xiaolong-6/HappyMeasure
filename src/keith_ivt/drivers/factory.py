@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from keith_ivt.drivers.base import ConnectionProfile, SMUDriver
+from keith_ivt.drivers.base import SMUDriver
 from keith_ivt.drivers.adapter import SourceMeterAdapter
 
 if TYPE_CHECKING:

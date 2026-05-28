@@ -1,24 +1,18 @@
 from __future__ import annotations
 
-from tkinter import DoubleVar, END, messagebox
-import tkinter as tk
+from tkinter import DoubleVar, messagebox
 from tkinter import ttk
 
 from keith_ivt.ui.widgets import add_tip
 
-from keith_ivt.core.adaptive_logic import DEFAULT_ADAPTIVE_LOGIC, adaptive_values_from_logic
-from keith_ivt.core.adaptive_rules import rule_from_table
+from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
 from keith_ivt.models import (
-    SenseMode,
-    SweepConfig,
     SweepKind,
     SweepMode,
-    Terminal,
     estimate_point_seconds,
     make_constant_time_values,
     make_hysteresis_values,
     make_source_values,
-    minimum_interval_seconds,
 )
 
 

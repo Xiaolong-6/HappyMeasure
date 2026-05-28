@@ -10,7 +10,7 @@ from keith_ivt.core.current_range import CurrentRangeState
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.backup import autosave_result
 from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
-from keith_ivt.ui.app_state import AppAction, RunState
+from keith_ivt.ui.app_state import AppAction
 
 
 class SweepControllerMixin:

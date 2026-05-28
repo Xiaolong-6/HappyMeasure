@@ -4,7 +4,7 @@ import math
 from enum import Enum
 from typing import Iterable
 
-from keith_ivt.models import SweepMode, SweepPoint, SweepResult
+from keith_ivt.models import SweepMode, SweepResult
 
 
 class PlotView(str, Enum):

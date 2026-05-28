@@ -5,7 +5,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from tkinter import END, filedialog, messagebox
+from tkinter import filedialog, messagebox
 
 from keith_ivt.data.backup import autosave_result, default_backup_dir
 from keith_ivt.data.exporters import result_metadata, save_csv
@@ -122,7 +122,7 @@ class DataActionMixin:
         directory.mkdir(parents=True, exist_ok=True)
         if any(directory.glob("*.csv")):
             return
-        from keith_ivt.models import SweepConfig, SweepMode, SweepKind, SweepPoint, SweepResult
+        from keith_ivt.models import SweepResult
         samples = [
             ("Sample_resistor_10k", [(-1.0, -1e-4), (0.0, 0.0), (1.0, 1e-4)]),
             ("Sample_photodetector_noisy", [(0.0, 2e-9), (0.5, 4e-9), (1.0, 9e-9)]),

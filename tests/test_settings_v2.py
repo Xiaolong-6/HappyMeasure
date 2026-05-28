@@ -1,8 +1,6 @@
 """Tests for Pydantic-based settings system."""
 import json
 import pytest
-from pathlib import Path
-import tempfile
 
 from keith_ivt.data.settings_v2 import (
     AppSettings,

@@ -15,8 +15,6 @@ from keith_ivt.drivers.base import (
     MeasureMode,
     SMUDriver,
     SourceMode,
-    TerminalRoute,
-    SenseWiring,
 )
 
 if TYPE_CHECKING:

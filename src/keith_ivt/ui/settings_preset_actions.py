@@ -7,7 +7,6 @@ from tkinter import ttk
 from keith_ivt.data.presets import delete_preset, load_presets, save_preset
 from keith_ivt.data.settings import AppSettings, load_settings, save_settings
 from keith_ivt.instrument.simulator import debug_model_names
-from keith_ivt.models import SweepKind, SweepMode
 
 
 class SettingsPresetMixin:

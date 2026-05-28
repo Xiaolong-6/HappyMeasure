@@ -3,12 +3,10 @@ import logging
 import pytest
 from pathlib import Path
 import tempfile
-import shutil
 
 from keith_ivt.logging_config import (
     setup_logging,
     get_logger,
-    log_exception,
     handle_user_error,
 )
 from keith_ivt.error_handling import (

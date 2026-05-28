@@ -4,7 +4,7 @@ import time
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from keith_ivt.ui.plot_optimizer import PlotOptimizer, FastPlotRenderer
 

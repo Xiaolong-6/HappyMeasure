@@ -4,7 +4,7 @@ import pytest
 
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.drivers.command_plan import build_keithley2400_sweep_command_plan
-from keith_ivt.models import SweepConfig, SweepKind, SweepMode, estimate_point_seconds, minimum_interval_seconds, serial_round_trip_seconds
+from keith_ivt.models import SweepConfig, SweepMode, estimate_point_seconds, minimum_interval_seconds, serial_round_trip_seconds
 from keith_ivt.sweeps.plan import SweepExecutionKind, make_plan, plan_from_config
 
 

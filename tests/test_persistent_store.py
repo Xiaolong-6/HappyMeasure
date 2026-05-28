@@ -1,11 +1,9 @@
 """Tests for SQLite-backed persistent dataset store."""
 import pytest
-from pathlib import Path
-import tempfile
 from datetime import datetime
 
 from keith_ivt.data.persistent_store import PersistentDatasetStore, create_persistent_store
-from keith_ivt.models import SweepConfig, SweepMode, SweepPoint, SweepResult, Terminal, SenseMode
+from keith_ivt.models import SweepConfig, SweepMode, SweepPoint, SweepResult
 
 
 def create_test_result(name: str = "TestDevice", num_points: int = 10) -> SweepResult:

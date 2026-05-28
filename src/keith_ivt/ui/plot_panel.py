@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import warnings
-import tkinter as tk
-from tkinter import END, StringVar, filedialog, messagebox, ttk
+from tkinter import StringVar, filedialog, ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure

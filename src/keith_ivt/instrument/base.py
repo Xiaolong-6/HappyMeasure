@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from keith_ivt.models import SenseMode, SweepConfig, Terminal
+from keith_ivt.models import SweepConfig
 
 
 class SourceMeter(ABC):

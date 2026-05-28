@@ -6,7 +6,7 @@ from keith_ivt.drivers.base import DriverCapabilities
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.instrument.simulator import SimulatedKeithley
 from keith_ivt.models import SweepKind, SweepMode
-from keith_ivt.ui.app_state import AppAction, ConnectionState, RunState
+from keith_ivt.ui.app_state import AppAction
 
 
 class HardwareControllerMixin:

@@ -197,7 +197,6 @@ class TracePanelMixin:
         trace = self._selected_trace()
         if trace is None:
             messagebox.showinfo("No selection", "Select a device trace first."); return
-        import tkinter as tk
         win = tk.Toplevel(self.root)
         win.title(f"Data table - {trace.name}")
         win.geometry("620x420")

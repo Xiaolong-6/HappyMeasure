@@ -13,7 +13,7 @@ if str(SRC) not in sys.path:
 
 def test_simulated_smu_driver_iv_cv_and_context(monkeypatch):
     import keith_ivt.drivers.simulated_smu as sim
-    from keith_ivt.drivers.base import ConnectionProfile, MeasureMode, SourceMode
+    from keith_ivt.drivers.base import MeasureMode, SourceMode
 
     monkeypatch.setattr(sim.time, "sleep", lambda _s: None)
     monkeypatch.setattr(sim.random, "gauss", lambda _mu, _sigma: 0.0)
