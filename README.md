@@ -42,7 +42,7 @@ Completed simulator sweep with the I-V curve and trace list:
 
 ![HappyMeasure completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
 
-Keithley-style front-panel popup opened from the status bar:
+Keithley-style front-panel popup with current range control:
 
 ![HappyMeasure Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
 
