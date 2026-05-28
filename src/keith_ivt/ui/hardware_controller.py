@@ -68,7 +68,7 @@ class HardwareControllerMixin:
         if "KEITHLEY" in text and ("2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text):
             return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
         if "KEITHLEY" in text and "2450" in text:
-            return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu")
+            return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu",
                 supports_cv=False,
                 supports_front_rear=True,
                 supports_4wire=True,
