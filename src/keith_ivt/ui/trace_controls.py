@@ -42,7 +42,7 @@ class TraceInteractionMixin:
         _rgb, color = colorchooser.askcolor(color=getattr(trace, "color", "#1f77b4"), title=f"Choose color - {trace.name}")
         if color:
             self._datasets.set_color(trace.trace_id, color)
-            self._refresh_trace_list(); self._redraw_all_plots()
+            self._refresh_and_redraw()
 
     def choose_selected_trace_color(self) -> None:
         self.choose_trace_color(None)
@@ -52,5 +52,5 @@ class TraceInteractionMixin:
         if trace is None:
             return
         self._datasets.toggle_visibility(trace.trace_id)
-        self._refresh_trace_list(); self._redraw_all_plots()
+        self._refresh_and_redraw()
 

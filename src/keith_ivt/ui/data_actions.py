@@ -78,7 +78,7 @@ class DataActionMixin:
             self._datasets.add_result(result, result.config.device_name)
             self._last_result = result
             count += 1
-        self._refresh_trace_list(); self._redraw_all_plots()
+        self._refresh_and_redraw()
         self.log_event(f"Imported {count} trace(s) from {source_label}")
         return count
 
@@ -96,7 +96,7 @@ class DataActionMixin:
         if self._datasets.all() and not messagebox.askyesno("Clear all", "Remove all device traces from legend?"):
             return
         self._datasets.clear(); self._x_data.clear(); self._y_data.clear(); self._live_points.clear(); self._live_config = None
-        self._refresh_trace_list(); self._redraw_all_plots(); self.log_event("All traces and live plot cleared.")
+        self._refresh_and_redraw(); self.log_event("All traces and live plot cleared.")
 
     def import_backup_csv(self):
         path = filedialog.askopenfilename(initialdir=str(self._backup_dir_from_ui() if hasattr(self, "backup_folder_var") else default_backup_dir()), filetypes=[("CSV", "*.csv"), ("All files", "*.*")])

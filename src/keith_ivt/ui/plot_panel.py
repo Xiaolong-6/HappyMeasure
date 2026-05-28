@@ -68,7 +68,6 @@ class PlotPanelMixin:
         self._mpl_double_click_cid = self.canvas.mpl_connect("button_press_event", self._on_mpl_plot_click)
         self._mpl_release_cid = self.canvas.mpl_connect("button_release_event", self._on_mpl_plot_release)
         self._mpl_motion_cid = self.canvas.mpl_connect("motion_notify_event", self._on_mpl_plot_motion)
-        self._mpl_toolbar = None
 
         # Initialize plot performance optimizer
         from keith_ivt.ui.plot_optimizer import FastPlotRenderer
@@ -307,6 +306,19 @@ class PlotPanelMixin:
         self._swapped_views = swapped
         self._redraw_all_plots(live_only=bool(getattr(self, "_plot_live_only", False)))
 
+    def _prepare_view_data(self, result, view):
+        """Return (x, y, xlabel, ylabel, title, y_is_log, swapped) with unit scaling applied."""
+        x, y, xlabel, ylabel, title, y_is_log = xy_for_view(result, view)
+        swapped = self._is_view_swapped(view)
+        if swapped:
+            x, y = y, x
+            xlabel, ylabel = ylabel, xlabel
+        xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
+        yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
+        x = [v * xscale for v in x]
+        y = [v * yscale for v in y]
+        return x, y, xlabel, ylabel, title, y_is_log, swapped
+
     def _apply_figure_layout(self, figure) -> None:
         try:
             figure.set_layout_engine("constrained")
@@ -357,15 +369,7 @@ class PlotPanelMixin:
             for spine in ax.spines.values():
                 spine.set_color(self._palette["grid"])
             if live_result is not None:
-                x, y, xlabel, ylabel, title, y_is_log = xy_for_view(live_result, view)
-                swapped = self._is_view_swapped(view)
-                if swapped:
-                    x, y = y, x
-                    xlabel, ylabel = ylabel, xlabel
-                xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
-                yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
-                x = [v * xscale for v in x]
-                y = [v * yscale for v in y]
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(live_result, view)
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
                 ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
@@ -375,15 +379,7 @@ class PlotPanelMixin:
                     else:
                         ax.set_yscale("log")
             for trace in traces:
-                x, y, xlabel, ylabel, title, y_is_log = xy_for_view(trace.result, view)
-                swapped = self._is_view_swapped(view)
-                if swapped:
-                    x, y = y, x
-                    xlabel, ylabel = ylabel, xlabel
-                xscale, xlabel = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
-                yscale, ylabel = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
-                x = [v * xscale for v in x]
-                y = [v * yscale for v in y]
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(trace.result, view)
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
                     x, y, marker=marker, linestyle=linestyle,
@@ -451,9 +447,6 @@ class PlotPanelMixin:
             return
 
         try:
-            from keith_ivt.models import SweepResult
-            from keith_ivt.ui.plot_views import xy_for_view
-
             # Create temporary result from live points
             config = self._live_config
             if config is None:
@@ -476,17 +469,7 @@ class PlotPanelMixin:
             linestyle = "-" if "line" in fmt else "None"
 
             for idx, view in enumerate(views):
-                x, y, xlabel, ylabel, title, y_is_log = xy_for_view(live_result, view)
-                swapped = self._is_view_swapped(view)
-                if swapped:
-                    x, y = y, x
-                    xlabel, ylabel = ylabel, xlabel
-
-                # Apply unit scaling
-                xscale, xlabel_scaled = self._unit_scale_for_label(xlabel, self.plot_x_unit.get())
-                yscale, ylabel_scaled = self._unit_scale_for_label(ylabel, self.plot_y_unit.get())
-                x_scaled = [v * xscale for v in x]
-                y_scaled = [v * yscale for v in y]
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(live_result, view)
 
                 # Downsample for display if needed
                 key = f"live_{view.value}"
@@ -501,16 +484,16 @@ class PlotPanelMixin:
                 data_series.append({
                     "ax_index": idx,
                     "key": key,
-                    "x": x_scaled,
-                    "y": y_scaled,
+                    "x": x,
+                    "y": y,
                     "style": style,
                 })
 
                 # Configure axis
                 ax = axes[idx]
                 ax.set_title(title, color=self._palette["fg"])
-                ax.set_xlabel(xlabel_scaled, color=self._palette["fg"])
-                ax.set_ylabel(ylabel_scaled, color=self._palette["fg"])
+                ax.set_xlabel(xlabel, color=self._palette["fg"])
+                ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
                     if swapped:
                         ax.set_xscale("log")

@@ -52,41 +52,23 @@ class HardwareControllerMixin:
             )
         return DriverCapabilities(name="Generic source-meter", vendor="generic", model_family="generic-smu")
 
+    @staticmethod
+    def _full_cap(name: str, vendor: str, family: str) -> DriverCapabilities:
+        return DriverCapabilities(
+            name=name, vendor=vendor, model_family=family,
+            supports_voltage_source=True, supports_current_source=True,
+            supports_cv=False, supports_front_rear=True, supports_4wire=True,
+            supports_fixed_range=True, supports_manual_output=True,
+        )
+
     def _detect_capabilities_from_idn(self, idn: str) -> DriverCapabilities:
         text = idn.upper()
         if "SIMULATED" in text:
-            return DriverCapabilities(
-                name="Debug simulator / Keithley 2400 profile",
-                vendor="simulator",
-                model_family="smu-iv",
-                supports_voltage_source=True,
-                supports_current_source=True,
-                supports_cv=False,
-                supports_front_rear=True,
-                supports_4wire=True,
-                supports_fixed_range=True,
-                supports_manual_output=True,
-            )
+            return self._full_cap("Debug simulator / Keithley 2400 profile", "simulator", "smu-iv")
         if "KEITHLEY" in text and ("2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text):
-            return DriverCapabilities(
-                name="Keithley 2400-series SMU",
-                vendor="Keithley",
-                model_family="2400-series-smu",
-                supports_voltage_source=True,
-                supports_current_source=True,
-                supports_cv=False,
-                supports_front_rear=True,
-                supports_4wire=True,
-                supports_fixed_range=True,
-                supports_manual_output=True,
-            )
+            return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
         if "KEITHLEY" in text and "2450" in text:
-            return DriverCapabilities(
-                name="Keithley 2450 SMU",
-                vendor="Keithley",
-                model_family="2450-smu",
-                supports_voltage_source=True,
-                supports_current_source=True,
+            return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu")
                 supports_cv=False,
                 supports_front_rear=True,
                 supports_4wire=True,
@@ -301,7 +283,6 @@ class HardwareControllerMixin:
             self.app_state.dispatch(AppAction.CONNECT_FAILED, error=str(exc))
             self.log_event(f"Connection failed: {exc}")
             messagebox.showerror("Connection failed", str(exc))
-        self._refresh_port_choices()
         self._refresh_port_choices()
         self._refresh_instrument_indicator()
         self._refresh_capability_widgets()

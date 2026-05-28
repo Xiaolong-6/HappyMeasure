@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Callable
 import threading
 
+from keith_ivt.models import SweepKind
+
 
 class RunState(Enum):
     """Central run-state values used by the UI and future controllers.
@@ -76,14 +78,6 @@ class AppAction(Enum):
     SWEEP_ERROR = "sweep_error"
     ABORT_SWEEP = "abort_sweep"
     FORCE_IDLE = "force_idle"
-
-
-class SweepKind(Enum):
-    """UI-facing sweep family names independent of the core model enum."""
-
-    STEP = "step"
-    CONSTANT_TIME = "constant_time"
-    ADAPTIVE = "adaptive"
 
 
 @dataclass(frozen=True)

@@ -73,6 +73,11 @@ class TracePanelMixin:
         except Exception:
             pass
 
+    def _refresh_and_redraw(self) -> None:
+        """Refresh the trace list and redraw all plots."""
+        self._refresh_trace_list()
+        self._redraw_all_plots()
+
     def _refresh_trace_list(self) -> None:
         previous_selection = set(self._selected_trace_ids())
         if not previous_selection and getattr(self, "_selected_trace_id", None):
@@ -176,7 +181,7 @@ class TracePanelMixin:
         new_name = simpledialog.askstring("Rename device", "New device name:", initialvalue=trace.name)
         if new_name:
             self._datasets.rename(trace.trace_id, new_name)
-            self._refresh_trace_list(); self._redraw_all_plots()
+            self._refresh_and_redraw()
 
     def delete_selected_trace(self, _event=None) -> str | None:
         ids = list(dict.fromkeys(self._selected_trace_ids()))
@@ -190,7 +195,7 @@ class TracePanelMixin:
         if hasattr(self, "log_event"):
             noun = "trace" if len(ids) == 1 else "traces"
             self.log_event(f"Deleted {len(ids)} selected {noun}.")
-        self._refresh_trace_list(); self._redraw_all_plots()
+        self._refresh_and_redraw()
         return "break" if _event is not None else None
 
     def view_selected_trace_data(self) -> None:
