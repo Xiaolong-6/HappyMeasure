@@ -216,55 +216,122 @@ class StatusBarMixin:
         if getattr(self, "_front_panel_window", None) is not None:
             try:
                 if self._front_panel_window.winfo_exists():
-                    self._front_panel_window.deiconify(); self._front_panel_window.lift(); self._front_panel_auto_opened = bool(auto_open); self._refresh_front_panel_popup(); return
+                    self._front_panel_window.deiconify()
+                    self._front_panel_window.lift()
+                    self._front_panel_auto_opened = bool(auto_open)
+                    self._refresh_front_panel_popup()
+                    return
             except Exception:
                 pass
         win = Toplevel(self.root)
         win.title("Keithley-style front panel")
-        win.geometry("760x430")
+        win.geometry("900x410")
+        win.minsize(820, 360)
         win.configure(background="#CFCFCB")
         self._front_panel_window = win
         self._front_panel_auto_opened = bool(auto_open)
+
         main = tk.Frame(win, bg="#CFCFCB", padx=12, pady=12)
         main.pack(fill="both", expand=True)
+        main.columnconfigure(0, weight=1)
+        main.rowconfigure(1, weight=1)
+
         display = tk.Frame(main, bg="#030507", highlightbackground="#5F666C", highlightthickness=2)
-        display.pack(fill="x", pady=(0, 12))
-        self._front_panel_main_value = tk.Label(display, text="+0.0000", fg="#BDEFE6", bg="#030507", font=("Courier New", 30, "bold"), anchor="w")
-        self._front_panel_main_value.pack(fill="x", padx=12, pady=(10, 2))
-        self._front_panel_sub_value = tk.Label(display, text="", fg="#BDEFE6", bg="#030507", font=("Courier New", 16), anchor="w")
-        self._front_panel_sub_value.pack(fill="x", padx=12, pady=(0, 10))
-        meta = ttk.Frame(main, style="Card.TFrame")
-        meta.pack(fill="both", expand=True)
-        meta.columnconfigure(0, weight=1)
-        meta.columnconfigure(1, weight=2)
-        self._front_panel_meta = ttk.Label(meta, text="", style="Card.TLabel", justify="left")
-        self._front_panel_meta.grid(row=0, column=0, sticky="nw", padx=(6, 12), pady=(0, 8))
-        range_box = ttk.LabelFrame(meta, text="Current range")
-        range_box.grid(row=0, column=1, sticky="ew", padx=6, pady=(0, 8))
-        for col in range(4):
-            range_box.columnconfigure(col, weight=1)
-        self._front_panel_range_headline = ttk.Label(range_box, text="", style="Card.TLabel")
-        self._front_panel_range_headline.grid(row=0, column=0, columnspan=4, sticky="w", padx=6, pady=(4, 2))
-        self._front_panel_range_detail = ttk.Label(range_box, text="", style="Card.TLabel")
-        self._front_panel_range_detail.grid(row=1, column=0, columnspan=4, sticky="w", padx=6, pady=(0, 6))
+        display.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        display.columnconfigure(0, weight=1)
+        self._front_panel_main_value = tk.Label(
+            display,
+            text="+0.0000",
+            fg="#BDEFE6",
+            bg="#030507",
+            font=("Courier New", 30, "bold"),
+            anchor="w",
+        )
+        self._front_panel_main_value.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 1))
+        self._front_panel_sub_value = tk.Label(
+            display,
+            text="",
+            fg="#BDEFE6",
+            bg="#030507",
+            font=("Courier New", 16),
+            anchor="w",
+        )
+        self._front_panel_sub_value.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 10))
+
+        body = ttk.Frame(main, style="Card.TFrame")
+        body.grid(row=1, column=0, sticky="nsew")
+        body.columnconfigure(0, weight=0, minsize=250)
+        body.columnconfigure(1, weight=1, minsize=520)
+        body.rowconfigure(0, weight=1)
+
+        self._front_panel_meta = ttk.Label(body, text="", style="Card.TLabel", justify="left", anchor="nw")
+        self._front_panel_meta.grid(row=0, column=0, sticky="nw", padx=(8, 16), pady=(8, 8))
+
+        range_box = ttk.LabelFrame(body, text="Current range")
+        range_box.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=(6, 8))
+        range_box.columnconfigure(0, weight=1)
+        range_box.rowconfigure(1, weight=1)
+
+        summary = ttk.Frame(range_box)
+        summary.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 6))
+        for col in range(3):
+            summary.columnconfigure(col, weight=1, uniform="range_summary")
+
+        range_value_widgets: list[ttk.Label] = []
+        for col, title in enumerate(("Mode", "Actual range", "Last change")):
+            cell = ttk.Frame(summary, padding=(8, 6))
+            cell.grid(row=0, column=col, sticky="ew", padx=(0 if col == 0 else 6, 0))
+            cell.columnconfigure(0, weight=1)
+            ttk.Label(cell, text=title, style="Muted.TLabel", anchor="center").grid(row=0, column=0, sticky="ew")
+            value = ttk.Label(cell, text="Unknown", style="Card.TLabel", anchor="center")
+            value.grid(row=1, column=0, sticky="ew", pady=(2, 0))
+            range_value_widgets.append(value)
+        self._front_panel_range_mode_value = range_value_widgets[0]
+        self._front_panel_range_actual_value = range_value_widgets[1]
+        self._front_panel_range_change_value = range_value_widgets[2]
+
+        controls = ttk.Frame(range_box)
+        controls.grid(row=1, column=0, sticky="ew", padx=8, pady=(2, 8))
+        controls.columnconfigure(0, weight=0, minsize=150)
+        controls.columnconfigure(1, weight=0, minsize=110)
+        controls.columnconfigure(2, weight=1, minsize=200)
+        controls.columnconfigure(3, weight=0, minsize=150)
+
         self._front_panel_autorange_check = ttk.Checkbutton(
-            range_box,
+            controls,
             text="Auto current range",
             variable=self.auto_measure_range,
             command=self._front_panel_autorange_changed,
         )
-        self._front_panel_autorange_check.grid(row=2, column=0, columnspan=2, sticky="w", padx=6, pady=4)
-        self._front_panel_range_combo = ttk.Combobox(range_box, values=current_range_labels(), state="readonly", width=18)
-        self._front_panel_range_combo.grid(row=2, column=2, sticky="ew", padx=6, pady=4)
+        self._front_panel_autorange_check.grid(row=0, column=0, sticky="w", padx=(0, 10), pady=(2, 8))
+
+        ttk.Label(controls, text="Fixed range", style="Card.TLabel").grid(row=0, column=1, sticky="e", padx=(0, 6), pady=(2, 8))
+        self._front_panel_range_combo = ttk.Combobox(controls, values=current_range_labels(), state="readonly", width=20)
+        self._front_panel_range_combo.grid(row=0, column=2, sticky="ew", padx=(0, 10), pady=(2, 8))
         self._front_panel_range_combo.bind("<<ComboboxSelected>>", self._front_panel_fixed_range_selected)
-        ttk.Button(range_box, text="Lock current range", command=self._front_panel_lock_current_range).grid(row=2, column=3, sticky="ew", padx=6, pady=4)
-        ttk.Label(range_box, text="Range settle delay").grid(row=3, column=0, sticky="w", padx=6, pady=4)
-        ttk.Entry(range_box, textvariable=self.range_settle_delay_ms, width=7).grid(row=3, column=1, sticky="w", padx=6, pady=4)
-        ttk.Label(range_box, text="ms").grid(row=3, column=1, sticky="e", padx=6, pady=4)
-        ttk.Label(range_box, text="Discard readings").grid(row=3, column=2, sticky="w", padx=6, pady=4)
-        ttk.Entry(range_box, textvariable=self.discard_after_range_change, width=6).grid(row=3, column=3, sticky="w", padx=6, pady=4)
+        ttk.Button(controls, text="Lock current range", command=self._front_panel_lock_current_range).grid(
+            row=0,
+            column=3,
+            sticky="ew",
+            pady=(2, 8),
+        )
+
+        settle = ttk.Frame(range_box)
+        settle.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 8))
+        settle.columnconfigure(6, weight=1)
+        ttk.Label(settle, text="After range change", style="Muted.TLabel").grid(row=0, column=0, sticky="w", padx=(0, 12))
+        ttk.Label(settle, text="Range settle delay", style="Card.TLabel").grid(row=0, column=1, sticky="w", padx=(0, 4))
+        ttk.Entry(settle, textvariable=self.range_settle_delay_ms, width=7).grid(row=0, column=2, sticky="w")
+        ttk.Label(settle, text="ms", style="Card.TLabel").grid(row=0, column=3, sticky="w", padx=(4, 14))
+        ttk.Label(settle, text="Discard", style="Card.TLabel").grid(row=0, column=4, sticky="w", padx=(0, 4))
+        ttk.Entry(settle, textvariable=self.discard_after_range_change, width=6).grid(row=0, column=5, sticky="w")
+        ttk.Label(settle, text="readings", style="Card.TLabel").grid(row=0, column=6, sticky="w", padx=(4, 0))
+
+        self._front_panel_range_warning = ttk.Label(range_box, text="", style="Muted.TLabel", anchor="w")
+        self._front_panel_range_warning.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 6))
+
         btns = ttk.Frame(main)
-        btns.pack(fill="x")
+        btns.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         ttk.Button(btns, text="Close", command=self._close_front_panel_popup).pack(side="right")
         win.protocol("WM_DELETE_WINDOW", self._close_front_panel_popup)
         self._refresh_front_panel_popup()
@@ -287,27 +354,39 @@ class StatusBarMixin:
         self._close_front_panel_popup()
 
     def _refresh_front_panel_range_widgets(self) -> None:
-        if not hasattr(self, "_front_panel_range_headline"):
+        if not hasattr(self, "_front_panel_range_mode_value"):
             return
         range_state = self._current_range_snapshot()
         if range_state is not None:
-            headline = range_state.headline()
-            detail = (
-                f"Autorange: {'ON' if range_state.autorange else 'OFF' if range_state.autorange is False else 'Unknown'}   "
-                f"Actual range: {format_current_range(range_state.actual_range_A)}   "
-                f"Last range change: {range_state.last_change_text()}"
-            )
-            if range_state.warning:
-                detail += f"\nWarning: {range_state.warning}"
+            mode = "AUTO" if range_state.autorange is True else "FIXED" if range_state.autorange is False else "UNKNOWN"
+            actual = format_current_range(range_state.actual_range_A)
+            change = range_state.last_change_text()
+            warning = f"Warning: {range_state.warning}" if range_state.warning else ""
         else:
-            headline = "Current range: Unknown"
-            detail = "Autorange: Unknown   Actual range: Unknown   Last range change: none"
-        self._front_panel_range_headline.configure(text=headline)
-        self._front_panel_range_detail.configure(text=detail)
+            mode = "UNKNOWN"
+            actual = "Unknown"
+            change = "none"
+            warning = ""
+        self._front_panel_range_mode_value.configure(text=mode)
+        self._front_panel_range_actual_value.configure(text=actual)
+        self._front_panel_range_change_value.configure(text=change)
+        if hasattr(self, "_front_panel_range_warning"):
+            if warning:
+                self._front_panel_range_warning.configure(text=warning)
+            elif mode == "AUTO":
+                self._front_panel_range_warning.configure(
+                    text="Autorange may switch range during I-t acquisition; lock range for final data."
+                )
+            else:
+                self._front_panel_range_warning.configure(text="Fixed range is active; readings remain continuous unless overload occurs.")
         try:
             fixed_value = float(self.measure_range.get())
         except Exception:
-            fixed_value = range_state.fixed_range_A if range_state is not None else None
+            fixed_value = None
+        if bool(self.auto_measure_range.get()) and range_state is not None and range_state.actual_range_A is not None:
+            fixed_value = range_state.actual_range_A
+        elif fixed_value is None and range_state is not None:
+            fixed_value = range_state.fixed_range_A or range_state.actual_range_A
         label = next((item for item in current_range_labels() if fixed_value is not None and item.startswith(format_current_range(fixed_value))), "")
         if label:
             self._front_panel_range_combo.set(label)

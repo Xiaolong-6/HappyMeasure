@@ -1,5 +1,6 @@
 ## 2026-05-28 Keithley current range front-panel control
 
+- Follow-up UI polish: the popup range panel should remain a compact two-column layout with Mode / Actual range / Last change summary cells. Avoid returning to long single-line labels or narrow buttons that clip at Windows default scaling.
 - `src/keith_ivt/core/current_range.py` owns current-range display formatting, supported range labels, thread-safe UI-to-runner actions, and range state snapshots.
 - `src/keith_ivt/ui/status_bar.py` now extends the Keithley-style popup with current autorange, actual/fixed range, lock-current, settle-delay, and discard-count controls. The bottom status readout includes `Irange Auto/...` or `Irange Fixed/...`.
 - `src/keith_ivt/core/sweep_runner.py` applies queued range actions in the worker thread and discards configured readings after manual or detected actual-range changes before points enter live traces or saved results.
