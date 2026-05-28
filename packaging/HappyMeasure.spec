@@ -17,7 +17,7 @@ block_cipher = None
 
 a = Analysis(
     ["happymeasure_entry.py"],
-    pathex=["../src"],
+    pathex=["src"],
     binaries=matplotlib_binaries,
     datas=matplotlib_datas,
     hiddenimports=matplotlib_hiddenimports
