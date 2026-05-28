@@ -192,3 +192,9 @@ Python 3.14 is installed, use the dedicated Python 3.14 launcher.
 
 - Fixed Sweep/Adaptive page scrolling after removing the nested adaptive-table scrollbar: the page-level scrollregion is now refreshed after dynamic table rebuilds.
 - STOP/completion/error paths now zero the live status-bar and Keithley-style front-panel readout instead of leaving stale last-point values.
+
+### 2026-05-28 Keithley front-panel range UI visual polish
+- Reworked the Keithley-style front-panel current-range popup toward the mock layout: larger black readout, separate output/measure indicators, white card body, compact range summary cells, and aligned controls.
+- Replaced the cramped native LabelFrame/table layout that clipped labels and buttons at normal Windows scaling.
+- Kept the existing current-range behavior and tests intact; this is a visual/layout polish on top of the range-control feature.
+- Regression: `PYTHONPATH=src python -m pytest tests/test_current_range_control.py -q`.

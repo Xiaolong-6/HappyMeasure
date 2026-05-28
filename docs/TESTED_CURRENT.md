@@ -1,3 +1,16 @@
+
+## 2026-05-28 - Keithley front-panel range UI visual polish
+
+Mock-style popup polish in this sandbox:
+
+```bash
+PYTHONPATH=src python -m pytest tests/test_current_range_control.py -q
+```
+
+Result: 6 passed.
+
+Scope: visual/layout polish for the front-panel current-range controls only. No full-suite pass is claimed here.
+
 # Current Test Status
 
 ## 2026-05-28 - Keithley current range front-panel control

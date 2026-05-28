@@ -1,3 +1,11 @@
+
+## Keithley front-panel range popup visual polish note
+
+The Keithley-style front-panel popup is in `src/keith_ivt/ui/status_bar.py`. The current-range area now intentionally uses custom `tk.Frame`/`tk.Label` card blocks instead of a native `ttk.LabelFrame`, because the native layout clipped controls under Windows scaling. Keep the mock-style hierarchy: large black instrument readout, left metadata column, right current-range card with summary cells and one aligned control row.
+
+Regression command:
+`PYTHONPATH=src python -m pytest tests/test_current_range_control.py -q`
+
 ## 2026-05-28 Keithley current range front-panel control
 
 - Follow-up UI polish: the popup range panel should remain a compact two-column layout with Mode / Actual range / Last change summary cells. Avoid returning to long single-line labels or narrow buttons that clip at Windows default scaling.

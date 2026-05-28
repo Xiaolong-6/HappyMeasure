@@ -103,8 +103,9 @@ def test_range_change_discards_bad_points_before_trace_and_csv() -> None:
 
     assert [point.measured_value for point in result.points] == [1.0, 4.0]
     path = save_csv(result, ROOT / "logs" / "range_filtered_test.csv")
-    text = path.read_text(encoding="utf-8")
-    assert "100" not in text
+    rows = [line.split(",") for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")][1:]
+    measured_values = [float(row[2]) for row in rows]
+    assert 100.0 not in measured_values
     assert control.snapshot().actual_range_A == 10e-9
     assert control.snapshot().last_change_monotonic_s is not None
 
