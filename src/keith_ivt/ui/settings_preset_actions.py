@@ -44,7 +44,11 @@ class SettingsPresetMixin(UiMixinTyping):
             default_duration_s=float(self.duration_s.get()),
             default_constant_until_stop=bool(self.constant_until_stop.get()),
             default_interval_s=float(self.interval_s.get()),
-            default_adaptive_logic=self._adaptive_logic_from_table(),
+            default_adaptive_logic=(
+                self._adaptive_logic_from_table()
+                if self._adaptive_segment_text().strip()
+                else self.adaptive_logic.get()
+            ),
             default_adaptive_segments=self._adaptive_segment_text(),
             default_adaptive_remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
             ui_font_family=self.ui_font_family.get(),

@@ -289,7 +289,7 @@ class SweepConfigMixin(UiMixinTyping):
 
         editor = tk.Text(
             holder,
-            height=9,
+            height=1,
             wrap="none",
             undo=True,
             font=("Consolas", 10),
@@ -304,9 +304,6 @@ class SweepConfigMixin(UiMixinTyping):
             insertbackground=palette.get("fg", "#0F172A"),
             selectbackground=palette.get("accent", "#165FA7"),
         )
-        segment_scroll = ttk.Scrollbar(holder, orient="vertical", command=editor.yview)
-        segment_scroll.grid(row=1, column=1, sticky="ns", padx=(0, 5), pady=(0, 5))
-        editor.configure(yscrollcommand=segment_scroll.set)
         editor.insert("1.0", self.adaptive_segments.get())
         editor.bind("<KeyRelease>", self._adaptive_input_changed, add="+")
         editor.bind("<<Paste>>", self._adaptive_input_changed, add="+")
@@ -356,6 +353,15 @@ class SweepConfigMixin(UiMixinTyping):
             return editor.get("1.0", "end-1c")
         return self.adaptive_segments.get()
 
+    def _resize_adaptive_editor(self, text: str) -> None:
+        editor = getattr(self, "adaptive_text", None)
+        if editor is None or not editor.winfo_exists():
+            return
+        line_count = max(1, text.count("\n") + 1)
+        if int(editor.cget("height")) != line_count:
+            editor.configure(height=line_count)
+            self._refresh_content_scrollregion_later()
+
     def _adaptive_values_from_rows(self) -> list[float]:
         """Backward-compatible name for generated Adaptive values."""
         return parse_segment_text(
@@ -376,6 +382,7 @@ class SweepConfigMixin(UiMixinTyping):
         def refresh() -> None:
             text = self._adaptive_segment_text()
             self.adaptive_segments.set(text)
+            self._resize_adaptive_editor(text)
             try:
                 values = parse_segment_text(
                     text,

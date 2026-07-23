@@ -19,7 +19,6 @@ from keith_ivt.models import (
 from keith_ivt.sweeps.plan import plan_from_config
 from keith_ivt.sweeps.table_sweep import (
     parse_segment_text,
-    segment_text_from_legacy_logic,
 )
 
 
@@ -70,12 +69,7 @@ def test_segment_text_rejects_huge_ranges_before_allocating() -> None:
         parse_segment_text("0, 1000000, 0.001", max_points=100)
 
 
-def test_legacy_logic_migrates_to_editable_segments_without_changing_values() -> None:
-    text = segment_text_from_legacy_logic("values = [0, 0.5, 1, 2, 3]")
-    assert parse_segment_text(text) == pytest.approx([0, 0.5, 1, 2, 3])
-
-
-def test_old_settings_migrate_adaptive_logic_to_segment_text(tmp_path) -> None:
+def test_old_settings_leave_new_adaptive_editor_empty(tmp_path) -> None:
     path = tmp_path / "settings.json"
     path.write_text(
         json.dumps({"default_adaptive_logic": "values = [0, 0.5, 1, 2, 3]"}),
@@ -84,20 +78,18 @@ def test_old_settings_migrate_adaptive_logic_to_segment_text(tmp_path) -> None:
 
     settings = load_settings(path)
 
-    assert parse_segment_text(settings.default_adaptive_segments) == pytest.approx(
-        [0, 0.5, 1, 2, 3]
-    )
+    assert settings.default_adaptive_segments == ""
     assert settings.default_adaptive_remove_duplicates is True
 
 
-def test_old_presets_migrate_adaptive_logic_to_segment_text() -> None:
+def test_old_presets_leave_new_adaptive_editor_empty() -> None:
     migrated = _clean({"default_adaptive_logic": "values = [0, 0.5, 1]"})
-    assert parse_segment_text(migrated["default_adaptive_segments"]) == pytest.approx([0, 0.5, 1])
+    assert migrated["default_adaptive_segments"] == ""
 
 
-def test_invalid_old_preset_logic_falls_back_without_crashing() -> None:
+def test_invalid_old_preset_logic_does_not_fill_the_new_editor() -> None:
     migrated = _clean({"default_adaptive_logic": "not valid"})
-    assert parse_segment_text(migrated["default_adaptive_segments"])
+    assert migrated["default_adaptive_segments"] == ""
 
 
 def test_config_preserves_duplicate_values_when_option_is_disabled() -> None:

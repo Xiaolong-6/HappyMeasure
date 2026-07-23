@@ -5,11 +5,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from keith_ivt.sweeps.table_sweep import (
-    DEFAULT_SEGMENT_TEXT,
-    segment_text_from_legacy_logic,
-)
-
 
 @dataclass
 class AppSettings:
@@ -49,7 +44,7 @@ class AppSettings:
     default_constant_until_stop: bool = False
     default_interval_s: float = 0.5
     default_adaptive_logic: str = "values = logspace(1e-3, 1, 31)"
-    default_adaptive_segments: str = DEFAULT_SEGMENT_TEXT
+    default_adaptive_segments: str = ""
     default_adaptive_remove_duplicates: bool = True
     ui_font_family: str = "Verdana"
     ui_font_size: int = 10
@@ -241,14 +236,6 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         merged["ui_font_family"] = defaults["ui_font_family"]
     if not merged["default_adaptive_logic"].strip():
         merged["default_adaptive_logic"] = defaults["default_adaptive_logic"]
-    if not str(raw.get("default_adaptive_segments", "")).strip():
-        try:
-            merged["default_adaptive_segments"] = segment_text_from_legacy_logic(
-                merged["default_adaptive_logic"]
-            )
-        except ValueError:
-            merged["default_adaptive_segments"] = defaults["default_adaptive_segments"]
-
     return merged
 
 

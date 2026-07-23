@@ -16,7 +16,6 @@ from keith_ivt.data.dataset_store import DatasetStore
 from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.data.settings import load_settings
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepPoint, SweepResult, Terminal
-from keith_ivt.sweeps.table_sweep import DEFAULT_SEGMENT_TEXT
 from keith_ivt.ui.plot_views import PlotView
 from keith_ivt.ui.app_mixins import AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin
 from keith_ivt.ui.menu_utils import make_touch_menu, popup_menu
@@ -90,7 +89,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             value=getattr(self.settings, "default_adaptive_logic", DEFAULT_ADAPTIVE_LOGIC)
         )
         self.adaptive_segments = StringVar(
-            value=getattr(self.settings, "default_adaptive_segments", DEFAULT_SEGMENT_TEXT)
+            value=getattr(self.settings, "default_adaptive_segments", "")
         )
         self.adaptive_remove_duplicates = BooleanVar(
             value=getattr(self.settings, "default_adaptive_remove_duplicates", True)

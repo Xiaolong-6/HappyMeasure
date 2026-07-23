@@ -3,19 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from keith_ivt.core.adaptive_logic import MAX_ADAPTIVE_POINTS, adaptive_values_from_logic
+from keith_ivt.core.adaptive_logic import MAX_ADAPTIVE_POINTS
 from keith_ivt.models import make_source_values
-
-DEFAULT_SEGMENT_TEXT = """\
--10, -1, 1
--1, -0.1, 0.1
--0.1, -0.01, 0.01
--0.01, -0.001, 0.001
-0, 0, 1
-0.001, 0.01, 0.001
-0.01, 0.1, 0.01
-0.1, 1, 0.1
-1, 10, 1"""
 
 
 @dataclass(frozen=True)
@@ -51,10 +40,6 @@ def rows_from_tuples(rows: list[tuple[float, float, float]]) -> list[SegmentRow]
 
 def _display_number(value: float) -> str:
     return format(float(value), ".12g")
-
-
-def _serialize_number(value: float) -> str:
-    return repr(float(value))
 
 
 def _segment_point_count(start: float, stop: float, step: float) -> int:
@@ -130,31 +115,3 @@ def parse_segment_text(
     if not values:
         raise ValueError("Adaptive segments produced no source values.")
     return values
-
-
-def segment_text_from_legacy_logic(logic: str) -> str:
-    """Convert legacy ``values = ...`` settings to editable linear segments."""
-    values = adaptive_values_from_logic(logic)
-    if len(values) == 1:
-        value = _serialize_number(values[0])
-        return f"{value}, {value}, 1"
-
-    lines: list[str] = []
-    segment_start = 0
-    step = values[1] - values[0]
-    for index in range(2, len(values)):
-        candidate_step = values[index] - values[index - 1]
-        tolerance = max(abs(step), abs(candidate_step), 1.0) * 1e-10
-        if abs(candidate_step - step) <= tolerance:
-            continue
-        lines.append(
-            f"{_serialize_number(values[segment_start])}, "
-            f"{_serialize_number(values[index - 1])}, {_serialize_number(step)}"
-        )
-        segment_start = index - 1
-        step = candidate_step
-    lines.append(
-        f"{_serialize_number(values[segment_start])}, "
-        f"{_serialize_number(values[-1])}, {_serialize_number(step)}"
-    )
-    return "\n".join(lines)

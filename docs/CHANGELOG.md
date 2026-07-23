@@ -6,7 +6,10 @@
 - Added explicit ascending and descending syntax guidance plus line-numbered validation.
 - Added an option to preserve repeated scan values or remove them globally while keeping order.
 - Preserved editable segment text and the duplicate option in settings, presets, CSV metadata, and persistent storage.
-- Added migration from legacy `values = [...]` Adaptive settings.
+- Legacy Adaptive logic is no longer expanded into dozens of segment rows; when
+  no new-format segment text exists, the editor starts empty.
+- Removed the nested Adaptive editor scrollbar and made its height follow the
+  number of entered segment lines.
 
 ## 1.1b3 — Keithley front-panel current range control
 

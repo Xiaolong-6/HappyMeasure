@@ -19,11 +19,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from keith_ivt.sweeps.table_sweep import (
-    DEFAULT_SEGMENT_TEXT,
-    segment_text_from_legacy_logic,
-)
-
 logger = logging.getLogger("keith_ivt.settings")
 
 
@@ -211,28 +206,13 @@ class SweepSettings(BaseModel):
         min_length=5,
     )
     default_adaptive_segments: str = Field(
-        default=DEFAULT_SEGMENT_TEXT,
+        default="",
         description="One start, stop, step Adaptive segment per line",
-        min_length=1,
     )
     default_adaptive_remove_duplicates: bool = Field(
         default=True,
         description="Remove repeated Adaptive source values while preserving order",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def migrate_adaptive_segments(cls, data: Any) -> Any:
-        if not isinstance(data, dict) or str(data.get("default_adaptive_segments", "")).strip():
-            return data
-        migrated = dict(data)
-        try:
-            migrated["default_adaptive_segments"] = segment_text_from_legacy_logic(
-                str(data.get("default_adaptive_logic", ""))
-            )
-        except ValueError:
-            migrated["default_adaptive_segments"] = DEFAULT_SEGMENT_TEXT
-        return migrated
 
     @model_validator(mode="after")
     def validate_sweep_range(self) -> "SweepSettings":
