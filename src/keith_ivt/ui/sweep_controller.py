@@ -44,7 +44,10 @@ class SweepControllerMixin:
             self._pause_event.clear()
         except Exception:
             pass
-        self._x_data.clear(); self._y_data.clear(); self._live_points.clear(); self._live_config = config
+        self._x_data.clear()
+        self._y_data.clear()
+        self._live_points.clear()
+        self._live_config = config
         self._current_range_control.update_state(CurrentRangeState(
             autorange=bool(config.auto_measure_range),
             actual_range_A=config.measure_range if (not config.auto_measure_range and config.measure_range > 0) else None,
@@ -143,7 +146,14 @@ class SweepControllerMixin:
             return
         try:
             with self._make_instrument(config) as inst:
-                inst.reset(); inst.configure_for_sweep(config); inst.set_source(config.source_scpi, config.constant_value); inst.output_on(); time.sleep(0.2); inst.output_off()
+                try:
+                    inst.reset()
+                    inst.configure_for_sweep(config)
+                    inst.set_source(config.source_scpi, config.constant_value)
+                    inst.output_on()
+                    time.sleep(0.2)
+                finally:
+                    inst.output_off()
             self.log_event("Manual output interlock path executed. Alpha implementation turns output off after smoke-test pulse.")
             messagebox.showinfo("Manual output", "Alpha safety path executed and output was turned off.")
         except Exception as exc:
@@ -202,7 +212,10 @@ class SweepControllerMixin:
         self._last_result = result
         trace = self._datasets.add_result(result, result.config.device_name)
         self._selected_trace_id = trace.trace_id
-        self._live_points.clear(); self._x_data.clear(); self._y_data.clear(); self._live_config = None
+        self._live_points.clear()
+        self._x_data.clear()
+        self._y_data.clear()
+        self._live_config = None
         self._refresh_trace_list()
         self._redraw_all_plots()
         try:

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install project and developer tools
+        run: python -m pip install -e ".[dev]"
+      - name: Compile sources and tests
+        run: python -m compileall -q src tests
+      - name: Run test suite
+        run: python -m pytest -q
+      - name: Enforce core coverage
+        if: matrix.python-version == '3.14'
+        run: python -m pytest --cov=keith_ivt --cov-report=term -q

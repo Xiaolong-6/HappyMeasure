@@ -7,10 +7,17 @@ from keith_ivt.models import SweepConfig, SweepKind, SweepMode
 
 
 class RecordingSourceMeter:
-    def __init__(self, *, fail_on_read: bool = False, fail_output_off: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        fail_on_read: bool = False,
+        fail_output_on: bool = False,
+        fail_output_off: bool = False,
+    ) -> None:
         self.events: list[str] = []
         self.sources: list[float] = []
         self.fail_on_read = fail_on_read
+        self.fail_output_on = fail_output_on
         self.fail_output_off = fail_output_off
         self.output_enabled = False
 
@@ -43,6 +50,8 @@ class RecordingSourceMeter:
     def output_on(self) -> None:
         self.output_enabled = True
         self.events.append("output_on")
+        if self.fail_output_on:
+            raise RuntimeError("output on response lost")
 
     def output_off(self) -> None:
         self.events.append("output_off")
@@ -115,3 +124,13 @@ def test_output_off_failure_preserves_original_measurement_error_context():
     assert "read failed" in message
     assert "output off failed" in message
     assert err.value.__cause__ is not None
+
+
+def test_ambiguous_output_on_failure_still_attempts_output_off():
+    inst = RecordingSourceMeter(fail_output_on=True)
+
+    with pytest.raises(RuntimeError, match="output on response lost"):
+        SweepRunner(inst).run(_config(output_off_after_run=False))
+
+    assert inst.events[-1] == "output_off"
+    assert inst.output_enabled is False

@@ -52,14 +52,14 @@ class SweepRunner:
                 return True
             return False
 
-        self.instrument.reset()
-        self.instrument.configure_for_sweep(config)
-        if current_range_control is not None:
-            state = self._refresh_current_range_state(current_range_control)
-            last_actual_range_A = state.actual_range_A
-        self.instrument.output_on()
-
         try:
+            self.instrument.reset()
+            self.instrument.configure_for_sweep(config)
+            if current_range_control is not None:
+                state = self._refresh_current_range_state(current_range_control)
+                last_actual_range_A = state.actual_range_A
+            self.instrument.output_on()
+
             if config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time:
                 index = 0
                 self.instrument.set_source(config.source_scpi, config.constant_value)
@@ -120,7 +120,8 @@ class SweepRunner:
                     if config.sweep_kind is SweepKind.CONSTANT_TIME and index < total:
                         _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
         finally:
-            if config.output_off_after_run or stopped_by_operator:
+            run_failed = sys.exc_info()[1] is not None
+            if config.output_off_after_run or stopped_by_operator or run_failed:
                 self._safe_output_off_preserving_error()
 
         return SweepResult(config=config, points=points)
@@ -172,6 +173,8 @@ class SweepRunner:
                 if action.kind == "autorange":
                     self.instrument.set_current_autorange(bool(action.value))
                 elif action.kind == "fixed_range":
+                    if action.value is None:
+                        raise ValueError("Fixed current range action is missing a range value.")
                     self.instrument.set_current_autorange(False)
                     self.instrument.set_current_range(float(action.value))
                 elif action.kind == "lock_current":

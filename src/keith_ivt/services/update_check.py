@@ -63,6 +63,7 @@ def _result(
     release_url: str | None = None,
     asset_name: str | None = None,
     asset_download_url: str | None = None,
+    asset_sha256: str | None = None,
 ) -> dict[str, str | None]:
     return {
         "status": status,
@@ -71,10 +72,13 @@ def _result(
         "release_url": release_url,
         "asset_name": asset_name,
         "asset_download_url": asset_download_url,
+        "asset_sha256": asset_sha256,
     }
 
 
-def select_portable_zip_asset(release: dict) -> tuple[str | None, str | None]:
+def select_portable_zip_asset_details(
+    release: dict,
+) -> tuple[str | None, str | None, str | None]:
     """Return the preferred Windows portable zip asset from a GitHub release.
 
     GitHub automatically exposes source-code archives for every tag; those are
@@ -84,14 +88,19 @@ def select_portable_zip_asset(release: dict) -> tuple[str | None, str | None]:
     """
     assets = release.get("assets") if isinstance(release, dict) else None
     if not isinstance(assets, list):
-        return None, None
+        return None, None, None
 
-    candidates: list[tuple[int, str, str]] = []
+    candidates: list[tuple[int, str, str, str | None]] = []
     for asset in assets:
         if not isinstance(asset, dict):
             continue
         name = str(asset.get("name") or "").strip()
         url = str(asset.get("browser_download_url") or "").strip()
+        digest = str(asset.get("digest") or "").strip().lower()
+        digest_value = digest.removeprefix("sha256:")
+        sha256: str | None = (
+            digest_value if re.fullmatch(r"[0-9a-f]{64}", digest_value) else None
+        )
         lowered = name.lower()
         if not name or not url or not lowered.endswith(".zip"):
             continue
@@ -105,12 +114,18 @@ def select_portable_zip_asset(release: dict) -> tuple[str | None, str | None]:
         if "portable" in lowered:
             score += 2
         if score >= 5:
-            candidates.append((-score, name, url))
+            candidates.append((-score, name, url, sha256))
 
     if not candidates:
-        return None, None
-    candidates.sort()
-    _score, name, url = candidates[0]
+        return None, None, None
+    candidates.sort(key=lambda item: item[:3])
+    _score, name, url, selected_sha256 = candidates[0]
+    return name, url, selected_sha256
+
+
+def select_portable_zip_asset(release: dict) -> tuple[str | None, str | None]:
+    """Compatibility wrapper returning only the selected asset name and URL."""
+    name, url, _sha256 = select_portable_zip_asset_details(release)
     return name, url
 
 
@@ -169,9 +184,13 @@ def check_github_release(
         return _result("error", f"Update check unavailable: {exc}")
 
     display_version = tag_name if tag_name.startswith("v") else f"v{tag_name}"
-    asset_name, asset_download_url = select_portable_zip_asset(latest_release)
+    asset_name, asset_download_url, asset_sha256 = select_portable_zip_asset_details(latest_release)
     if remote > current:
-        installer_note = " Ready to download and install." if asset_download_url else " Open the release page to download manually."
+        installer_note = (
+            " Ready to download and install."
+            if asset_download_url and asset_sha256
+            else " Open the release page to download manually."
+        )
         return _result(
             "newer",
             f"New version available: {display_version}.{installer_note}",
@@ -179,6 +198,7 @@ def check_github_release(
             str(release_url) if release_url else None,
             asset_name,
             asset_download_url,
+            asset_sha256,
         )
     if remote < current:
         return _result(
@@ -188,6 +208,7 @@ def check_github_release(
             str(release_url) if release_url else None,
             asset_name,
             asset_download_url,
+            asset_sha256,
         )
 
     return _result(
@@ -197,4 +218,5 @@ def check_github_release(
         str(release_url) if release_url else None,
         asset_name,
         asset_download_url,
+        asset_sha256,
     )

@@ -33,25 +33,6 @@ class MeasurementService:
     ) -> list[DriverReadback]:
         if plan.execution_kind is SweepExecutionKind.MANUAL_OUTPUT:
             raise ValueError("Manual output is not a normal measurement plan.")
-        self.driver.reset()
-        configure_kwargs = dict(
-            source_mode=plan.source_mode,
-            measure_mode=plan.measure_mode,
-            compliance=plan.compliance,
-            nplc=plan.nplc,
-            delay_s=plan.delay_s,
-            autorange=plan.autorange,
-            source_range=plan.source_range,
-            measure_range=plan.measure_range,
-        )
-        try:
-            self.driver.configure_source_measure(**configure_kwargs)
-        except TypeError as exc:
-            if "delay_s" not in str(exc):
-                raise
-            configure_kwargs.pop("delay_s", None)
-            self.driver.configure_source_measure(**configure_kwargs)
-        self.driver.output_on()
         reads: list[DriverReadback] = []
         stopped_by_operator = False
 
@@ -63,6 +44,32 @@ class MeasurementService:
             return False
 
         try:
+            self.driver.reset()
+            try:
+                self.driver.configure_source_measure(
+                    source_mode=plan.source_mode,
+                    measure_mode=plan.measure_mode,
+                    compliance=plan.compliance,
+                    nplc=plan.nplc,
+                    delay_s=plan.delay_s,
+                    autorange=plan.autorange,
+                    source_range=plan.source_range,
+                    measure_range=plan.measure_range,
+                )
+            except TypeError as exc:
+                if "delay_s" not in str(exc):
+                    raise
+                self.driver.configure_source_measure(
+                    source_mode=plan.source_mode,
+                    measure_mode=plan.measure_mode,
+                    compliance=plan.compliance,
+                    nplc=plan.nplc,
+                    autorange=plan.autorange,
+                    source_range=plan.source_range,
+                    measure_range=plan.measure_range,
+                )
+            self.driver.output_on()
+
             total = plan.point_count
             for index, value in enumerate(plan.values, start=1):
                 if _should_stop():

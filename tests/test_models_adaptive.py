@@ -37,3 +37,23 @@ def test_adaptive_logic_values() -> None:
     assert vals == [0.0, 0.5, 1.0]
     vals = adaptive_values_from_logic("values = linspace(0, 1, 3)")
     assert vals == [0.0, 0.5, 1.0]
+
+
+@pytest.mark.parametrize(
+    "logic",
+    [
+        "import os\nvalues = [0]",
+        "values = __import__('os').getcwd()",
+        "values = [x for x in range(3)]",
+        "other = [0]",
+        "values = [float('nan')]",
+    ],
+)
+def test_adaptive_logic_rejects_executable_python(logic: str) -> None:
+    with pytest.raises(ValueError):
+        adaptive_values_from_logic(logic)
+
+
+def test_adaptive_logic_rejects_huge_generated_plan_before_allocation() -> None:
+    with pytest.raises(ValueError, match="must not exceed"):
+        adaptive_values_from_logic("values = linspace(0, 1, 100001)")

@@ -67,6 +67,7 @@ class UpdateControllerMixin:
                 "release_url": None,
                 "asset_name": None,
                 "asset_download_url": None,
+                "asset_sha256": None,
             }
         self.root.after(0, lambda result=result: self._handle_update_check_result(result, prompt_install=prompt_install))
 
@@ -125,11 +126,13 @@ class UpdateControllerMixin:
     def _prompt_for_update_install(self, result: dict[str, str | None]) -> None:
         latest = result.get("latest_version") or "the latest version"
         asset_url = result.get("asset_download_url")
+        asset_sha256 = result.get("asset_sha256")
         asset_name = result.get("asset_name") or "HappyMeasure Windows portable zip"
-        if not asset_url:
+        if not asset_url or not asset_sha256:
             if messagebox.askyesno(
                 "Update available",
-                f"{latest} is available, but no Windows portable zip asset was found.\n\nOpen the release page?",
+                f"{latest} is available, but no cryptographically verifiable Windows portable "
+                "package was found.\n\nOpen the release page?",
             ):
                 self._open_update_release_page()
             return
@@ -153,6 +156,7 @@ class UpdateControllerMixin:
             plan = launch_update_installer(
                 asset_url=str(result.get("asset_download_url") or ""),
                 latest_version=str(result.get("latest_version") or "unknown"),
+                expected_sha256=str(result.get("asset_sha256") or ""),
             )
         except Exception as exc:
             logging.getLogger("keith_ivt.ui.updates").exception("Failed to launch updater")

@@ -32,7 +32,7 @@ Confirm:
 - No local helper scripts are staged, especially `LOCAL_*.bat` or `LOCAL_*.ps1`.
 - `LICENSE`, `NOTICE.md`, `README.md`, `CONTRIBUTING.md`, and this checklist are present.
 - `.gitignore` still excludes local runtime/build helpers.
-- README hardware warnings and manual-update wording are current.
+- README hardware warnings and verified-update wording are current.
 - Every behavior/build/UI/safety change has one of: user-facing README note, docs update, changelog/release-note entry, or an explicit no-docs-needed rationale in the diary.
 
 ## 2. Version and naming consistency
@@ -130,7 +130,8 @@ Follow `docs/MANUAL_SMOKE_TESTS.md`. At minimum, confirm:
 - Pause/Stop/Abort do not leave the status bar stuck in `Sweeping`.
 - Canvas connection/simulator status icons scale with UI scale but remain independent of the selected font family and emoji fallback.
 - Trace rename/hide/delete/export/import behavior matches `docs/TRACE_SCHEMA.md`.
-- Update reminder remains non-intrusive and does not download, install, or replace files.
+- Update reminder remains non-intrusive. Installation requires explicit
+  confirmation and a release asset with a valid SHA-256 digest.
 
 Record any deviation in `docs/AGENT_HANDOFF.md` before release notes are finalized.
 
@@ -231,15 +232,21 @@ Create the GitHub Release:
 - Use tag `v<version>`.
 - Mark alpha/beta releases as prerelease.
 - Upload `HappyMeasure-<version>-windows-portable.zip`.
+- Confirm the uploaded asset exposes a `sha256:` digest in GitHub release
+  metadata; otherwise the app must offer manual download only.
 - Include safety status: simulator validated, hardware validation level reached, and whether real-DUT validation is pending.
-- State that the app checks release metadata only; users upgrade manually.
+- State that verified in-app installation is available only when release
+  metadata includes a SHA-256 digest; otherwise users upgrade manually.
 
 ## 10. Post-release verification
 
 After publishing:
 
 - Open the release page and confirm the asset downloads.
-- Start the previous local version and confirm the manual update reminder reports the new release when network is available.
+- Start the previous local version and confirm the update reminder reports the
+  new release when network is available.
+- Confirm a release with a SHA-256 digest offers installation and a release
+  without one falls back to the release page.
 - Confirm offline/no-network update checks remain non-blocking.
 - Download the release zip to a fresh folder and launch `HappyMeasure.exe` once.
 - Record final release status in the permanent changelog.

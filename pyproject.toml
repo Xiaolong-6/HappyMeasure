@@ -8,9 +8,9 @@ version = "1.1b3"
 description = "HappyMeasure 1.1b3 beta for Keithley-style IV workflows"
 requires-python = ">=3.11"
 dependencies = [
-  "matplotlib>=3.8",
-  "pyserial>=3.5",
-  "pydantic>=2.0",
+  "matplotlib>=3.8,<4",
+  "pyserial==3.5",
+  "pydantic>=2.0,<3",
 ]
 
 [project.scripts]

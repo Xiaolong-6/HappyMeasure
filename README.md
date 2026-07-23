@@ -143,9 +143,13 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 
 `src/keith_ivt/ui/simple_app.py` is intentionally kept as a compact composition root. Feature behavior should live in focused UI mixins/modules such as `update_controller.py`, `sweep_controller.py`, `hardware_controller.py`, and `trace_panel.py`. This keeps the Tkinter shell easier to validate and prevents the old monolithic UI file from growing back.
 
-## Manual update checks
+## Update checks
 
-App only checks GitHub release metadata. It does not auto-download, auto-install, or replace files. Users must upgrade manually from the Release page.
+The app checks GitHub release metadata. An in-app update is offered only when
+the official release asset includes a SHA-256 digest; the external updater
+verifies that digest before replacing program files. If the release has no
+verifiable digest, HappyMeasure opens the release page for a manual upgrade.
+User settings, presets, logs, exports, backups, cache, and data are preserved.
 
 ## Where to look next
 

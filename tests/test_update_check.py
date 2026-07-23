@@ -71,7 +71,11 @@ def test_remote_newer_release(monkeypatch) -> None:
                 ),
                 "assets": [
                     {"name": "Source code (zip)", "browser_download_url": "source"},
-                    {"name": "HappyMeasure-v0.7.0-alpha.2-windows-portable.zip", "browser_download_url": "portable"},
+                    {
+                        "name": "HappyMeasure-v0.7.0-alpha.2-windows-portable.zip",
+                        "browser_download_url": "portable",
+                        "digest": "sha256:" + "a" * 64,
+                    },
                 ],
             }
         ],
@@ -84,6 +88,7 @@ def test_remote_newer_release(monkeypatch) -> None:
     assert result["message"] == "New version available: v0.7.0-alpha.2. Ready to download and install."
     assert result["release_url"].endswith("/v0.7.0-alpha.2")
     assert result["asset_download_url"] == "portable"
+    assert result["asset_sha256"] == "a" * 64
 
 
 def test_remote_current_release(monkeypatch) -> None:
@@ -179,3 +184,32 @@ def test_select_portable_zip_asset_ignores_source_archives() -> None:
     })
     assert name == "HappyMeasure-v1.1b1-windows-portable.zip"
     assert url == "good"
+
+
+def test_release_without_digest_is_manual_only(monkeypatch) -> None:
+    install_urlopen(
+        monkeypatch,
+        [
+            {
+                "draft": False,
+                "prerelease": False,
+                "tag_name": "v1.2.0",
+                "html_url": "https://github.com/Xiaolong-6/HappyMeasure/releases/tag/v1.2.0",
+                "assets": [
+                    {
+                        "name": "HappyMeasure-v1.2.0-windows-portable.zip",
+                        "browser_download_url": (
+                            "https://github.com/Xiaolong-6/HappyMeasure/releases/download/"
+                            "v1.2.0/HappyMeasure-v1.2.0-windows-portable.zip"
+                        ),
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = check_github_release("Xiaolong-6", "HappyMeasure", "1.1b3")
+
+    assert result["status"] == "newer"
+    assert result["asset_sha256"] is None
+    assert "download manually" in str(result["message"])
