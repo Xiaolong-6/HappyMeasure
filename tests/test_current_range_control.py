@@ -8,7 +8,11 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
+from keith_ivt.core.current_range import (
+    CurrentRangeControl,
+    CurrentRangeState,
+    format_current_range,
+)
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.exporters import save_csv
 from keith_ivt.instrument.base import SourceMeter
@@ -23,6 +27,10 @@ def test_current_range_state_formats_autorange_actual_range() -> None:
     assert state.status_fragment() == "Auto/1 nA"
 
 
+def test_unknown_current_range_has_safe_display_text() -> None:
+    assert format_current_range(None) == "Unknown"
+
+
 class RangeMeter(SourceMeter):
     def __init__(self, *, change_on_read: int | None = None):
         self.events: list[str] = []
@@ -30,13 +38,16 @@ class RangeMeter(SourceMeter):
         self.autorange = True
         self.read_count = 0
         self.change_on_read = change_on_read
+        self.source_value = 0.0
 
     def connect(self) -> None: pass
     def close(self) -> None: pass
     def identify(self) -> str: return "RANGE-METER"
     def reset(self) -> None: self.events.append("reset")
     def configure_for_sweep(self, config: SweepConfig) -> None: self.events.append("configure")
-    def set_source(self, source_cmd: str, value: float) -> None: self.events.append(f"source:{value}")
+    def set_source(self, source_cmd: str, value: float) -> None:
+        self.source_value = float(value)
+        self.events.append(f"source:{value}")
     def output_on(self) -> None: self.events.append("output_on")
     def output_off(self) -> None: self.events.append("output_off")
     def get_current_autorange(self) -> bool: return self.autorange
@@ -52,7 +63,7 @@ class RangeMeter(SourceMeter):
         if self.change_on_read == self.read_count:
             self.range_A = 10e-9
         measured = 100.0 if self.read_count in {2, 3} else float(self.read_count)
-        return float(self.read_count), measured
+        return self.source_value, measured
 
 
 def _time_config(**overrides) -> SweepConfig:
@@ -95,19 +106,38 @@ def test_fixed_range_selection_disables_autorange_before_setting_range() -> None
     assert control.snapshot().status_fragment() == "Fixed/10 nA"
 
 
-def test_range_change_discards_bad_points_before_trace_and_csv() -> None:
+def test_range_change_rereads_same_source_without_skipping_requested_points() -> None:
     meter = RangeMeter(change_on_read=2)
     control = CurrentRangeControl()
 
     result = SweepRunner(meter).run(_time_config(), current_range_control=control)
 
-    assert [point.measured_value for point in result.points] == [1.0, 4.0]
+    assert [point.source_value for point in result.points] == [0.0, 1.0, 2.0, 3.0]
+    assert [point.measured_value for point in result.points] == [1.0, 4.0, 5.0, 6.0]
     path = save_csv(result, ROOT / "logs" / "range_filtered_test.csv")
     rows = [line.split(",") for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")][1:]
     measured_values = [float(row[2]) for row in rows]
     assert 100.0 not in measured_values
     assert control.snapshot().actual_range_A == 10e-9
     assert control.snapshot().last_change_monotonic_s is not None
+
+
+def test_wide_voltage_sweep_keeps_every_setpoint_across_multiple_range_changes() -> None:
+    class WideSweepRangeMeter(RangeMeter):
+        def set_source(self, source_cmd: str, value: float) -> None:
+            super().set_source(source_cmd, value)
+            if value in {-19.0, -8.0, 0.0, 9.0}:
+                self.range_A = 10e-9 if self.range_A == 1e-9 else 1e-9
+
+    meter = WideSweepRangeMeter()
+    control = CurrentRangeControl()
+    config = _time_config(start=-20.0, stop=20.0, step=1.0)
+
+    result = SweepRunner(meter).run(config, current_range_control=control)
+
+    expected = [float(value) for value in range(-20, 21)]
+    assert [point.source_value for point in result.points] == expected
+    assert len(result.points) == 41
 
 
 def test_simulator_can_deterministically_trigger_autorange_change(monkeypatch) -> None:

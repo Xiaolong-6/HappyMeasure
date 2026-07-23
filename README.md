@@ -53,6 +53,7 @@ Settings page with simulator, cache, font, scale, and theme controls:
 ## What changed in 1.1b3
 
 - Adds Keithley front-panel current range control with SCPI accessors, deterministic simulator support, and sweep-runner range-change settling.
+- Fixes missing voltage setpoints during autorange changes: transient readbacks are now retried at the same source value instead of advancing the sweep.
 - Polishes the front-panel current-range popup layout so labels/buttons no longer clip, range state is shown as compact Mode / Actual range / Last change summary cells, and range controls are grouped into one readable row.
 - Fixed NPLC validation for constant-time sweeps so the interval check no longer includes serial overhead.
 - Fixed CSV import/export metadata round-trip so device_name, operator, mode, and autorange are preserved correctly.

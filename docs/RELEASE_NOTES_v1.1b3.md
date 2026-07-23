@@ -16,6 +16,7 @@ HappyMeasure 1.1b3 adds front-panel current-range control for Keithley 2400/2401
 - **NPLC validation for constant-time sweeps**: Fixed the interval validation so it no longer includes serial overhead, allowing shorter intervals for constant-time sweeps.
 - **CSV import/export metadata round-trip**: Fixed device_name, operator, mode, and autorange being lost during CSV save/load cycles.
 - **Plot I-V orientation for current-source mode**: The Linear view now correctly shows Current (A) on the x-axis and Voltage (V) on the y-axis for current-source sweeps.
+- **Complete setpoint capture across autorange changes**: Discarded transient readings are now repeated at the same source voltage instead of advancing to the next voltage and leaving gaps in the result.
 
 ## Validation
 

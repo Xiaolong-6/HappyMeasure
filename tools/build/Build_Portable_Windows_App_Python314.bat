@@ -102,6 +102,8 @@ call :log Portable zip:
 call :log "%CD%\%ZIP_PATH%"
 call :log ==========================================
 call :log Deliver the zip or the whole dist\HappyMeasure folder, not only HappyMeasure.exe.
+call :log RELEASE REMINDER: After uploading the zip, verify GitHub release metadata exposes a sha256: digest.
+call :log Without that digest, HappyMeasure will intentionally offer manual download only.
 
 echo.
 echo Press any key to continue . . .

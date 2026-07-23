@@ -178,6 +178,7 @@ def test_ui_update_check_cache_contract() -> None:
 def test_select_portable_zip_asset_ignores_source_archives() -> None:
     name, url = select_portable_zip_asset({
         "assets": [
+            "invalid asset entry",
             {"name": "Source code (zip)", "browser_download_url": "bad"},
             {"name": "HappyMeasure-v1.1b1-windows-portable.zip", "browser_download_url": "good"},
         ]

@@ -13,6 +13,9 @@ from keith_ivt.models import SweepConfig, SweepKind, SweepPoint, SweepResult, va
 PointCallback = Callable[[SweepPoint, int, int], None]
 StopCallback = Callable[[], bool]
 PauseCallback = Callable[[], bool]
+StableRead = tuple[float, float] | None
+
+MIN_RANGE_STABILIZATION_ATTEMPTS = 50
 
 
 def _interruptible_sleep(seconds: float, should_stop: StopCallback | None = None) -> None:
@@ -70,19 +73,20 @@ class SweepRunner:
                         _interruptible_sleep(0.05, _should_stop)
                     if _should_stop():
                         break
-                    index += 1
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
-                    discard_remaining = self._apply_current_range_actions(config, current_range_control, discard_remaining, _should_stop)
-                    reported_source, measured = self.instrument.read_source_and_measure()
-                    reported_source, measured = self._validated_readback(reported_source, measured)
-                    discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
-                        config, current_range_control, discard_remaining, last_actual_range_A, _should_stop
+                    stable_read, discard_remaining, last_actual_range_A = self._read_stable_at_source(
+                        config,
+                        current_range_control,
+                        discard_remaining,
+                        last_actual_range_A,
+                        _should_stop,
                     )
-                    if should_discard:
-                        _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
-                        continue
+                    if stable_read is None:
+                        break
+                    reported_source, measured = stable_read
+                    index += 1
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -103,16 +107,16 @@ class SweepRunner:
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
-                    discard_remaining = self._apply_current_range_actions(config, current_range_control, discard_remaining, _should_stop)
-                    reported_source, measured = self.instrument.read_source_and_measure()
-                    reported_source, measured = self._validated_readback(reported_source, measured)
-                    discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
-                        config, current_range_control, discard_remaining, last_actual_range_A, _should_stop
+                    stable_read, discard_remaining, last_actual_range_A = self._read_stable_at_source(
+                        config,
+                        current_range_control,
+                        discard_remaining,
+                        last_actual_range_A,
+                        _should_stop,
                     )
-                    if should_discard:
-                        if config.sweep_kind is SweepKind.CONSTANT_TIME and index < total:
-                            _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
-                        continue
+                    if stable_read is None:
+                        break
+                    reported_source, measured = stable_read
                     point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
                     points.append(point)
                     if on_point is not None:
@@ -125,6 +129,53 @@ class SweepRunner:
                 self._safe_output_off_preserving_error()
 
         return SweepResult(config=config, points=points)
+
+    def _read_stable_at_source(
+        self,
+        config: SweepConfig,
+        control: CurrentRangeControl | None,
+        discard_remaining: int,
+        last_actual_range_A: float | None,
+        should_stop: StopCallback | None,
+    ) -> tuple[StableRead, int, float | None]:
+        """Read repeatedly at one source setpoint until current range settles.
+
+        Discarding a transient readback must not advance the outer sweep. Doing
+        so silently removes requested source voltages from the result whenever
+        autorange changes.
+        """
+        max_attempts = max(
+            MIN_RANGE_STABILIZATION_ATTEMPTS,
+            int(config.discard_after_range_change) + 5,
+        )
+        for _attempt in range(max_attempts):
+            if should_stop is not None and should_stop():
+                return None, discard_remaining, last_actual_range_A
+            discard_remaining = self._apply_current_range_actions(
+                config,
+                control,
+                discard_remaining,
+                should_stop,
+            )
+            if should_stop is not None and should_stop():
+                return None, discard_remaining, last_actual_range_A
+            reported_source, measured = self.instrument.read_source_and_measure()
+            reported_source, measured = self._validated_readback(reported_source, measured)
+            discard_remaining, last_actual_range_A, should_discard = (
+                self._range_discard_decision(
+                    config,
+                    control,
+                    discard_remaining,
+                    last_actual_range_A,
+                    should_stop,
+                )
+            )
+            if not should_discard:
+                return (reported_source, measured), discard_remaining, last_actual_range_A
+        raise RuntimeError(
+            "Current range did not stabilize at the active source setpoint "
+            f"after {max_attempts} reads."
+        )
 
     def _refresh_current_range_state(self, control: CurrentRangeControl) -> CurrentRangeState:
         previous = control.snapshot()
