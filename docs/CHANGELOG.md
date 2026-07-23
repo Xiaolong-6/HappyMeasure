@@ -15,6 +15,12 @@
 - Presets now use a versioned Hardware + visible Sweep snapshot, restore both
   range Auto states independently, preserve raw Adaptive text, and leave
   settings from every other page untouched.
+- Update-check workers now return through the thread-safe UI event queue, so
+  closing the app immediately after opening About cannot call a destroyed Tk
+  interpreter.
+- Added a reusable desktop user-flow smoke script covering navigation,
+  responsive themes, simulator sweeps, Pause/Resume/STOP, validation errors,
+  CSV/PNG output, and Preset round trips.
 
 ## 1.1b3 — Keithley front-panel current range control
 

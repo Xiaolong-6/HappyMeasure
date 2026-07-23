@@ -78,12 +78,13 @@ class UpdateControllerMixin(UiMixinTyping):
                 "asset_download_url": None,
                 "asset_sha256": None,
             }
-        self.root.after(
-            0,
-            lambda result=result: self._handle_update_check_result(
-                result, prompt_install=prompt_install
-            ),
-        )
+        event_queue = getattr(self, "_queue", None)
+        if event_queue is not None:
+            event_queue.put(("update_check", (result, prompt_install)))
+        else:
+            logging.getLogger("keith_ivt.ui.updates").warning(
+                "Update result discarded because the UI event queue is unavailable."
+            )
 
     def _has_fresh_update_check_result(self) -> bool:
         if self._last_update_check_result is None or self._last_update_check_timestamp is None:

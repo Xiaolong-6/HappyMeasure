@@ -237,6 +237,9 @@ class SweepControllerMixin(UiMixinTyping):
                 elif kind == "error":
                     self._handle_error(payload)
                     redraw_live = False
+                elif kind == "update_check":
+                    result, prompt_install = payload
+                    self._handle_update_check_result(result, prompt_install=bool(prompt_install))
         except queue.Empty:
             pass
         if redraw_live and self._run_state in {"running", "paused", "stopping"}:
