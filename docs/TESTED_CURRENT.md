@@ -34,6 +34,9 @@ The `1.1b4` Windows portable folder and ZIP were then built successfully. The
 required packaged files were verified, and `HappyMeasure.exe` opened a
 responsive `HappyMeasure 1.1b4` window and closed normally.
 
+The operator then confirmed the short real-hardware release gate using the
+final packaged executable.
+
 Final candidate artifact:
 
 ```text

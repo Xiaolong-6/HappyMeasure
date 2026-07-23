@@ -97,9 +97,8 @@ Main plot interactivity lives in `src/keith_ivt/ui/plot_panel.py` and `src/keith
 
 ## Known limitations
 
-- The operator has reported successful real-device measurements from a source
-  build. The final packaged `1.1b4` executable still requires the short
-  hardware release-gate check before external publication.
+- The operator confirmed successful real-device measurement and the short
+  hardware release gate with the final packaged `1.1b4` executable.
 - `keith_ivt` remains the implementation/legacy import namespace; `happymeasure` is the public package namespace.
 - The `1.1b4` Python 3.12 portable build passed; package contents and packaged
   window startup/shutdown were verified.

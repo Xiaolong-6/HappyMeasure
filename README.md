@@ -63,7 +63,8 @@ Settings page with simulator, cache, font, scale, and theme controls:
 - Keeps the 1.1b2 hysteresis sweep feature: optional forward/reverse hysteresis for finite Step and Adaptive sweeps, default OFF.
 - Keeps the 1.1b1 startup updater path: Settings-controlled update checking, external updater handoff, preserved user settings/presets/logs/exports/backups/data, and active-sweep install blocking.
 - Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
-- A previous source build has been measured successfully on the operator's real device; the final packaged `1.1b4` executable still requires the short release-gate hardware check.
+- The operator has confirmed successful real-device measurement and the short
+  hardware release gate with the final packaged `1.1b4` executable.
 
 ## Safe validation path
 
@@ -132,7 +133,8 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 ## Current human-facing status
 
 - Simulator workflows are the supported validation path.
-- Real-device measurement has been confirmed by the operator on a source build; repeat the short hardware release gate with the final packaged executable before publishing.
+- Real-device measurement and the final packaged-executable hardware release
+  gate have been confirmed by the operator.
 - The UI default is the clean `Light` theme; `Dark` is available; `Debug` is for layout inspection.
 - Verdana is the preferred default UI font when installed. The font selector reads system-installed fonts.
 - During an active measurement, the plot shows live data only; stored traces return after completion.

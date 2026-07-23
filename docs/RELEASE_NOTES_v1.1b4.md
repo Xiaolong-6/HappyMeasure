@@ -48,9 +48,8 @@ setpoints or user-entered settings could be lost.
 - Windows portable package: built with Python 3.12, required contents verified,
   and the packaged `HappyMeasure 1.1b4` window launched, responded, and closed
   normally.
-- The operator has reported successful real-device measurements from a source
-  build. A short check with the final packaged executable remains required
-  before publishing.
+- The operator confirmed successful real-device measurement and the short
+  hardware release gate with the final packaged executable.
 
 ## Release artifact
 
