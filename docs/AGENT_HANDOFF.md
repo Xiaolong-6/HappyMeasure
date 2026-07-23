@@ -97,9 +97,12 @@ Main plot interactivity lives in `src/keith_ivt/ui/plot_panel.py` and `src/keith
 
 ## Known limitations
 
-- Real hardware validation is still required before external release.
+- The operator has reported successful real-device measurements from a source
+  build. The final packaged `1.1b4` executable still requires the short
+  hardware release-gate check before external publication.
 - `keith_ivt` remains the implementation/legacy import namespace; `happymeasure` is the public package namespace.
-- Build validation is intentionally deferred until the version-number/release-prep step.
+- The `1.1b4` Python 3.12 portable build passed; package contents and packaged
+  window startup/shutdown were verified.
 
 ## Current UI/data hardening note
 
@@ -126,7 +129,9 @@ Avoid duplicating long procedures across docs. Update the owner document and lin
 
 Legacy source-contract tests have been updated to match the current Canvas status-icon design, `_normalize_theme()` settings sanitizer, and `_should_stop` interruptible-sleep wrapper. Do not reintroduce assertions for `ConnGreen.TLabel`, `ConnRed.TLabel`, or the old devil emoji status indicator; those are intentionally obsolete.
 
-Current full-test status after this sync: non-build tests pass. Two remaining full-suite failures are build/packaging contracts and should be resolved in the version-bump/release-build phase unless the user explicitly asks to address packaging earlier.
+Current full-test status after the `1.1b4` release-prep sync: 467 tests pass
+with 1 expected skip. The earlier build/packaging contract failures are
+resolved.
 
 External audit quick-fix status: RunState alias clarity, redundant coverage omit cleanup, and the staged namespace migration plan have been addressed. `RunState.RUNNING` is intentionally a deprecated alias for canonical `RunState.SWEEPING`; do not split it into a new runtime state without updating AppState transitions and UI status rendering. Strict mypy settings and coverage-threshold changes remain deferred engineering-policy decisions, not next-release blockers.
 

@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `1.1b3` (1.1 beta 3).
+Current version: `1.1b4` (1.1 beta 4).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
@@ -50,18 +50,20 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
 
-## What changed in 1.1b3
+## What changed in 1.1b4
 
-- Adds Keithley front-panel current range control with SCPI accessors, deterministic simulator support, and sweep-runner range-change settling.
-- Fixes missing voltage setpoints during autorange changes: transient readbacks are now retried at the same source value instead of advancing the sweep.
-- Polishes the front-panel current-range popup layout so labels/buttons no longer clip, range state is shown as compact Mode / Actual range / Last change summary cells, and range controls are grouped into one readable row.
-- Fixed NPLC validation for constant-time sweeps so the interval check no longer includes serial overhead.
-- Fixed CSV import/export metadata round-trip so device_name, operator, mode, and autorange are preserved correctly.
-- Adds regression coverage in `tests/test_current_range_control.py` plus current-range SCPI assertions in `tests/test_mock_visa_command_sequence.py`.
+- Replaces the fixed Adaptive row table with a multiline `start, stop, step` editor. Ascending ranges use a positive step; descending ranges use a negative step.
+- Adds an option to remove repeated scan values while preserving their first occurrence and scan order.
+- Fixes missing requested setpoints during current-range changes by retrying transient readbacks at the same source value.
+- Restores empty, invalid, or non-finite numeric inputs to their field defaults on focus loss and before starting a sweep.
+- Makes each preset an exact snapshot of every visible Hardware and Sweep setting while leaving other pages unchanged.
+- Preserves raw Adaptive segment text, duplicate handling, range Auto states, and the rest of the visible sweep configuration across settings, presets, and CSV metadata.
+- Routes update-check results through the UI queue so closing the app while an update check is finishing cannot call a destroyed Tk interpreter.
+- Adds a desktop user-flow smoke runner covering navigation, themes, simulator sweeps, Pause/Resume/STOP, expected validation failures, file output, and preset round trips.
 - Keeps the 1.1b2 hysteresis sweep feature: optional forward/reverse hysteresis for finite Step and Adaptive sweeps, default OFF.
 - Keeps the 1.1b1 startup updater path: Settings-controlled update checking, external updater handoff, preserved user settings/presets/logs/exports/backups/data, and active-sweep install blocking.
 - Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
-- Full bench validation of every hardware feature remains planned after this beta release.
+- A previous source build has been measured successfully on the operator's real device; the final packaged `1.1b4` executable still requires the short release-gate hardware check.
 
 ## Safe validation path
 
@@ -130,7 +132,7 @@ This README is the human-facing handoff. Public documentation is in `docs/`.
 ## Current human-facing status
 
 - Simulator workflows are the supported validation path.
-- Real Keithley operation is preflight-ready, but full bench validation is still pending.
+- Real-device measurement has been confirmed by the operator on a source build; repeat the short hardware release gate with the final packaged executable before publishing.
 - The UI default is the clean `Light` theme; `Dark` is available; `Debug` is for layout inspection.
 - Verdana is the preferred default UI font when installed. The font selector reads system-installed fonts.
 - During an active measurement, the plot shows live data only; stored traces return after completion.

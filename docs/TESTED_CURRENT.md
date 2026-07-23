@@ -8,6 +8,9 @@
 
 Result: full suite passed with 1 expected skip. Coverage: 95.35%.
 
+The Python 3.12 portable build reran the suite after the release-prep changes:
+467 passed and 1 expected skip.
+
 Full validation command:
 
 ```powershell
@@ -26,6 +29,18 @@ This interactive smoke test uses only the Debug Simulator and temporary files.
 It covers every navigation page, responsive window sizes, Light/Dark/Debug
 themes, Step/Time/Adaptive sweeps, Pause/Resume/STOP, expected validation
 errors, CSV import/export, PNG export, and Preset save/load round trips.
+
+The `1.1b4` Windows portable folder and ZIP were then built successfully. The
+required packaged files were verified, and `HappyMeasure.exe` opened a
+responsive `HappyMeasure 1.1b4` window and closed normally.
+
+Final candidate artifact:
+
+```text
+HappyMeasure-1.1b4-windows-portable.zip
+45,058,322 bytes
+SHA-256 f19fc1ec4a2c7257c8508056df4102c59842a353d589ca0d79de1521f77318cb
+```
 
 ## Key coverage numbers for target files
 

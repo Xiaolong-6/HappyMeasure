@@ -28,22 +28,26 @@ function Assert-LastCommand([string]$Step) {
     }
 }
 
-function Test-PythonVersion([string]$Version, [string]$Command, [string[]]$Args = @()) {
+function Test-PythonVersion(
+    [string]$Version,
+    [string]$Command,
+    [string[]]$CommandArgs = @()
+) {
     try {
-        & $Command @Args -c "import sys; expected=tuple(map(int, '$Version'.split('.'))); raise SystemExit(0 if sys.version_info[:2] == expected else 1)" *> $null
+        & $Command @CommandArgs -c "import sys; expected=tuple(map(int, '$Version'.split('.'))); raise SystemExit(0 if sys.version_info[:2] == expected else 1)" *> $null
         return $LASTEXITCODE -eq 0
     } catch {
         return $false
     }
 }
 
-function Invoke-PythonCommand([string[]]$PythonCmd, [string[]]$Args) {
+function Invoke-PythonCommand([string[]]$PythonCmd, [string[]]$InvocationArgs) {
     $Command = $PythonCmd[0]
     $CommandArgs = @()
     if ($PythonCmd.Count -gt 1) {
         $CommandArgs = $PythonCmd[1..($PythonCmd.Count - 1)]
     }
-    & $Command @CommandArgs @Args
+    & $Command @CommandArgs @InvocationArgs
 }
 
 function Pick-Python {
@@ -98,7 +102,7 @@ $env:PIP_CACHE_DIR = Join-Path $ProjectRoot ".pip-cache"
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
 python -m pip install --upgrade pip
 Assert-LastCommand "pip upgrade"
-python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff black mypy
+python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff black mypy types-pyserial
 Assert-LastCommand "project dependency install"
 python -m pip install --upgrade pyinstaller
 Assert-LastCommand "PyInstaller install"

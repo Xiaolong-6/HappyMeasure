@@ -25,4 +25,5 @@ MAJOR.MINOR.PATCH[-alpha.N|-beta.N|-rc.N][.postN]
 
 ## Current baseline
 
-`1.1b3` is the current beta release. The project is in beta phase with simulator-first validation. Real hardware validation is pending.
+`1.1b4` is the current beta release candidate. The project remains in beta
+until the final packaged executable passes the short real-hardware release gate.

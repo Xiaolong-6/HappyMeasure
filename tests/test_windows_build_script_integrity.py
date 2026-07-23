@@ -28,3 +28,16 @@ def test_all_build_scripts_remind_release_owner_to_verify_asset_digest():
         text = path.read_text(encoding="utf-8")
         assert "RELEASE REMINDER" in text
         assert "sha256: digest" in text
+        assert "types-pyserial" in text
+
+
+def test_powershell_python_probe_does_not_shadow_automatic_args_variable():
+    build_dir = ROOT / "tools" / "build"
+    for name in (
+        "Build_Portable_Windows_App.ps1",
+        "Build_Portable_Windows_App_Python314.ps1",
+    ):
+        text = (build_dir / name).read_text(encoding="utf-8")
+        assert "[string[]]$Args" not in text
+        assert "[string[]]$CommandArgs" in text
+        assert "[string[]]$InvocationArgs" in text

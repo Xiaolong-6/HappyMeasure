@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Adaptive multiline segment editor
+## 1.1b4 — Adaptive editor and exact presets
 
 - Replaced the fixed Adaptive row table with a multiline `start, stop, step` editor.
 - Added explicit ascending and descending syntax guidance plus line-numbered validation.
@@ -21,6 +21,8 @@
 - Added a reusable desktop user-flow smoke script covering navigation,
   responsive themes, simulator sweeps, Pause/Resume/STOP, validation errors,
   CSV/PNG output, and Preset round trips.
+- Fixed PowerShell portable-build Python discovery and virtual-environment
+  creation by avoiding the reserved automatic `$Args` variable.
 
 ## 1.1b3 — Keithley front-panel current range control
 
