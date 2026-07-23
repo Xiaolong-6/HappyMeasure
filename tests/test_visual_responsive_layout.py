@@ -36,9 +36,9 @@ def test_light_theme_is_modern_card_theme_and_debug_keeps_borders():
     assert '"bg": "#F7F9FB"' in theme
     assert '"accent": "#3498DB"' in theme
     assert '"forest": "#1ABC9C"' in theme
-    assert 'frame_border = 0' in theme
+    assert "frame_border = 0" in theme
     assert 'debug = theme == "Debug"' in theme
-    assert 'frame_border = 2' in theme
+    assert "frame_border = 2" in theme
 
 
 def test_operator_and_status_follow_workspace_column():

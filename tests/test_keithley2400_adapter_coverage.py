@@ -9,7 +9,14 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from keith_ivt.drivers.base import ConnectionProfile, DriverReadback, MeasureMode, SenseWiring, SourceMode, TerminalRoute
+from keith_ivt.drivers.base import (
+    ConnectionProfile,
+    DriverReadback,
+    MeasureMode,
+    SenseWiring,
+    SourceMode,
+    TerminalRoute,
+)
 from keith_ivt.drivers.keithley2400_adapter import Keithley2400Driver
 
 
@@ -32,6 +39,7 @@ def test_adapter_capabilities() -> None:
 def test_adapter_require_driver_raises_when_not_connected() -> None:
     drv = Keithley2400Driver()
     import pytest
+
     with pytest.raises(RuntimeError, match="not connected"):
         drv.identify()
 
@@ -87,6 +95,7 @@ def test_adapter_configure_source_measure_cv_raises() -> None:
     drv._profile = _make_profile()
 
     import pytest
+
     with pytest.raises(NotImplementedError, match="CV mode"):
         drv.configure_source_measure(
             SourceMode.VOLTAGE,

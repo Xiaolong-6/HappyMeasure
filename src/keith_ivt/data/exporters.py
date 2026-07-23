@@ -5,15 +5,23 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Protocol
 
 from keith_ivt.models import SweepResult
+
+
+class _CsvWriter(Protocol):
+    def writerow(self, row: Iterable[Any]) -> Any: ...
 
 
 def _point_fingerprint(result: SweepResult) -> str:
     h = hashlib.sha256()
     for p in result.points:
-        h.update(f"{getattr(p, 'elapsed_s', 0.0):.12g},{p.source_value:.12g},{p.measured_value:.12g}\n".encode("utf-8"))
+        h.update(
+            f"{getattr(p, 'elapsed_s', 0.0):.12g},{p.source_value:.12g},{p.measured_value:.12g}\n".encode(
+                "utf-8"
+            )
+        )
     return h.hexdigest()[:16]
 
 
@@ -30,31 +38,36 @@ def result_metadata(result: SweepResult) -> dict:
         first_timestamp = getattr(result.points[0], "timestamp", "") or ""
     data_fingerprint = _point_fingerprint(result)
     cfg = result.config
-    config_fingerprint = hashlib.sha256(json.dumps({
-        "device_name": cfg.device_name,
-        "operator": cfg.operator,
-        "mode": cfg.mode.value,
-        "sweep_kind": cfg.sweep_kind.value,
-        "hysteresis": getattr(cfg, "hysteresis", False),
-        "start": cfg.start,
-        "stop": cfg.stop,
-        "step": cfg.step,
-        "constant_value": cfg.constant_value,
-        "duration_s": cfg.duration_s,
-        "interval_s": cfg.interval_s,
-        "continuous_time": cfg.continuous_time,
-        "compliance": cfg.compliance,
-        "nplc": cfg.nplc,
-        "delay_s": cfg.delay_s,
-        "terminal": cfg.terminal.value,
-        "sense_mode": cfg.sense_mode.value,
-        "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
-        "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
-        "source_range": cfg.source_range,
-        "measure_range": cfg.measure_range,
-        "range_settle_delay_ms": cfg.range_settle_delay_ms,
-        "discard_after_range_change": cfg.discard_after_range_change,
-    }, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    config_fingerprint = hashlib.sha256(
+        json.dumps(
+            {
+                "device_name": cfg.device_name,
+                "operator": cfg.operator,
+                "mode": cfg.mode.value,
+                "sweep_kind": cfg.sweep_kind.value,
+                "hysteresis": getattr(cfg, "hysteresis", False),
+                "start": cfg.start,
+                "stop": cfg.stop,
+                "step": cfg.step,
+                "constant_value": cfg.constant_value,
+                "duration_s": cfg.duration_s,
+                "interval_s": cfg.interval_s,
+                "continuous_time": cfg.continuous_time,
+                "compliance": cfg.compliance,
+                "nplc": cfg.nplc,
+                "delay_s": cfg.delay_s,
+                "terminal": cfg.terminal.value,
+                "sense_mode": cfg.sense_mode.value,
+                "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
+                "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
+                "source_range": cfg.source_range,
+                "measure_range": cfg.measure_range,
+                "range_settle_delay_ms": cfg.range_settle_delay_ms,
+                "discard_after_range_change": cfg.discard_after_range_change,
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
     return {
         "schema": "HappyMeasure CSV v2",
         "exported_at": datetime.now().isoformat(timespec="seconds"),
@@ -109,40 +122,66 @@ def save_csv(result: SweepResult, path: str | Path) -> Path:
         writer.writerow(["# section", "data"])
         writer.writerow(["Elapsed_s", x_header, y_header])
         for point in result.points:
-            writer.writerow([f"{getattr(point, 'elapsed_s', 0.0):.12g}", f"{point.source_value:.12g}", f"{point.measured_value:.12g}"])
+            writer.writerow(
+                [
+                    f"{getattr(point, 'elapsed_s', 0.0):.12g}",
+                    f"{point.source_value:.12g}",
+                    f"{point.measured_value:.12g}",
+                ]
+            )
     return path
 
 
-def _write_trace_metadata_table(writer: csv.writer, results: list[SweepResult]) -> None:
+def _write_trace_metadata_table(writer: _CsvWriter, results: list[SweepResult]) -> None:
     writer.writerow(["# section", "trace_metadata"])
-    writer.writerow([
-        "trace_index", "device_name", "operator", "mode", "sweep_type", "hysteresis", "points",
-        "start", "stop", "step", "compliance", "nplc", "delay_s", "source_range", "measure_range",
-        "auto_source_range", "auto_measure_range", "data_fingerprint", "trace_uid",
-    ])
+    writer.writerow(
+        [
+            "trace_index",
+            "device_name",
+            "operator",
+            "mode",
+            "sweep_type",
+            "hysteresis",
+            "points",
+            "start",
+            "stop",
+            "step",
+            "compliance",
+            "nplc",
+            "delay_s",
+            "source_range",
+            "measure_range",
+            "auto_source_range",
+            "auto_measure_range",
+            "data_fingerprint",
+            "trace_uid",
+        ]
+    )
     for index, result in enumerate(results, start=1):
         m = result_metadata(result)
-        writer.writerow([
-            index,
-            m["device_name"],
-            m.get("operator", ""),
-            m["mode"],
-            m["sweep_kind"],
-            m.get("hysteresis", False),
-            m["point_count"],
-            m["start"],
-            m["stop"],
-            m["step"],
-            m["compliance"],
-            m["nplc"],
-            m.get("delay_s", 0.0),
-            m["source_range"],
-            m["measure_range"],
-            m["auto_source_range"],
-            m["auto_measure_range"],
-            m["data_fingerprint"],
-            m["trace_uid"],
-        ])
+        writer.writerow(
+            [
+                index,
+                m["device_name"],
+                m.get("operator", ""),
+                m["mode"],
+                m["sweep_kind"],
+                m.get("hysteresis", False),
+                m["point_count"],
+                m["start"],
+                m["stop"],
+                m["step"],
+                m["compliance"],
+                m["nplc"],
+                m.get("delay_s", 0.0),
+                m["source_range"],
+                m["measure_range"],
+                m["auto_source_range"],
+                m["auto_measure_range"],
+                m["data_fingerprint"],
+                m["trace_uid"],
+            ]
+        )
 
 
 def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
@@ -197,18 +236,32 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
                     row.append(f"{result.points[row_idx].measured_value:.12g}")
                 writer.writerow(row)
         else:
-            writer.writerow(["trace_index", "device_name", "operator", "mode", "sweep_type", "point_index", "elapsed_s", "source_value", "measured_value"])
+            writer.writerow(
+                [
+                    "trace_index",
+                    "device_name",
+                    "operator",
+                    "mode",
+                    "sweep_type",
+                    "point_index",
+                    "elapsed_s",
+                    "source_value",
+                    "measured_value",
+                ]
+            )
             for trace_idx, result in enumerate(results, start=1):
                 for point_idx, point in enumerate(result.points, start=1):
-                    writer.writerow([
-                        trace_idx,
-                        result.config.device_name,
-                        result.config.operator,
-                        result.config.mode.value,
-                        result.config.sweep_kind.value,
-                        point_idx,
-                        f"{getattr(point, 'elapsed_s', 0.0):.12g}",
-                        f"{point.source_value:.12g}",
-                        f"{point.measured_value:.12g}",
-                    ])
+                    writer.writerow(
+                        [
+                            trace_idx,
+                            result.config.device_name,
+                            result.config.operator,
+                            result.config.mode.value,
+                            result.config.sweep_kind.value,
+                            point_idx,
+                            f"{getattr(point, 'elapsed_s', 0.0):.12g}",
+                            f"{point.source_value:.12g}",
+                            f"{point.measured_value:.12g}",
+                        ]
+                    )
     return path

@@ -5,24 +5,23 @@ import logging
 import queue
 import threading
 from pathlib import Path
-from tkinter import BooleanVar, DoubleVar, IntVar, StringVar, Tk, END
+from tkinter import BooleanVar, DoubleVar, IntVar, StringVar, Tk, Toplevel, END
 from tkinter import font as tkfont, ttk
 
 
 from keith_ivt.diagnostics import install_tk_exception_logging, log_runtime_error
 from keith_ivt.core.adaptive_logic import DEFAULT_ADAPTIVE_LOGIC
 from keith_ivt.core.current_range import CurrentRangeControl
-from keith_ivt.data.dataset_store import DatasetStore, DeviceTrace
+from keith_ivt.data.dataset_store import DatasetStore
 from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.data.settings import load_settings
-from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepMode, SweepResult, Terminal
-from keith_ivt.ui.plot_views import DEFAULT_PLOT_VIEWS, PlotView
+from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepPoint, SweepResult, Terminal
+from keith_ivt.ui.plot_views import PlotView
 from keith_ivt.ui.app_mixins import AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin
 from keith_ivt.ui.menu_utils import make_touch_menu, popup_menu
 from keith_ivt.ui.app_state import AppState
-from keith_ivt.ui.app_state_bridge import AppStateBridgeMixin
 from keith_ivt.utils.thread_safe import ThreadSafeXYBuffer
-from keith_ivt.version import APP_NAME, APP_CODENAME, __build_note__, __release_stage__, __version__
+from keith_ivt.version import APP_NAME, __version__
 
 
 class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
@@ -43,6 +42,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         (0.1, 1.0, 0.1),
         (1.0, 10.0, 1.0),
     ]
+
     def __init__(self) -> None:
         self.root = Tk()
         install_tk_exception_logging(self.root)
@@ -67,12 +67,14 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._active_capabilities = self._default_capabilities(connected=False)
         self._active_nav = "Hardware"
         self._last_mode_value = self.settings.default_mode
-        self._last_sweep_kind_value = getattr(self.settings, "default_sweep_kind", SweepKind.STEP.value)
+        self._last_sweep_kind_value = getattr(
+            self.settings, "default_sweep_kind", SweepKind.STEP.value
+        )
         self._axes = []
         self._swapped_views = set()
         self._x_data: list[float] = []
         self._y_data: list[float] = []
-        self._live_points = []
+        self._live_points: list[SweepPoint] = []
         self._live_config: SweepConfig | None = None
         self._update_check_in_progress = False
         self._last_update_check_result: dict[str, str | None] | None = None
@@ -82,16 +84,22 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
 
         # Sweep and metadata variables
         self.mode = StringVar(value=self.settings.default_mode)
-        self.sweep_kind = StringVar(value=getattr(self.settings, "default_sweep_kind", SweepKind.STEP.value))
+        self.sweep_kind = StringVar(
+            value=getattr(self.settings, "default_sweep_kind", SweepKind.STEP.value)
+        )
         self.start = DoubleVar(value=self.settings.default_start)
         self.stop = DoubleVar(value=self.settings.default_stop)
         self.step = DoubleVar(value=self.settings.default_step)
         self.hysteresis = BooleanVar(value=False)
         self.constant_value = DoubleVar(value=getattr(self.settings, "default_constant_value", 0.0))
         self.duration_s = DoubleVar(value=getattr(self.settings, "default_duration_s", 10.0))
-        self.constant_until_stop = BooleanVar(value=getattr(self.settings, "default_constant_until_stop", False))
+        self.constant_until_stop = BooleanVar(
+            value=getattr(self.settings, "default_constant_until_stop", False)
+        )
         self.interval_s = DoubleVar(value=getattr(self.settings, "default_interval_s", 0.5))
-        self.adaptive_logic = StringVar(value=getattr(self.settings, "default_adaptive_logic", DEFAULT_ADAPTIVE_LOGIC))
+        self.adaptive_logic = StringVar(
+            value=getattr(self.settings, "default_adaptive_logic", DEFAULT_ADAPTIVE_LOGIC)
+        )
         self.compliance = DoubleVar(value=self.settings.default_compliance)
         self.nplc = DoubleVar(value=self.settings.default_nplc)
         self.delay_s = DoubleVar(value=getattr(self.settings, "default_delay_s", 0.0))
@@ -111,13 +119,17 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.terminal = StringVar(value=self._display_terminal(self.settings.default_terminal))
         self.sense_mode = StringVar(value=self._display_sense(self.settings.default_sense_mode))
         self.debug = BooleanVar(value=self.settings.default_debug)
-        self.debug_model = StringVar(value=getattr(self.settings, "default_debug_model", "Linear resistor 10 kΩ"))
+        self.debug_model = StringVar(
+            value=getattr(self.settings, "default_debug_model", "Linear resistor 10 kΩ")
+        )
 
         # UI/settings variables
         self.ui_font_family = StringVar(value=getattr(self.settings, "ui_font_family", "Verdana"))
         self.ui_font_size = IntVar(value=getattr(self.settings, "ui_font_size", 10))
         self.ui_theme = StringVar(value=getattr(self.settings, "ui_theme", "Light"))
-        self.show_front_panel_on_start = BooleanVar(value=getattr(self.settings, "show_front_panel_on_start", True))
+        self.show_front_panel_on_start = BooleanVar(
+            value=getattr(self.settings, "show_front_panel_on_start", True)
+        )
         self.ui_scale_choice = StringVar(value=f"{int(self.ui_font_size.get())} pt")
         self.adaptive_start = DoubleVar(value=0.001)
         self.adaptive_stop = DoubleVar(value=1.0)
@@ -148,7 +160,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             "start": BooleanVar(value=False),
         }
         # 0.1.14 default: only Linear view enabled. Other views stay available above the plot.
-        self.plot_view_vars: dict[PlotView, BooleanVar] = {view: BooleanVar(value=(view is PlotView.LINEAR)) for view in PlotView}
+        self.plot_view_vars: dict[PlotView, BooleanVar] = {
+            view: BooleanVar(value=(view is PlotView.LINEAR)) for view in PlotView
+        }
         self.plot_view_vars[PlotView.SPARE].set(False)
 
         # Dynamic labels
@@ -164,7 +178,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.status = StringVar(value="Ready")
         self.instrument_status = StringVar(value="Not connected")
         self.version_text = StringVar(value=f"v{__version__}")
-        self.backup_text = StringVar(value="Backup: --")  # retained for restore/legacy messages; not shown in the status bar
+        self.backup_text = StringVar(
+            value="Backup: --"
+        )  # retained for restore/legacy messages; not shown in the status bar
         self.last_save_text = StringVar(value="Last save: --")
         self.status_connection_text = StringVar(value="No instr")
         self.measurement_status_text = StringVar(value="Src -- · Meas -- · Cmpl --")
@@ -172,9 +188,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.update_status_text = StringVar(value=default_update_text)
         self.update_notice_text = StringVar(value=default_update_text)
         self.connection_light_text = StringVar(value="disconnected")
-        self._last_source_value = None
-        self._last_measured_value = None
-        self._front_panel_window = None
+        self._last_source_value: float | None = None
+        self._last_measured_value: float | None = None
+        self._front_panel_window: Toplevel | None = None
         self._front_panel_auto_opened = False
 
         self._build_layout()
@@ -190,7 +206,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         if bool(getattr(self.settings, "check_updates_on_startup", True)):
             self.root.after(500, lambda: self._check_for_updates_async(prompt_install=True))
 
-
     def _normalize_ui_font_setting(self) -> None:
         """Use only fonts present on the current system; default to Verdana."""
         try:
@@ -199,7 +214,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             families = set()
         preferred = getattr(self.settings, "ui_font_family", "Verdana") or "Verdana"
         if families and preferred not in families:
-            self.settings.ui_font_family = "Verdana" if "Verdana" in families else sorted(families)[0]
+            self.settings.ui_font_family = (
+                "Verdana" if "Verdana" in families else sorted(families)[0]
+            )
 
     # ------------------------------------------------------------------
     # Style and layout
@@ -218,7 +235,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         # over the panels.
         self._build_navigation_drawer()
 
-        self.main_pane = ttk.PanedWindow(self.root, orient="horizontal", style="Nordic.TPanedwindow")
+        self.main_pane = ttk.PanedWindow(
+            self.root, orient="horizontal", style="Nordic.TPanedwindow"
+        )
         self.main_pane.grid(row=0, column=self._workspace_column, sticky="nsew")
 
         self.content_frame = ttk.Frame(self.main_pane, style="Card.TFrame", width=450)
@@ -254,7 +273,11 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             operator=self.operator.get().strip(),
             debug=bool(self.debug.get()),
             sweep_kind=sweep_kind,
-            hysteresis=bool(self.hysteresis.get()) if sweep_kind in {SweepKind.STEP, SweepKind.ADAPTIVE} else False,
+            hysteresis=(
+                bool(self.hysteresis.get())
+                if sweep_kind in {SweepKind.STEP, SweepKind.ADAPTIVE}
+                else False
+            ),
             constant_value=float(self.constant_value.get()),
             duration_s=float(self.duration_s.get()),
             continuous_time=bool(self.constant_until_stop.get()),
@@ -272,13 +295,18 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
 
     def _show_plot_more_menu(self) -> None:
         menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
-        layout_menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
+        layout_menu = make_touch_menu(
+            self.root, self.ui_font_family.get(), int(self.ui_font_size.get())
+        )
         for label in ["Auto", "Horizontal", "Vertical"]:
-            layout_menu.add_radiobutton(label=label, variable=self.arrangement, value=label, command=self._redraw_all_plots)
+            layout_menu.add_radiobutton(
+                label=label, variable=self.arrangement, value=label, command=self._redraw_all_plots
+            )
         menu.add_cascade(label="Layout", menu=layout_menu)
         menu.add_separator()
         menu.add_command(label="Clear Traces", command=self.clear_all_traces)
-        x = self.root.winfo_pointerx(); y = self.root.winfo_pointery()
+        x = self.root.winfo_pointerx()
+        y = self.root.winfo_pointery()
         popup_menu(menu, x, y)
 
     def log_event(self, message: str) -> None:
@@ -288,7 +316,10 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             line = self.app_log.write(message)
             logger.info(message)
         except Exception as exc:
-            logger.error("Failed to write user-visible AppLog event", exc_info=(type(exc), exc, exc.__traceback__))
+            logger.error(
+                "Failed to write user-visible AppLog event",
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
             line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}"
         if hasattr(self, "log_text") and self.log_text.winfo_exists():
             self.log_text.insert(END, line.replace("] ", "]  ", 1) + "\n")

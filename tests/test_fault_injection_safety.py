@@ -27,7 +27,9 @@ def _config(**kwargs) -> SweepConfig:
 
 
 def test_fault_injection_connect_failure_is_deterministic():
-    inst = SimulatedKeithley(fault_profile=SimulatorFaultProfile(connect_error="simulated connect timeout"))
+    inst = SimulatedKeithley(
+        fault_profile=SimulatorFaultProfile(connect_error="simulated connect timeout")
+    )
 
     with pytest.raises(RuntimeError, match="simulated connect timeout"):
         inst.connect()
@@ -87,7 +89,13 @@ def test_output_off_failure_preserves_non_finite_root_cause(monkeypatch):
 class FaultyDriver:
     capabilities = DriverCapabilities(name="Faulty driver")
 
-    def __init__(self, *, read: DriverReadback | None = None, fail_read: bool = False, fail_output_off: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        read: DriverReadback | None = None,
+        fail_read: bool = False,
+        fail_output_off: bool = False,
+    ) -> None:
         self.readback = read or DriverReadback(source_value=0.0, measured_value=1.0)
         self.fail_read = fail_read
         self.fail_output_off = fail_output_off
@@ -168,7 +176,9 @@ def test_measurement_service_preserves_read_error_when_output_off_fails():
 
 def test_app_state_can_restart_after_aborted_when_still_connected():
     state = AppState()
-    assert state.dispatch(AppAction.CONNECT_SIMULATED, device_id="sim", device_model="Debug simulator")
+    assert state.dispatch(
+        AppAction.CONNECT_SIMULATED, device_id="sim", device_model="Debug simulator"
+    )
     assert state.dispatch(AppAction.START_SWEEP)
     assert state.dispatch(AppAction.ABORT_SWEEP)
 

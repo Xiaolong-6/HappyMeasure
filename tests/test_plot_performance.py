@@ -1,8 +1,10 @@
 """Tests for plot performance optimization."""
+
 import pytest
 import time
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from unittest.mock import Mock
 
@@ -99,7 +101,7 @@ class TestPlotOptimizer:
         mock_line1 = Mock()
         mock_axes_lines1 = [mock_line1]
         mock_line1.axes.lines = mock_axes_lines1
-        
+
         mock_line2 = Mock()
         mock_axes_lines2 = [mock_line2]
         mock_line2.axes.lines = mock_axes_lines2
@@ -156,13 +158,15 @@ class TestFastPlotRenderer:
         renderer = FastPlotRenderer(mock_figure)
         axes = renderer.prepare_axes(1, 1, 1)
 
-        data_series = [{
-            "ax_index": 0,
-            "key": "test_trace",
-            "x": [1, 2, 3],
-            "y": [4, 5, 6],
-            "style": {"color": "blue"},
-        }]
+        data_series = [
+            {
+                "ax_index": 0,
+                "key": "test_trace",
+                "x": [1, 2, 3],
+                "y": [4, 5, 6],
+                "style": {"color": "blue"},
+            }
+        ]
 
         renderer.draw_incremental(axes, data_series)
 
@@ -191,14 +195,14 @@ class TestPerformanceImprovement:
 
     def test_incremental_vs_full_redraw_speedup(self):
         """Incremental updates should be significantly faster."""
-        optimizer = PlotOptimizer()
+        PlotOptimizer()
 
         # Simulate full redraw cost (create new objects)
         start = time.monotonic()
         for i in range(100):
             # Simulate creating new line objects
             pass
-        full_time = time.monotonic() - start
+        time.monotonic() - start
 
         # Simulate incremental update cost (update existing objects)
         start = time.monotonic()
@@ -225,6 +229,7 @@ def test_incremental_draw_autoscales_live_data_outside_default_view():
     Matplotlib's default 0..1 axes and look blank while data is present.
     """
     import matplotlib
+
     matplotlib.use("Agg")
     from matplotlib.figure import Figure
 
@@ -232,13 +237,18 @@ def test_incremental_draw_autoscales_live_data_outside_default_view():
     renderer = FastPlotRenderer(fig)
     axes = renderer.prepare_axes(num_subplots=1, rows=1, cols=1)
 
-    renderer.draw_incremental(axes, [{
-        "ax_index": 0,
-        "key": "live_Linear",
-        "x": [-5.0, 0.0, 5.0],
-        "y": [-2e-6, 0.0, 2e-6],
-        "style": {"label": "live", "linestyle": "-"},
-    }])
+    renderer.draw_incremental(
+        axes,
+        [
+            {
+                "ax_index": 0,
+                "key": "live_Linear",
+                "x": [-5.0, 0.0, 5.0],
+                "y": [-2e-6, 0.0, 2e-6],
+                "style": {"label": "live", "linestyle": "-"},
+            }
+        ],
+    )
 
     xlim = axes[0].get_xlim()
     ylim = axes[0].get_ylim()
@@ -255,6 +265,7 @@ def test_cached_live_line_recreated_after_figure_clear_same_axis_count():
     no line.
     """
     import matplotlib
+
     matplotlib.use("Agg")
     from matplotlib.figure import Figure
 
@@ -262,24 +273,34 @@ def test_cached_live_line_recreated_after_figure_clear_same_axis_count():
     renderer = FastPlotRenderer(fig)
 
     axes1 = renderer.prepare_axes(num_subplots=1, rows=1, cols=1)
-    renderer.draw_incremental(axes1, [{
-        "ax_index": 0,
-        "key": "live_Linear",
-        "x": [0.0, 1.0],
-        "y": [0.0, 1.0],
-        "style": {"label": "live", "linestyle": "-"},
-    }])
+    renderer.draw_incremental(
+        axes1,
+        [
+            {
+                "ax_index": 0,
+                "key": "live_Linear",
+                "x": [0.0, 1.0],
+                "y": [0.0, 1.0],
+                "style": {"label": "live", "linestyle": "-"},
+            }
+        ],
+    )
     old_line = renderer.optimizer._line_cache["live_Linear"]
 
     fig.clear()  # what full redraw / empty-live placeholder paths do
     axes2 = renderer.prepare_axes(num_subplots=1, rows=1, cols=1)
-    renderer.draw_incremental(axes2, [{
-        "ax_index": 0,
-        "key": "live_Linear",
-        "x": [-5.0, 0.0, 5.0],
-        "y": [-2e-6, 0.0, 2e-6],
-        "style": {"label": "live", "linestyle": "-"},
-    }])
+    renderer.draw_incremental(
+        axes2,
+        [
+            {
+                "ax_index": 0,
+                "key": "live_Linear",
+                "x": [-5.0, 0.0, 5.0],
+                "y": [-2e-6, 0.0, 2e-6],
+                "style": {"label": "live", "linestyle": "-"},
+            }
+        ],
+    )
 
     new_line = renderer.optimizer._line_cache["live_Linear"]
     assert new_line is not old_line

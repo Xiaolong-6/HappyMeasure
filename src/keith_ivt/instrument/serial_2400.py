@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
+from importlib import import_module
+from typing import Any, Optional
 
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.services.serial_safety import OutputOffGuard, SerialRetryPolicy
 from keith_ivt.models import SenseMode, SweepConfig
 
+_SERIAL_IMPORT_ERROR: ImportError | None
 try:
-    import serial
+    serial: Any = import_module("serial")
 except ImportError as exc:  # pragma: no cover
     serial = None
     _SERIAL_IMPORT_ERROR = exc
@@ -19,7 +21,13 @@ else:
 class Keithley2400Serial(SourceMeter):
     """Minimal RS-232 driver for Keithley 2400-series SourceMeter units."""
 
-    def __init__(self, port: str, baud_rate: int = 9600, timeout: float = 20.0, retry_policy: SerialRetryPolicy | None = None):
+    def __init__(
+        self,
+        port: str,
+        baud_rate: int = 9600,
+        timeout: float = 20.0,
+        retry_policy: SerialRetryPolicy | None = None,
+    ):
         self.port = port
         self.baud_rate = baud_rate
         self.timeout = timeout
@@ -28,7 +36,9 @@ class Keithley2400Serial(SourceMeter):
 
     def connect(self) -> None:
         if serial is None:
-            raise RuntimeError("pyserial is not installed. Run: pip install pyserial") from _SERIAL_IMPORT_ERROR
+            raise RuntimeError(
+                "pyserial is not installed. Run: pip install pyserial"
+            ) from _SERIAL_IMPORT_ERROR
         self._ser = serial.Serial(
             port=self.port,
             baudrate=self.baud_rate,
@@ -75,7 +85,9 @@ class Keithley2400Serial(SourceMeter):
         src = config.source_scpi
         meas = config.measure_scpi
         self.write(f":ROUT:TERM {config.terminal.value}")
-        self.write(":SYST:RSEN ON" if config.sense_mode is SenseMode.FOUR_WIRE else ":SYST:RSEN OFF")
+        self.write(
+            ":SYST:RSEN ON" if config.sense_mode is SenseMode.FOUR_WIRE else ":SYST:RSEN OFF"
+        )
         self.write(f":SOUR:FUNC {src}")
         self.write(f":SENS:FUNC '{meas}'")
         self.write(f":SENS:{meas}:PROT {config.compliance:.12g}")
@@ -109,7 +121,9 @@ class Keithley2400Serial(SourceMeter):
         self.write(":OUTP ON")
 
     def output_off(self) -> None:
-        OutputOffGuard().turn_off(lambda: self.write(":OUTP OFF"), context="Keithley2400Serial.output_off")
+        OutputOffGuard().turn_off(
+            lambda: self.write(":OUTP OFF"), context="Keithley2400Serial.output_off"
+        )
 
     def get_current_autorange(self) -> bool:
         raw = self.query(":SENS:CURR:RANG:AUTO?")

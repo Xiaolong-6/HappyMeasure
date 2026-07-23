@@ -6,7 +6,6 @@ import socket
 from dataclasses import dataclass
 from urllib import error, request
 
-
 GITHUB_RELEASES_API = "https://api.github.com/repos/{owner}/{repo}/releases"
 
 
@@ -98,9 +97,7 @@ def select_portable_zip_asset_details(
         url = str(asset.get("browser_download_url") or "").strip()
         digest = str(asset.get("digest") or "").strip().lower()
         digest_value = digest.removeprefix("sha256:")
-        sha256: str | None = (
-            digest_value if re.fullmatch(r"[0-9a-f]{64}", digest_value) else None
-        )
+        sha256: str | None = digest_value if re.fullmatch(r"[0-9a-f]{64}", digest_value) else None
         lowered = name.lower()
         if not name or not url or not lowered.endswith(".zip"):
             continue

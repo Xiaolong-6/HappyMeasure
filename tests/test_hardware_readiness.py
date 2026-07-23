@@ -3,7 +3,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
@@ -23,7 +22,8 @@ def test_adaptive_table_imports_tooltip_helper_regression():
 def test_simple_app_uses_appstate_backed_compatibility_properties():
     app = source_text("ui/simple_app.py")
     bridge = source_text("ui/app_state_bridge.py")
-    assert "AppStateBridgeMixin" in app
+    mixins = source_text("ui/app_mixins.py")
+    assert "AppStateBridgeMixin" in mixins
     assert "def _run_state(self) -> str" in bridge
     assert "return self.app_state.run_state_text" in bridge
     assert "def _connected(self) -> bool" in bridge
@@ -35,7 +35,7 @@ def test_simple_app_uses_appstate_backed_compatibility_properties():
 
 def test_log_event_has_single_persistent_writer():
     src = source_text("ui/simple_app.py")
-    log_event = src[src.index("def log_event"):]
+    log_event = src[src.index("def log_event") :]
     assert "self.app_log.write(message)" in log_event
     assert "append_app_event(message)" not in log_event
 
@@ -70,7 +70,9 @@ def test_output_off_guard_reports_failure():
     from keith_ivt.services.serial_safety import OutputOffGuard
 
     messages: list[str] = []
-    ok = OutputOffGuard(logger=messages.append).turn_off(lambda: (_ for _ in ()).throw(RuntimeError("boom")), context="test")
+    ok = OutputOffGuard(logger=messages.append).turn_off(
+        lambda: (_ for _ in ()).throw(RuntimeError("boom")), context="test"
+    )
     assert ok is False
     assert messages and "Output OFF failed" in messages[0]
 
@@ -83,13 +85,17 @@ def test_hardware_preflight_uses_idn_and_output_off(monkeypatch):
     class FakeInstrument:
         def __init__(self, port, baud_rate):
             calls.append(f"init:{port}:{baud_rate}")
+
         def connect(self):
             calls.append("connect")
+
         def identify(self):
             calls.append("identify")
             return "KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0"
+
         def output_off(self):
             calls.append("output_off")
+
         def close(self):
             calls.append("close")
 
@@ -109,7 +115,8 @@ def test_app_state_additional_transitions_and_status_strings():
     state.on_state_change("run_state", events.append)
     assert state.set_run_state(RunState.PAUSED) is False
     assert state.set_run_state(RunState.RUNNING) is True
-    state.point_count = 2; state.estimated_total = 5
+    state.point_count = 2
+    state.estimated_total = 5
     assert state.get_status_string() == "Running 2/5"
     assert state.can_pause_sweep() is True
     assert state.request_pause() is True
@@ -123,7 +130,10 @@ def test_app_state_additional_transitions_and_status_strings():
     assert state.stop_requested is False
     assert events
 
-    assert state.set_connection_state(ConnectionState.CONNECTED, device_id="IDN", device_model="2400") is True
+    assert (
+        state.set_connection_state(ConnectionState.CONNECTED, device_id="IDN", device_model="2400")
+        is True
+    )
     assert state.is_connected is True
     assert state.connected_device_model == "2400"
     assert state.set_connection_state(ConnectionState.CONNECTED, device_model="2450") is True
@@ -143,14 +153,18 @@ def test_thread_safe_buffer_additional_paths():
     b = ThreadSafeBuffer[str](maxsize=2)
     assert b.is_empty() is True
     assert b.pop_front() is None
-    b.append("a"); b.append("b"); b.append("c")
+    b.append("a")
+    b.append("b")
+    b.append("c")
     assert len(b) == 2
     assert b.get_snapshot() == ["b", "c"]
     b.clear()
     assert b.is_empty() is True
 
     xy = ThreadSafeXYBuffer(maxsize=2)
-    xy.append(1, 10); xy.append(2, 20); xy.append(3, 30)
+    xy.append(1, 10)
+    xy.append(2, 20)
+    xy.append(3, 30)
     assert len(xy) == 2
     assert xy.get_snapshot() == ([2, 3], [20, 30])
     xy.clear()

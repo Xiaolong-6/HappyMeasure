@@ -54,7 +54,7 @@ def test_plot_fullscreen_and_swap_contracts_exist() -> None:
     assert "Save screenshot..." in controls
     assert "Swap X/Y axes" in controls
     assert "_swap_xy_for_axis_view" in panel
-    assert "figure.set_layout_engine(\"constrained\")" in panel or "warnings.catch_warnings" in panel
+    assert 'figure.set_layout_engine("constrained")' in panel or "warnings.catch_warnings" in panel
 
 
 def test_no_duplicate_panel_titles_or_inline_info_rows() -> None:
@@ -64,8 +64,8 @@ def test_no_duplicate_panel_titles_or_inline_info_rows() -> None:
     presets = source_text("ui/preset_restore_panel.py")
     panels = source_text("ui/panels.py")
     assert "heading.pack" not in widgets
-    assert "add_tip(self.page_title" in scaffold
-    assert "add_tip(self.page_title" in nav
+    assert "add_tip(self.page_title" in "".join(scaffold.split())
+    assert "add_tip(self.page_title" in "".join(nav.split())
     assert "Named presets" not in presets
     assert "Sweep settings presets" not in presets
     assert "Autosave backups" not in presets

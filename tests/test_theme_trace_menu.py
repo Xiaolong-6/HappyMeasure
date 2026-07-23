@@ -33,7 +33,7 @@ def test_light_is_default_and_debug_replaces_high_contrast(tmp_path):
 def test_button_and_dark_theme_styles_keep_visible_borders():
     theme = (ROOT / "src/keith_ivt/ui/theme.py").read_text(encoding="utf-8")
     assert 'ui_theme", "Light"' in theme
-    assert 'relief="solid", borderwidth=1' in theme
+    assert 'relief="solid",borderwidth=1' in "".join(theme.split())
     for style_name in [
         '"TButton"',
         '"Soft.TButton"',

@@ -7,6 +7,7 @@ This module sets up Python's standard logging framework with:
 - Separate error log for quick diagnostics
 - Console output during development
 """
+
 from __future__ import annotations
 
 import json
@@ -17,7 +18,6 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 # Log format strings
 SIMPLE_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -133,11 +133,14 @@ def setup_logging(
         root_logger.removeHandler(handler)
         try:
             handler.close()
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            # A stale/partially closed handler must not prevent logging from
+            # being reconfigured for the new run.
+            continue
     root_logger.filters.clear()
 
     # Choose formatter
+    formatter: logging.Formatter
     if use_json:
         formatter = JsonFormatter()
     else:
@@ -179,11 +182,13 @@ def setup_logging(
     # Add context filter
     try:
         from keith_ivt.version import __version__
-    except Exception:  # pragma: no cover - defensive during early startup
+    except ImportError:  # pragma: no cover - defensive during early startup
         __version__ = "unknown"
-    context_filter = ContextFilter({
-        "version": __version__,
-    })
+    context_filter = ContextFilter(
+        {
+            "version": __version__,
+        }
+    )
     root_logger.addFilter(context_filter)
 
     # Capture warnings from other libraries
@@ -337,7 +342,7 @@ def create_diagnostic_report(log_dir: Path = DEFAULT_LOG_DIR) -> Path:
     report_path = log_dir / f"diagnostic_report_{timestamp}.zip"
 
     try:
-        with zipfile.ZipFile(report_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(report_path, "w", zipfile.ZIP_DEFLATED) as zf:
             # Add log files
             for log_file in log_dir.glob("*.log"):
                 if log_file != report_path:  # Don't include the report itself

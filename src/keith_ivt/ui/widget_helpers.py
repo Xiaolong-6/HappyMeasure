@@ -4,7 +4,10 @@ from tkinter import ttk
 from keith_ivt.ui.widgets import add_tip
 
 
-class WidgetHelperMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class WidgetHelperMixin(UiMixinTyping):
     @staticmethod
     def _display_terminal(value: str) -> str:
         return "FRONT" if str(value).upper() in {"FRON", "FRONT"} else "REAR"
@@ -24,7 +27,11 @@ class WidgetHelperMixin:
     def _wrap_label(self, parent, text: str, **kwargs):
         kwargs.setdefault("style", "Muted.TLabel")
         lab = ttk.Label(parent, text=text, wraplength=360, justify="left", **kwargs)
-        lab.bind("<Configure>", lambda e, l=lab: l.configure(wraplength=max(180, e.width)))
+
+        def resize_label(event) -> None:
+            lab.configure(wraplength=max(180, event.width))
+
+        lab.bind("<Configure>", resize_label)
         return lab
 
     def _section_title(self, parent, title: str) -> None:
@@ -35,7 +42,10 @@ class WidgetHelperMixin:
             self.page_title.configure(text=title)
             try:
                 tip_map = getattr(self, "NAV_TIPS", {}) or {}
-                add_tip(self.page_title, tip_map.get(title, tip_map.get(str(title).title(), f"Open {title} tools.")))
+                add_tip(
+                    self.page_title,
+                    tip_map.get(title, tip_map.get(str(title).title(), f"Open {title} tools.")),
+                )
             except Exception:
                 pass
 
@@ -44,14 +54,20 @@ class WidgetHelperMixin:
         lab = ttk.Label(parent, text=lab_text, style="Card.TLabel")
         lab.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
         if hasattr(label, "trace_add"):
-            label.trace_add("write", lambda *_args, lab=lab, label=label: lab.winfo_exists() and lab.configure(text=label.get()))
+            label.trace_add(
+                "write",
+                lambda *_args, lab=lab, label=label: lab.winfo_exists()
+                and lab.configure(text=label.get()),
+            )
         ent = ttk.Entry(parent, textvariable=var)
         ent.grid(row=row, column=1, sticky="ew", pady=3)
         add_tip(ent, tip)
         return (lab, ent)
 
     def _combo(self, parent, label: str, var, values, row: int, tip: str = ""):
-        ttk.Label(parent, text=label, style="Card.TLabel").grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
+        ttk.Label(parent, text=label, style="Card.TLabel").grid(
+            row=row, column=0, sticky="w", padx=(0, 8), pady=3
+        )
         cb = ttk.Combobox(parent, textvariable=var, values=list(values), state="readonly")
         cb.grid(row=row, column=1, sticky="ew", pady=3)
         cb.bind("<MouseWheel>", self._on_content_mousewheel, add="+")
@@ -80,6 +96,7 @@ class WidgetHelperMixin:
         layouts.  Use a normal Button so all sweep/settings boolean options
         share the same border language as Connect and view toggles.
         """
+
         def on_click() -> None:
             try:
                 var.set(not bool(var.get()))
@@ -101,7 +118,12 @@ class WidgetHelperMixin:
         btn.bind("<Button-4>", self._on_content_mousewheel, add="+")
         btn.bind("<Button-5>", self._on_content_mousewheel, add="+")
         try:
-            var.trace_add("write", lambda *_: btn.winfo_exists() and self._sync_toggle_button(btn, label, var))
+
+            def sync_button(*_args) -> None:
+                if btn.winfo_exists():
+                    self._sync_toggle_button(btn, label, var)
+
+            var.trace_add("write", sync_button)
         except Exception:
             pass
         add_tip(btn, tip)
@@ -128,7 +150,12 @@ class WidgetHelperMixin:
         )
         auto_btn.grid(row=row, column=2, sticky="ew", padx=(6, 0), pady=3)
         try:
-            auto_var.trace_add("write", lambda *_: auto_btn.winfo_exists() and self._sync_toggle_button(auto_btn, "Auto", auto_var))
+
+            def sync_auto_button(*_args) -> None:
+                if auto_btn.winfo_exists():
+                    self._sync_toggle_button(auto_btn, "Auto", auto_var)
+
+            auto_var.trace_add("write", sync_auto_button)
         except Exception:
             pass
         add_tip(ent, tip)

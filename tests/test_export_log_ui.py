@@ -10,6 +10,7 @@ from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.models import SweepConfig, SweepKind, SweepMode, SweepPoint, SweepResult
 from keith_ivt.ui.export_naming import suggested_all_csv_name, suggested_single_csv_name
 
+
 def _result(name="Device_A", operator="XL", y_scale=1.0):
     cfg = SweepConfig(
         mode=SweepMode.VOLTAGE_SOURCE,
@@ -85,11 +86,12 @@ def test_alpha7_ui_contracts_are_present():
     simple = (ROOT / "src/keith_ivt/ui/simple_app.py").read_text(encoding="utf-8")
     panels = (ROOT / "src/keith_ivt/ui/panels.py").read_text(encoding="utf-8")
     operator = (ROOT / "src/keith_ivt/ui/operator_bar.py").read_text(encoding="utf-8")
-    trace_panel = (ROOT / "src/keith_ivt/ui/trace_panel.py").read_text(encoding="utf-8")
+    (ROOT / "src/keith_ivt/ui/trace_panel.py").read_text(encoding="utf-8")
     plot_panel = (ROOT / "src/keith_ivt/ui/plot_panel.py").read_text(encoding="utf-8")
     sweep = (ROOT / "src/keith_ivt/ui/sweep_config.py").read_text(encoding="utf-8")
     assert 'StringVar(value=getattr(self.settings, "ui_font_family", "Verdana"))' in simple
     assert "Log max KB" in panels
     assert 'text="STOP"' in operator
-    assert "\"operator\": (\"Operator\"" in plot_panel or "'operator': ('Operator'" in plot_panel
-    assert 'pack_configure(fill="both" if kind == SweepKind.ADAPTIVE.value else "x"' in sweep
+    assert '"operator": ("Operator"' in plot_panel or "'operator': ('Operator'" in plot_panel
+    compact_sweep = "".join(sweep.split())
+    assert 'pack_configure(fill="both"ifkind==SweepKind.ADAPTIVE.valueelse"x"' in compact_sweep

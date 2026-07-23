@@ -5,7 +5,15 @@ from enum import Enum
 from typing import Iterable
 
 from keith_ivt.drivers.base import MeasureMode, SourceMode
-from keith_ivt.models import SweepConfig, SweepKind, SweepMode, make_constant_time_values, make_source_values, minimum_interval_seconds, validate_config
+from keith_ivt.models import (
+    SweepConfig,
+    SweepKind,
+    SweepMode,
+    make_constant_time_values,
+    make_source_values,
+    minimum_interval_seconds,
+    validate_config,
+)
 from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
 
 
@@ -71,7 +79,9 @@ def plan_from_config(config: SweepConfig) -> SweepPlan:
         kind = SweepExecutionKind.MANUAL_OUTPUT
         warnings.append("Manual output requires UI safety interlock and is not a normal sweep.")
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
-        values = tuple(make_constant_time_values(config.constant_value, config.duration_s, config.interval_s))
+        values = tuple(
+            make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
+        )
         kind = SweepExecutionKind.CONSTANT_TIME
     elif config.sweep_kind is SweepKind.ADAPTIVE:
         values = tuple(adaptive_values_from_logic(config.adaptive_logic))
@@ -129,7 +139,9 @@ def make_plan(
         raise ValueError("Delay must be zero or positive.")
     if not autorange:
         if source_range is None or source_range <= 0 or measure_range is None or measure_range <= 0:
-            raise ValueError("Fixed source_range and measure_range are required when autorange is disabled.")
+            raise ValueError(
+                "Fixed source_range and measure_range are required when autorange is disabled."
+            )
     return SweepPlan(
         source_mode=source_mode,
         measure_mode=measure_mode,

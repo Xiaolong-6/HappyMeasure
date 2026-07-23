@@ -49,8 +49,12 @@ class DebugDeviceModel:
 DEBUG_DEVICE_MODELS: dict[str, DebugDeviceModel] = {
     "Linear resistor 10 kΩ": DebugDeviceModel("Linear resistor 10 kΩ", 10_000.0, 0.002, "linear"),
     "Low resistance 100 Ω": DebugDeviceModel("Low resistance 100 Ω", 100.0, 0.003, "linear"),
-    "High resistance 10 MΩ": DebugDeviceModel("High resistance 10 MΩ", 10_000_000.0, 0.01, "linear"),
-    "Noisy photodetector": DebugDeviceModel("Noisy photodetector", 250_000.0, 0.05, "photodetector"),
+    "High resistance 10 MΩ": DebugDeviceModel(
+        "High resistance 10 MΩ", 10_000_000.0, 0.01, "linear"
+    ),
+    "Noisy photodetector": DebugDeviceModel(
+        "Noisy photodetector", 250_000.0, 0.05, "photodetector"
+    ),
     "Diode-like nonlinear": DebugDeviceModel("Diode-like nonlinear", 1_000.0, 0.01, "diode"),
 }
 
@@ -69,7 +73,9 @@ class SimulatedKeithley(SourceMeter):
         model_name: str | None = None,
         fault_profile: SimulatorFaultProfile | None = None,
     ):
-        model = DEBUG_DEVICE_MODELS.get(model_name or "", DEBUG_DEVICE_MODELS["Linear resistor 10 kΩ"])
+        model = DEBUG_DEVICE_MODELS.get(
+            model_name or "", DEBUG_DEVICE_MODELS["Linear resistor 10 kΩ"]
+        )
         self.model = model
         self.resistance_ohm = resistance_ohm if model_name is None else model.resistance_ohm
         self.noise_fraction = noise_fraction if model_name is None else model.noise_fraction
@@ -114,7 +120,11 @@ class SimulatedKeithley(SourceMeter):
             raise RuntimeError(self.fault_profile.configure_error)
         self._config = config
         self._current_autorange = bool(config.auto_measure_range)
-        if config.measure_scpi == "CURR" and not self._current_autorange and config.measure_range > 0:
+        if (
+            config.measure_scpi == "CURR"
+            and not self._current_autorange
+            and config.measure_range > 0
+        ):
             self._set_current_range_internal(config.measure_range)
 
     def set_source(self, source_cmd: str, value: float) -> None:
@@ -143,13 +153,19 @@ class SimulatedKeithley(SourceMeter):
         if self._config.source_scpi == "VOLT":
             ideal = self._current_from_voltage(self._last_source)
             noise_floor = 1e-9 if self.noise_fraction > 0 else 0.0
-            measured = ideal + random.gauss(0.0, abs(ideal) * self._nplc_noise_fraction() + noise_floor / self._nplc_noise_gain())
+            measured = ideal + random.gauss(
+                0.0,
+                abs(ideal) * self._nplc_noise_fraction() + noise_floor / self._nplc_noise_gain(),
+            )
             measured = self._apply_measure_range(measured)
             measured = self._apply_compliance(measured)
         else:
             ideal = self._voltage_from_current(self._last_source)
             noise_floor = 1e-6 if self.noise_fraction > 0 else 0.0
-            measured_raw = ideal + random.gauss(0.0, abs(ideal) * self._nplc_noise_fraction() + noise_floor / self._nplc_noise_gain())
+            measured_raw = ideal + random.gauss(
+                0.0,
+                abs(ideal) * self._nplc_noise_fraction() + noise_floor / self._nplc_noise_gain(),
+            )
             measured = self._apply_measure_range(measured_raw)
             measured = self._apply_compliance(measured)
             source_readback = self._last_source
@@ -215,7 +231,9 @@ class SimulatedKeithley(SourceMeter):
             return
         if self._config is None or self._config.source_scpi != "VOLT":
             return
-        self._set_current_range_internal(self._nearest_supported_current_range(self._current_from_voltage(self._last_source)))
+        self._set_current_range_internal(
+            self._nearest_supported_current_range(self._current_from_voltage(self._last_source))
+        )
 
     def _apply_compliance(self, value: float) -> float:
         if self._config is None or self._config.compliance <= 0:
@@ -346,7 +364,11 @@ class SimulatedKeithley(SourceMeter):
         from keith_ivt.models import SweepMode
 
         # Map SourceMode to SweepMode
-        sweep_mode = SweepMode.VOLTAGE_SOURCE if source_mode == SourceMode.VOLTAGE else SweepMode.CURRENT_SOURCE
+        sweep_mode = (
+            SweepMode.VOLTAGE_SOURCE
+            if source_mode == SourceMode.VOLTAGE
+            else SweepMode.CURRENT_SOURCE
+        )
 
         # Create a minimal SweepConfig from SMUDriver parameters
         config = SweepConfig(

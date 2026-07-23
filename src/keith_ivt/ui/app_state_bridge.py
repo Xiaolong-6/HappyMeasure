@@ -3,13 +3,17 @@ from __future__ import annotations
 from keith_ivt.ui.app_state import AppAction, ConnectionState, RunState
 
 
-class AppStateBridgeMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class AppStateBridgeMixin(UiMixinTyping):
     """Compatibility properties backed by AppState.
 
     Existing UI mixins still use legacy attribute names.  These properties keep
     those call sites working while making AppState the source for run and
     connection state.
     """
+
     @property
     def _run_state(self) -> str:
         return self.app_state.run_state_text
@@ -94,7 +98,9 @@ class AppStateBridgeMixin:
             self.status_connection_text.set(text)
         if hasattr(self, "instrument_status"):
             labels = {
-                ConnectionState.DISCONNECTED: "Debug simulator" if debug_selected else "Not connected",
+                ConnectionState.DISCONNECTED: (
+                    "Debug simulator" if debug_selected else "Not connected"
+                ),
                 ConnectionState.SIMULATED: "Debug simulator ready",
                 ConnectionState.CONNECTING: "Connecting",
                 ConnectionState.CONNECTED: "Ready",
@@ -108,25 +114,28 @@ class AppStateBridgeMixin:
             self.connection_light_text.set(
                 "simulated"
                 if state is ConnectionState.SIMULATED
-                else "connected"
-                if state is ConnectionState.CONNECTED
-                else "connecting"
-                if state is ConnectionState.CONNECTING
-                else "error"
-                if state is ConnectionState.ERROR
-                else "disconnected"
+                else (
+                    "connected"
+                    if state is ConnectionState.CONNECTED
+                    else (
+                        "connecting"
+                        if state is ConnectionState.CONNECTING
+                        else "error" if state is ConnectionState.ERROR else "disconnected"
+                    )
+                )
             )
         if hasattr(self, "_set_connection_status_icon"):
             icon_kind = (
                 "simulated"
                 if state is ConnectionState.SIMULATED
-                else "connected"
-                if state is ConnectionState.CONNECTED
-                else "connecting"
-                if state is ConnectionState.CONNECTING
-                else "error"
-                if state is ConnectionState.ERROR
-                else "disconnected"
+                else (
+                    "connected"
+                    if state is ConnectionState.CONNECTED
+                    else (
+                        "connecting"
+                        if state is ConnectionState.CONNECTING
+                        else "error" if state is ConnectionState.ERROR else "disconnected"
+                    )
+                )
             )
             self._set_connection_status_icon(icon_kind)
-

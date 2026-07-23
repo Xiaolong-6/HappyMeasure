@@ -25,7 +25,7 @@ def test_navigation_subtitle_and_tab_tooltips_are_user_facing() -> None:
     }.items():
         assert f'"{name}":' in nav
         assert summary in nav
-    assert 'self.NAV_TIPS.get(name' in nav
+    assert "self.NAV_TIPS.get(name" in nav
 
 
 def test_about_update_notice_is_never_blank_and_dark_theme_uses_card_styles() -> None:

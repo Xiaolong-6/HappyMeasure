@@ -133,6 +133,7 @@ def test_last_change_text_negative_clamped() -> None:
 
 def test_last_change_text_uses_monotonic_by_default() -> None:
     import time
+
     state = CurrentRangeState(last_change_monotonic_s=time.monotonic() - 1.0)
     result = state.last_change_text()
     assert "ago" in result

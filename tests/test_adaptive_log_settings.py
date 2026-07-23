@@ -15,7 +15,9 @@ def source(name: str) -> str:
 
 def test_adaptive_editor_uses_compact_grid_table_contract():
     text = source("ui/sweep_config.py")
-    block = text[text.index("def _build_adaptive_segment_table"):text.index("def _add_adaptive_row")]
+    block = text[
+        text.index("def _build_adaptive_segment_table") : text.index("def _add_adaptive_row")
+    ]
     assert 'uniform="adaptive_compact"' in block
     assert "minsize=72" in block
     assert "＋ Row" in block and "－ Row" in block and "Reset" in block

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from functools import partial
 from tkinter import ttk
 
+from keith_ivt.ui.mixin_typing import UiMixinTyping
 from keith_ivt.ui.widgets import add_tip
 from keith_ivt.version import APP_NAME
-
 
 NAV_ITEMS = {
     "Hardware": ("🔌", "Hardware"),
@@ -27,7 +28,7 @@ NAV_TIPS = {
 }
 
 
-class NavigationMixin:
+class NavigationMixin(UiMixinTyping):
     """Persistent push-side navigation rail.
 
     Contract: navigation changes only the page body and title; connection
@@ -64,7 +65,7 @@ class NavigationMixin:
                 self.drawer_frame,
                 text=f"{icon}  {label}",
                 style="Drawer.TButton",
-                command=lambda n=name: self._show_nav(n),
+                command=partial(self._show_nav, name),
             )
             btn.pack(fill="x", padx=(8, 10), pady=2)
             add_tip(btn, self.NAV_TIPS.get(name, f"Open {label} panel"))
@@ -80,7 +81,11 @@ class NavigationMixin:
 
     def _nav_drawer_width(self) -> int:
         try:
-            size = int(self.ui_font_size.get()) if hasattr(self, "ui_font_size") else int(getattr(self.settings, "ui_font_size", 10))
+            size = (
+                int(self.ui_font_size.get())
+                if hasattr(self, "ui_font_size")
+                else int(getattr(self.settings, "ui_font_size", 10))
+            )
         except Exception:
             size = 10
         # Wider only when the font actually needs it.  The side rail stays
@@ -183,6 +188,8 @@ class NavigationMixin:
         try:
             fill_height = name in {"Log", "About"}
             height = self.content_canvas.winfo_height() if fill_height else 1
-            self.content_canvas.itemconfigure(self._content_window_id, height=height if fill_height else "")
+            self.content_canvas.itemconfigure(
+                self._content_window_id, height=height if fill_height else ""
+            )
         except Exception:
             pass

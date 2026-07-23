@@ -11,7 +11,12 @@ from keith_ivt.ui.export_naming import suggested_all_csv_name, suggested_single_
 from keith_ivt.ui.menu_utils import make_touch_menu, popup_menu
 
 
-class TracePanelMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class TracePanelMixin(UiMixinTyping):
+    _selected_trace_id: int | None
+
     def _trace_start_label(self, trace: DeviceTrace) -> str:
         first_ts = ""
         if trace.result.points:
@@ -24,8 +29,17 @@ class TracePanelMixin:
         if not hasattr(self, "trace_tree") or not hasattr(self, "_trace_columns"):
             return
         for col_name, (_title, width) in self._trace_columns.items():
-            shown = self.trace_column_vars.get(col_name).get() if col_name in self.trace_column_vars else True
-            self.trace_tree.column(col_name, width=width if shown else 0, minwidth=0, stretch=(shown and col_name in {"name", "start"}))
+            shown = (
+                self.trace_column_vars.get(col_name).get()
+                if col_name in self.trace_column_vars
+                else True
+            )
+            self.trace_tree.column(
+                col_name,
+                width=width if shown else 0,
+                minwidth=0,
+                stretch=(shown and col_name in {"name", "start"}),
+            )
 
     def _toggle_trace_column(self, col_name: str) -> None:
         if col_name in {"show", "name"}:
@@ -80,8 +94,9 @@ class TracePanelMixin:
 
     def _refresh_trace_list(self) -> None:
         previous_selection = set(self._selected_trace_ids())
-        if not previous_selection and getattr(self, "_selected_trace_id", None):
-            previous_selection = {self._selected_trace_id}
+        selected_trace_id = getattr(self, "_selected_trace_id", None)
+        if not previous_selection and selected_trace_id is not None:
+            previous_selection = {selected_trace_id}
         previous_count = len(previous_selection)
         self.trace_tree.delete(*self.trace_tree.get_children())
         self._tree_item_to_trace.clear()
@@ -103,26 +118,38 @@ class TracePanelMixin:
                 self.trace_tree.tag_configure(tag, foreground=trace.color)
             except Exception:
                 pass
-            item = self.trace_tree.insert("", END, values=(
-                "☑" if trace.visible else "☐",
-                "■",
-                trace.name,
-                cfg.operator or "--",
-                "V-src" if cfg.mode is SweepMode.VOLTAGE_SOURCE else "I-src",
-                "Step" if cfg.sweep_kind is SweepKind.STEP else ("Time" if cfg.sweep_kind is SweepKind.CONSTANT_TIME else "Adaptive"),
-                trace.point_count,
-                self._trace_start_label(trace),
-            ), tags=(tag,))
+            item = self.trace_tree.insert(
+                "",
+                END,
+                values=(
+                    "☑" if trace.visible else "☐",
+                    "■",
+                    trace.name,
+                    cfg.operator or "--",
+                    "V-src" if cfg.mode is SweepMode.VOLTAGE_SOURCE else "I-src",
+                    (
+                        "Step"
+                        if cfg.sweep_kind is SweepKind.STEP
+                        else ("Time" if cfg.sweep_kind is SweepKind.CONSTANT_TIME else "Adaptive")
+                    ),
+                    trace.point_count,
+                    self._trace_start_label(trace),
+                ),
+                tags=(tag,),
+            )
             self._tree_item_to_trace[item] = trace.trace_id
             trace_to_item[trace.trace_id] = item
         self._apply_trace_column_visibility()
-        
+
         items = list(self.trace_tree.get_children())
         if items:
-            if getattr(self, "_selected_trace_id", None) in trace_to_item:
-                self.trace_tree.selection_set(trace_to_item[self._selected_trace_id])
-                previous_selection = {self._selected_trace_id}
-            restored_items = [trace_to_item[tid] for tid in previous_selection if tid in trace_to_item]
+            selected_trace_id = getattr(self, "_selected_trace_id", None)
+            if selected_trace_id is not None and selected_trace_id in trace_to_item:
+                self.trace_tree.selection_set(trace_to_item[selected_trace_id])
+                previous_selection = {selected_trace_id}
+            restored_items = [
+                trace_to_item[tid] for tid in previous_selection if tid in trace_to_item
+            ]
             if restored_items:
                 self.trace_tree.selection_set(restored_items)
             elif len(traces_all) > previous_count:
@@ -145,14 +172,14 @@ class TracePanelMixin:
             self._ensure_trace_selection()
             return
         trace_id = self._tree_item_to_trace.get(item)
-        
+
         # Column 1 (show/hide checkbox): toggle visibility
         if trace_id and col == "#1":
             self._datasets.toggle_visibility(trace_id)
             self._refresh_trace_list()
             self._redraw_all_plots()
             return
-        
+
         # Column 2 (color square): choose color
         if trace_id and col == "#2":
             # Only select this item if it's not already in the selection
@@ -160,7 +187,7 @@ class TracePanelMixin:
                 self.trace_tree.selection_set(item)
             self.choose_trace_color(trace_id)
             return
-        
+
         # Other columns: let Treeview handle native selection (Ctrl/Cmd multi-select)
         # Don't override the selection - just ensure at least one is selected if none are
         if not self.trace_tree.selection():
@@ -171,14 +198,23 @@ class TracePanelMixin:
         for col_name, (title, _width) in getattr(self, "_trace_columns", {}).items():
             state = "disabled" if col_name in {"show", "name"} else "normal"
             label = "Show" if col_name == "show" else title
-            menu.add_checkbutton(label=label, variable=self.trace_column_vars[col_name], command=lambda c=col_name: self._toggle_trace_column(c), state=state)
-        x = self.root.winfo_pointerx(); y = self.root.winfo_pointery()
+            menu.add_checkbutton(
+                label=label,
+                variable=self.trace_column_vars[col_name],
+                command=lambda c=col_name: self._toggle_trace_column(c),
+                state=state,
+            )
+        x = self.root.winfo_pointerx()
+        y = self.root.winfo_pointery()
         popup_menu(menu, x, y)
 
     def rename_selected_trace(self, _event=None) -> None:
         trace = self._selected_trace()
-        if trace is None: return
-        new_name = simpledialog.askstring("Rename device", "New device name:", initialvalue=trace.name)
+        if trace is None:
+            return
+        new_name = simpledialog.askstring(
+            "Rename device", "New device name:", initialvalue=trace.name
+        )
         if new_name:
             self._datasets.rename(trace.trace_id, new_name)
             self._refresh_and_redraw()
@@ -201,7 +237,8 @@ class TracePanelMixin:
     def view_selected_trace_data(self) -> None:
         trace = self._selected_trace()
         if trace is None:
-            messagebox.showinfo("No selection", "Select a device trace first."); return
+            messagebox.showinfo("No selection", "Select a device trace first.")
+            return
         win = tk.Toplevel(self.root)
         win.title(f"Data table - {trace.name}")
         win.geometry("620x420")
@@ -209,16 +246,37 @@ class TracePanelMixin:
         headers = trace.result.config.csv_headers
         frame = ttk.Frame(win, padding=8)
         frame.pack(fill="both", expand=True)
-        frame.rowconfigure(0, weight=1); frame.columnconfigure(0, weight=1)
-        tree = ttk.Treeview(frame, columns=("index", "elapsed", headers[0], headers[1]), show="headings")
-        for col, title, width in [("index", "#", 50), ("elapsed", "Elapsed_s", 90), (headers[0], headers[0], 150), (headers[1], headers[1], 150)]:
-            tree.heading(col, text=title); tree.column(col, width=width, stretch=True)
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+        tree = ttk.Treeview(
+            frame, columns=("index", "elapsed", headers[0], headers[1]), show="headings"
+        )
+        for col, title, width in [
+            ("index", "#", 50),
+            ("elapsed", "Elapsed_s", 90),
+            (headers[0], headers[0], 150),
+            (headers[1], headers[1], 150),
+        ]:
+            tree.heading(col, text=title)
+            tree.column(col, width=width, stretch=True)
         tree.grid(row=0, column=0, sticky="nsew")
-        y = ttk.Scrollbar(frame, orient="vertical", command=tree.yview); y.grid(row=0, column=1, sticky="ns")
+        y = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+        y.grid(row=0, column=1, sticky="ns")
         tree.configure(yscrollcommand=y.set)
         for i, pt in enumerate(trace.result.points, start=1):
-            tree.insert("", END, values=(i, f"{getattr(pt, 'elapsed_s', 0.0):.12g}", f"{pt.source_value:.12g}", f"{pt.measured_value:.12g}"))
-        ttk.Button(frame, text="Close", command=win.destroy).grid(row=1, column=0, sticky="ew", pady=(8,0))
+            tree.insert(
+                "",
+                END,
+                values=(
+                    i,
+                    f"{getattr(pt, 'elapsed_s', 0.0):.12g}",
+                    f"{pt.source_value:.12g}",
+                    f"{pt.measured_value:.12g}",
+                ),
+            )
+        ttk.Button(frame, text="Close", command=win.destroy).grid(
+            row=1, column=0, sticky="ew", pady=(8, 0)
+        )
 
     def _result_with_trace_name(self, trace: DeviceTrace) -> SweepResult:
         """Return a result whose metadata follows the editable trace name."""
@@ -227,10 +285,19 @@ class TracePanelMixin:
 
     def save_last_csv(self):
         if not self._last_result:
-            messagebox.showinfo("No data", "No last result to save."); return False
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_single_csv_name(self._last_result), filetypes=[("CSV", "*.csv")])
-        if not path: return False
-        save_csv(self._last_result, path); self._mark_last_save("last CSV"); self.log_event(f"Saved last CSV: {path}"); return True
+            messagebox.showinfo("No data", "No last result to save.")
+            return False
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=suggested_single_csv_name(self._last_result),
+            filetypes=[("CSV", "*.csv")],
+        )
+        if not path:
+            return False
+        save_csv(self._last_result, path)
+        self._mark_last_save("last CSV")
+        self.log_event(f"Saved last CSV: {path}")
+        return True
 
     def _selected_traces(self) -> list[DeviceTrace]:
         """Return every selected trace, preserving Treeview selection order."""
@@ -252,18 +319,29 @@ class TracePanelMixin:
     def save_selected_trace(self):
         traces = self._selected_traces()
         if not traces:
-            messagebox.showinfo("No selection", "Select one or more device traces first."); return False
+            messagebox.showinfo("No selection", "Select one or more device traces first.")
+            return False
         if len(traces) == 1:
             trace = traces[0]
-            path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_single_csv_name(trace.result, trace.name), filetypes=[("CSV", "*.csv")])
-            if not path: return False
+            path = filedialog.asksaveasfilename(
+                defaultextension=".csv",
+                initialfile=suggested_single_csv_name(trace.result, trace.name),
+                filetypes=[("CSV", "*.csv")],
+            )
+            if not path:
+                return False
             save_csv(self._result_with_trace_name(trace), path)
             self._mark_last_save("selected CSV")
             self.log_event(f"Saved selected trace: {path}")
             return True
         results = [self._result_with_trace_name(trace) for trace in traces]
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_all_csv_name(results), filetypes=[("CSV", "*.csv")])
-        if not path: return False
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=suggested_all_csv_name(results),
+            filetypes=[("CSV", "*.csv")],
+        )
+        if not path:
+            return False
         save_combined_csv(results, path)
         self._mark_last_save("selected CSV")
         self.log_event(f"Saved {len(traces)} selected traces with metadata: {path}")
@@ -273,20 +351,33 @@ class TracePanelMixin:
         """Export every trace, including hidden traces. Visibility is display-only."""
         traces = self._datasets.all()
         if not traces:
-            messagebox.showinfo("No traces", "No device traces to save."); return False
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_all_csv_name([self._result_with_trace_name(t) for t in traces]), filetypes=[("CSV", "*.csv")])
-        if not path: return False
-        save_combined_csv([self._result_with_trace_name(t) for t in traces], path); self._mark_last_save("all CSV"); self.log_event(f"Saved all traces with metadata: {path}"); return True
-
-
+            messagebox.showinfo("No traces", "No device traces to save.")
+            return False
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=suggested_all_csv_name([self._result_with_trace_name(t) for t in traces]),
+            filetypes=[("CSV", "*.csv")],
+        )
+        if not path:
+            return False
+        save_combined_csv([self._result_with_trace_name(t) for t in traces], path)
+        self._mark_last_save("all CSV")
+        self.log_event(f"Saved all traces with metadata: {path}")
+        return True
 
     def save_checked_traces(self):
         """Export only visible traces to a combined CSV file."""
         traces = [t for t in self._datasets.all() if t.visible]
         if not traces:
-            messagebox.showinfo("No visible traces", "No visible (ticked) traces to export."); return False
-        path = filedialog.asksaveasfilename(defaultextension=".csv", initialfile=suggested_all_csv_name([self._result_with_trace_name(t) for t in traces]), filetypes=[("CSV", "*.csv")])
-        if not path: return False
+            messagebox.showinfo("No visible traces", "No visible (ticked) traces to export.")
+            return False
+        path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            initialfile=suggested_all_csv_name([self._result_with_trace_name(t) for t in traces]),
+            filetypes=[("CSV", "*.csv")],
+        )
+        if not path:
+            return False
         save_combined_csv([self._result_with_trace_name(t) for t in traces], path)
         self._mark_last_save("visible CSV")
         self.log_event(f"Saved visible traces with metadata: {path}")

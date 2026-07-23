@@ -126,9 +126,12 @@ This lets the same sweep plan run on:
 
 ## Current migration status
 
-- Current UI still uses some legacy `SweepConfig`, `SweepRunner`, and `instrument/*` paths.
-- Version `0.1.18-alpha` added the new architecture without forcing a risky UI rewrite; `0.1.19-alpha` is the startup hotfix on top of it.
-- Future work should move UI start/pause/stop flows onto `MeasurementService.run_plan()`.
+- `MeasurementService` is the public orchestration boundary used by the UI and
+  by driver-neutral `SweepPlan` callers.
+- Legacy `SourceMeter` implementations remain supported internally through
+  `MeasurementService.run_source_meter()` while hardware drivers migrate to
+  `SMUDriver`.
+- New UI and integration code must not call `SweepRunner` directly.
 
 ## Adding a new SMU driver
 

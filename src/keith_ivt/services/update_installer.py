@@ -64,7 +64,9 @@ def _validate_release_asset(asset_url: str, expected_sha256: str) -> tuple[str, 
         or parsed.hostname.lower() != "github.com"
         or not parsed.path.lower().startswith(expected_prefix.lower())
     ):
-        raise ValueError("Update asset must be an HTTPS release download from the official GitHub repository.")
+        raise ValueError(
+            "Update asset must be an HTTPS release download from the official GitHub repository."
+        )
     digest = expected_sha256.strip().lower().removeprefix("sha256:")
     if not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise ValueError("A valid SHA-256 digest is required before installing an update.")

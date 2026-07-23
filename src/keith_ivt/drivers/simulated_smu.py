@@ -28,7 +28,12 @@ class SimulatedSMUDriver:
         supports_4wire=True,
     )
 
-    def __init__(self, resistance_ohm: float = 10_000.0, capacitance_f: float = 1e-9, noise_fraction: float = 0.002):
+    def __init__(
+        self,
+        resistance_ohm: float = 10_000.0,
+        capacitance_f: float = 1e-9,
+        noise_fraction: float = 0.002,
+    ):
         self.resistance_ohm = float(resistance_ohm)
         self.capacitance_f = float(capacitance_f)
         self.noise_fraction = float(noise_fraction)
@@ -96,7 +101,9 @@ class SimulatedSMUDriver:
         else:
             ideal = self.resistance_ohm
             sigma = ideal * self.noise_fraction
-        return DriverReadback(source_value=x, measured_value=ideal + random.gauss(0.0, sigma), timestamp_s=time.time())
+        return DriverReadback(
+            source_value=x, measured_value=ideal + random.gauss(0.0, sigma), timestamp_s=time.time()
+        )
 
     def output_on(self) -> None:
         self.output_enabled = True

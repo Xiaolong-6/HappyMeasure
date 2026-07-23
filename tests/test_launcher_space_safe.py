@@ -25,11 +25,11 @@ def test_main_batch_launcher_quotes_project_paths():
 def test_main_powershell_launcher_uses_literal_paths():
     text = read("Run_HappyMeasure.ps1")
     required = [
-        '$ProjectDir = Split-Path -Parent $PSCommandPath',
-        'Set-Location -LiteralPath $ProjectDir',
-        'Test-Path -LiteralPath $VenvPy',
-        '& $VenvPy -m pip install -e $ProjectDir',
-        '& $VenvPy -m happymeasure',
+        "$ProjectDir = Split-Path -Parent $PSCommandPath",
+        "Set-Location -LiteralPath $ProjectDir",
+        "Test-Path -LiteralPath $VenvPy",
+        "& $VenvPy -m pip install -e $ProjectDir",
+        "& $VenvPy -m happymeasure",
     ]
     for needle in required:
         assert needle in text
@@ -55,20 +55,20 @@ def test_tool_launchers_set_pythonpath_and_quote_paths():
     ]
     for rel in ps_files:
         text = read(rel)
-        assert 'Resolve-Path -LiteralPath' in text
-        assert 'Set-Location -LiteralPath $Root' in text
-        assert '& $Py' in text
+        assert "Resolve-Path -LiteralPath" in text
+        assert "Set-Location -LiteralPath $Root" in text
+        assert "& $Py" in text
 
 
 def test_launchers_detect_stale_virtualenv_python():
     main_bat = read("Run_HappyMeasure.bat")
-    assert 'Existing virtual environment is stale' in main_bat
+    assert "Existing virtual environment is stale" in main_bat
     assert '"%VENV_PY%" -c "import sys; print(sys.executable)"' in main_bat
     assert '"%VENV_PY%" -m happymeasure' in main_bat
     assert '"%VENV_PY%" -m keith_ivt' in main_bat
 
     main_ps1 = read("Run_HappyMeasure.ps1")
-    assert 'Existing .venv is stale' in main_ps1
+    assert "Existing .venv is stale" in main_ps1
     assert '& $VenvPy -c "import sys; print(sys.executable)"' in main_ps1
 
     for rel in [
@@ -78,7 +78,7 @@ def test_launchers_detect_stale_virtualenv_python():
         "tools/diagnostics/Run_Diagnostics.bat",
     ]:
         text = read(rel)
-        assert 'Ignoring stale/broken .venv' in text
+        assert "Ignoring stale/broken .venv" in text
         assert '"%VENV_PY%" -c "import sys"' in text
 
     for rel in [
@@ -87,5 +87,5 @@ def test_launchers_detect_stale_virtualenv_python():
         "tools/diagnostics/Run_Diagnostics.ps1",
     ]:
         text = read(rel)
-        assert 'Ignoring stale/broken .venv' in text
+        assert "Ignoring stale/broken .venv" in text
         assert '& $Py -c "import sys"' in text

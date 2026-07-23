@@ -17,7 +17,7 @@ _PREFIXES = [
 def format_si(value: float, unit: str = "", precision: int = 3) -> str:
     try:
         x = float(value)
-    except Exception:
+    except (TypeError, ValueError):
         return f"{value} {unit}".strip()
     if math.isnan(x) or math.isinf(x):
         return f"{x:g} {unit}".strip()
@@ -26,7 +26,7 @@ def format_si(value: float, unit: str = "", precision: int = 3) -> str:
     exp = int(math.floor(math.log10(abs(x)) / 3) * 3)
     exp = max(min(exp, 9), -12)
     prefix = dict(_PREFIXES).get(exp, "")
-    scaled = x / (10 ** exp)
+    scaled = x / (10**exp)
     return f"{scaled:.{precision}g} {prefix}{unit}".strip()
 
 

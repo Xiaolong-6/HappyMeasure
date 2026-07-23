@@ -5,7 +5,10 @@ from tkinter import ttk
 from keith_ivt.data.settings import load_settings
 
 
-class ThemeMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class ThemeMixin(UiMixinTyping):
     def _init_style(self) -> None:
         self.style = ttk.Style(self.root)
         try:
@@ -14,6 +17,7 @@ class ThemeMixin:
             pass
         try:
             import tkinter.font as tkfont
+
             family = getattr(self, "settings", load_settings()).ui_font_family
             size = int(getattr(self, "settings", load_settings()).ui_font_size)
             for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont"):
@@ -130,15 +134,49 @@ class ThemeMixin:
 
         self.style.configure("TFrame", background=panel, borderwidth=0)
         self.style.configure("App.TFrame", background=bg, borderwidth=0)
-        self.style.configure("Card.TFrame", background=card, borderwidth=frame_border, relief=frame_relief, bordercolor=border)
-        self.style.configure("Toolbar.TFrame", background=card, borderwidth=frame_border, relief=frame_relief, bordercolor=border)
+        self.style.configure(
+            "Card.TFrame",
+            background=card,
+            borderwidth=frame_border,
+            relief=frame_relief,
+            bordercolor=border,
+        )
+        self.style.configure(
+            "Toolbar.TFrame",
+            background=card,
+            borderwidth=frame_border,
+            relief=frame_relief,
+            bordercolor=border,
+        )
         self.style.configure("ToolbarInner.TFrame", background=card, borderwidth=0, relief="flat")
-        self.style.configure("Operator.TFrame", background=card, borderwidth=frame_border, relief=frame_relief, bordercolor=border)
+        self.style.configure(
+            "Operator.TFrame",
+            background=card,
+            borderwidth=frame_border,
+            relief=frame_relief,
+            bordercolor=border,
+        )
         self.style.configure("Status.TFrame", background=bg, borderwidth=0)
-        self.style.configure("StatusCell.TLabel", background=bg, foreground=muted, padding=(8, 5), relief="solid" if debug else "flat", borderwidth=status_border, bordercolor=border)
+        self.style.configure(
+            "StatusCell.TLabel",
+            background=bg,
+            foreground=muted,
+            padding=(8, 5),
+            relief="solid" if debug else "flat",
+            borderwidth=status_border,
+            bordercolor=border,
+        )
         # Status icons are Canvas-rendered in status_bar.py so they do not
         # depend on Windows/Tk emoji fallback or user-selected UI font size.
-        self.style.configure("StatusPill.TLabel", background=bg if debug else panel, foreground=self._palette["forest"], padding=(8, 4), relief="solid", borderwidth=1, bordercolor=border)
+        self.style.configure(
+            "StatusPill.TLabel",
+            background=bg if debug else panel,
+            foreground=self._palette["forest"],
+            padding=(8, 4),
+            relief="solid",
+            borderwidth=1,
+            bordercolor=border,
+        )
         # Keep normal labels on the dominant content-card background.
         # The previous Light theme used a grey panel background for labels inside
         # white cards, which produced visible text-background patches.
@@ -147,10 +185,21 @@ class ThemeMixin:
         self.style.configure("Card.TLabel", background=card, foreground=fg)
         self.style.configure("Muted.TLabel", background=label_bg, foreground=muted)
         self.style.configure("CardMuted.TLabel", background=card, foreground=muted)
-        self.style.configure("AboutStatus.TLabel", background=card, foreground=muted, padding=(0, 2))
+        self.style.configure(
+            "AboutStatus.TLabel", background=card, foreground=muted, padding=(0, 2)
+        )
         self.style.configure("AboutTitle.TLabel", background=card, foreground=fg)
         self.style.configure("AboutBody.TLabel", background=card, foreground=fg)
-        self.style.configure("SectionHeader.TLabel", background=bg, foreground=fg, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1, "bold"))
+        self.style.configure(
+            "SectionHeader.TLabel",
+            background=bg,
+            foreground=fg,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 1,
+                "bold",
+            ),
+        )
         self.style.configure("TCheckbutton", background=label_bg, foreground=fg)
         for label_style, label_background in (
             ("TLabel", label_bg),
@@ -161,65 +210,372 @@ class ThemeMixin:
             ("AboutTitle.TLabel", card),
             ("AboutBody.TLabel", card),
         ):
-            self.style.map(label_style,
-                           background=[("disabled", label_background)],
-                           foreground=[("disabled", disabled_fg)])
+            self.style.map(
+                label_style,
+                background=[("disabled", label_background)],
+                foreground=[("disabled", disabled_fg)],
+            )
 
         button_border = 2 if debug else 1
-        self.style.configure("TButton", background=button_bg, foreground=fg, padding=(11, 7), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("TButton", background=[("disabled", disabled_bg), ("active", button_active)], foreground=[("disabled", disabled_fg)], relief=[("pressed", "solid")])
-        self.style.configure("Soft.TButton", background=button_bg, foreground=fg, padding=(9, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("Soft.TButton", background=[("disabled", disabled_bg), ("active", button_active)], foreground=[("disabled", disabled_fg)])
-        self.style.configure("TEntry", fieldbackground=input_bg, foreground=fg, insertcolor=fg, padding=(7, 5), borderwidth=1, relief="solid", bordercolor=border)
-        self.style.configure("TCombobox", fieldbackground=input_bg, background=input_bg, foreground=fg, selectbackground=input_bg, selectforeground=fg, padding=(7, 5), borderwidth=1, relief="solid", bordercolor=border, arrowcolor=muted)
-        self.style.map("TEntry", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("disabled", disabled_bg)], background=[("disabled", disabled_bg)], foreground=[("disabled", disabled_fg)])
-        self.style.map("TCombobox", bordercolor=[("focus", self._palette["accent"])], fieldbackground=[("readonly", input_bg), ("disabled", disabled_bg)], background=[("readonly", input_bg), ("disabled", disabled_bg)], foreground=[("readonly", fg), ("disabled", disabled_fg)], arrowcolor=[("readonly", muted), ("disabled", disabled_fg)])
-        self.style.configure("Treeview", background=card, fieldbackground=card, foreground=fg, rowheight=max(24, int(getattr(self.settings, "ui_font_size", 10)) + 15), borderwidth=1 if debug else 0, relief="solid" if debug else "flat", bordercolor=border)
-        self.style.configure("Treeview.Heading", background=button_bg, foreground=fg, relief="solid" if debug else "flat", borderwidth=1 if debug else 0)
+        self.style.configure(
+            "TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(11, 7),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+        )
+        self.style.map(
+            "TButton",
+            background=[("disabled", disabled_bg), ("active", button_active)],
+            foreground=[("disabled", disabled_fg)],
+            relief=[("pressed", "solid")],
+        )
+        self.style.configure(
+            "Soft.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(9, 6),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+        )
+        self.style.map(
+            "Soft.TButton",
+            background=[("disabled", disabled_bg), ("active", button_active)],
+            foreground=[("disabled", disabled_fg)],
+        )
+        self.style.configure(
+            "TEntry",
+            fieldbackground=input_bg,
+            foreground=fg,
+            insertcolor=fg,
+            padding=(7, 5),
+            borderwidth=1,
+            relief="solid",
+            bordercolor=border,
+        )
+        self.style.configure(
+            "TCombobox",
+            fieldbackground=input_bg,
+            background=input_bg,
+            foreground=fg,
+            selectbackground=input_bg,
+            selectforeground=fg,
+            padding=(7, 5),
+            borderwidth=1,
+            relief="solid",
+            bordercolor=border,
+            arrowcolor=muted,
+        )
+        self.style.map(
+            "TEntry",
+            bordercolor=[("focus", self._palette["accent"])],
+            fieldbackground=[("disabled", disabled_bg)],
+            background=[("disabled", disabled_bg)],
+            foreground=[("disabled", disabled_fg)],
+        )
+        self.style.map(
+            "TCombobox",
+            bordercolor=[("focus", self._palette["accent"])],
+            fieldbackground=[("readonly", input_bg), ("disabled", disabled_bg)],
+            background=[("readonly", input_bg), ("disabled", disabled_bg)],
+            foreground=[("readonly", fg), ("disabled", disabled_fg)],
+            arrowcolor=[("readonly", muted), ("disabled", disabled_fg)],
+        )
+        self.style.configure(
+            "Treeview",
+            background=card,
+            fieldbackground=card,
+            foreground=fg,
+            rowheight=max(24, int(getattr(self.settings, "ui_font_size", 10)) + 15),
+            borderwidth=1 if debug else 0,
+            relief="solid" if debug else "flat",
+            bordercolor=border,
+        )
+        self.style.configure(
+            "Treeview.Heading",
+            background=button_bg,
+            foreground=fg,
+            relief="solid" if debug else "flat",
+            borderwidth=1 if debug else 0,
+        )
 
         scrollbar_bg = "#D6E5EA" if not dark else "#303941"
         scrollbar_active = self._palette["accent"]
         scrollbar_trough = bg
         for style_name in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
-            self.style.configure(style_name, gripcount=0, background=scrollbar_bg, darkcolor=scrollbar_bg, lightcolor=scrollbar_bg, troughcolor=scrollbar_trough, bordercolor=scrollbar_trough, arrowcolor=muted, relief="flat", width=10, arrowsize=10)
-            self.style.map(style_name, background=[("active", scrollbar_active), ("pressed", scrollbar_active)])
+            self.style.configure(
+                style_name,
+                gripcount=0,
+                background=scrollbar_bg,
+                darkcolor=scrollbar_bg,
+                lightcolor=scrollbar_bg,
+                troughcolor=scrollbar_trough,
+                bordercolor=scrollbar_trough,
+                arrowcolor=muted,
+                relief="flat",
+                width=10,
+                arrowsize=10,
+            )
+            self.style.map(
+                style_name, background=[("active", scrollbar_active), ("pressed", scrollbar_active)]
+            )
 
-        self.style.configure("Nordic.TPanedwindow", background=self._palette["splitter"], borderwidth=0, relief="flat")
-        self.style.configure("TPanedwindow", background=self._palette["splitter"], borderwidth=0, relief="flat")
+        self.style.configure(
+            "Nordic.TPanedwindow",
+            background=self._palette["splitter"],
+            borderwidth=0,
+            relief="flat",
+        )
+        self.style.configure(
+            "TPanedwindow", background=self._palette["splitter"], borderwidth=0, relief="flat"
+        )
         self.style.configure("Topbar.TFrame", background=card, borderwidth=0)
         self.style.configure("Topbar.TLabel", background=card, foreground=fg)
         self.style.configure("Help.TLabel", background=card, foreground=muted)
-        self.style.configure("MenuIcon.TButton", background=button_bg, foreground=fg, padding=(9, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("MenuIcon.TButton", background=[("active", button_active), ("pressed", button_active)], relief=[("pressed", "solid")])
-        self.style.configure("Drawer.TFrame", background=nav, borderwidth=frame_border, relief=frame_relief, bordercolor=border)
+        self.style.configure(
+            "MenuIcon.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(9, 6),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+        )
+        self.style.map(
+            "MenuIcon.TButton",
+            background=[("active", button_active), ("pressed", button_active)],
+            relief=[("pressed", "solid")],
+        )
+        self.style.configure(
+            "Drawer.TFrame",
+            background=nav,
+            borderwidth=frame_border,
+            relief=frame_relief,
+            bordercolor=border,
+        )
         self.style.configure("Drawer.TLabel", background=nav, foreground=fg)
-        self.style.configure("DrawerTitle.TLabel", background=nav, foreground=fg, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 5, "bold"))
-        self.style.configure("DrawerSubtitle.TLabel", background=nav, foreground=muted, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1))
+        self.style.configure(
+            "DrawerTitle.TLabel",
+            background=nav,
+            foreground=fg,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 5,
+                "bold",
+            ),
+        )
+        self.style.configure(
+            "DrawerSubtitle.TLabel",
+            background=nav,
+            foreground=muted,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 1,
+            ),
+        )
         self.style.configure("DrawerMuted.TLabel", background=nav, foreground=muted)
-        self.style.configure("Drawer.TButton", background=nav, foreground=fg, anchor="w", padding=(14, 11), relief="solid" if debug else "flat", borderwidth=button_border if debug else 0, bordercolor=border, focuscolor=nav, focusthickness=0, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1))
-        self.style.map("Drawer.TButton", background=[("active", active), ("pressed", active)], relief=[("pressed", "solid")])
-        self.style.configure("Active.Drawer.TButton", background=active, foreground=self._palette["accent"] if not debug else fg, anchor="w", padding=(14, 11), relief="solid" if debug else "flat", borderwidth=button_border if debug else 0, bordercolor=border, focuscolor=panel, focusthickness=0, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1, "bold"))
-        self.style.map("Active.Drawer.TButton", background=[("active", active), ("pressed", active)])
-        self.style.configure("ViewOn.TButton", background=self._palette["accent"], foreground="#FFFFFF" if not dark else "#101418", padding=(10, 5), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=self._palette["accent"], focusthickness=0)
-        self.style.configure("ViewOff.TButton", background=button_bg, foreground=fg, padding=(10, 5), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("ViewOn.TButton", background=[("active", self._palette["accent"]), ("pressed", self._palette["accent"])])
-        self.style.map("ViewOff.TButton", background=[("active", button_active), ("pressed", button_active)])
-        self.style.configure("ToggleOn.TButton", background=self._palette["accent"], foreground="#FFFFFF" if not dark else "#101418", padding=(9, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=self._palette["accent"], focusthickness=0)
-        self.style.configure("ToggleOff.TButton", background=button_bg, foreground=fg, padding=(9, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0)
-        self.style.map("ToggleOn.TButton", background=[("active", self._palette["accent"]), ("pressed", self._palette["accent"])])
-        self.style.map("ToggleOff.TButton", background=[("active", button_active), ("pressed", button_active)])
-        self.style.configure("Start.TButton", background=self._palette["forest"], foreground="#FFFFFF", padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Start.TButton", background=[("active", self._palette["forest"]), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
-        self.style.configure("Pause.TButton", background=button_bg, foreground=fg, padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Pause.TButton", background=[("active", button_active), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
-        self.style.configure("Stop.TButton", background=self._palette["danger"], foreground="#FFFFFF", padding=(10, 7), relief="solid", borderwidth=button_border, bordercolor=border)
-        self.style.map("Stop.TButton", background=[("active", "#FFE1E0" if not dark else "#4A2A2A"), ("disabled", disabled_bg)] , foreground=[("disabled", disabled_fg)])
+        self.style.configure(
+            "Drawer.TButton",
+            background=nav,
+            foreground=fg,
+            anchor="w",
+            padding=(14, 11),
+            relief="solid" if debug else "flat",
+            borderwidth=button_border if debug else 0,
+            bordercolor=border,
+            focuscolor=nav,
+            focusthickness=0,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 1,
+            ),
+        )
+        self.style.map(
+            "Drawer.TButton",
+            background=[("active", active), ("pressed", active)],
+            relief=[("pressed", "solid")],
+        )
+        self.style.configure(
+            "Active.Drawer.TButton",
+            background=active,
+            foreground=self._palette["accent"] if not debug else fg,
+            anchor="w",
+            padding=(14, 11),
+            relief="solid" if debug else "flat",
+            borderwidth=button_border if debug else 0,
+            bordercolor=border,
+            focuscolor=panel,
+            focusthickness=0,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 1,
+                "bold",
+            ),
+        )
+        self.style.map(
+            "Active.Drawer.TButton", background=[("active", active), ("pressed", active)]
+        )
+        self.style.configure(
+            "ViewOn.TButton",
+            background=self._palette["accent"],
+            foreground="#FFFFFF" if not dark else "#101418",
+            padding=(10, 5),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=self._palette["accent"],
+            focusthickness=0,
+        )
+        self.style.configure(
+            "ViewOff.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(10, 5),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+        )
+        self.style.map(
+            "ViewOn.TButton",
+            background=[("active", self._palette["accent"]), ("pressed", self._palette["accent"])],
+        )
+        self.style.map(
+            "ViewOff.TButton", background=[("active", button_active), ("pressed", button_active)]
+        )
+        self.style.configure(
+            "ToggleOn.TButton",
+            background=self._palette["accent"],
+            foreground="#FFFFFF" if not dark else "#101418",
+            padding=(9, 6),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=self._palette["accent"],
+            focusthickness=0,
+        )
+        self.style.configure(
+            "ToggleOff.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(9, 6),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+        )
+        self.style.map(
+            "ToggleOn.TButton",
+            background=[("active", self._palette["accent"]), ("pressed", self._palette["accent"])],
+        )
+        self.style.map(
+            "ToggleOff.TButton", background=[("active", button_active), ("pressed", button_active)]
+        )
+        self.style.configure(
+            "Start.TButton",
+            background=self._palette["forest"],
+            foreground="#FFFFFF",
+            padding=(10, 7),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+        )
+        self.style.map(
+            "Start.TButton",
+            background=[("active", self._palette["forest"]), ("disabled", disabled_bg)],
+            foreground=[("disabled", disabled_fg)],
+        )
+        self.style.configure(
+            "Pause.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(10, 7),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+        )
+        self.style.map(
+            "Pause.TButton",
+            background=[("active", button_active), ("disabled", disabled_bg)],
+            foreground=[("disabled", disabled_fg)],
+        )
+        self.style.configure(
+            "Stop.TButton",
+            background=self._palette["danger"],
+            foreground="#FFFFFF",
+            padding=(10, 7),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+        )
+        self.style.map(
+            "Stop.TButton",
+            background=[
+                ("active", "#FFE1E0" if not dark else "#4A2A2A"),
+                ("disabled", disabled_bg),
+            ],
+            foreground=[("disabled", disabled_fg)],
+        )
         self.style.configure("OperatorGroup.TFrame", background=card, borderwidth=0)
-        self.style.configure("TraceTitle.TLabel", background=card, foreground=fg, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 1, "bold"))
-        self.style.configure("TinyIcon.TButton", background=button_bg, foreground=fg, padding=(8, 6), relief="solid", borderwidth=button_border, bordercolor=border, focuscolor=button_bg, focusthickness=0, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)) + 3))
-        self.style.map("TinyIcon.TButton", background=[("active", button_active), ("pressed", button_active)], relief=[("pressed", "solid")])
-        self.style.configure("Section.TLabelframe", padding=8, borderwidth=frame_border, relief="solid", background=card, bordercolor=border)
-        self.style.configure("Section.TLabelframe.Label", background=card, foreground=muted, font=(getattr(self.settings, "ui_font_family", "Verdana"), int(getattr(self.settings, "ui_font_size", 10)), "bold"))
+        self.style.configure(
+            "TraceTitle.TLabel",
+            background=card,
+            foreground=fg,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 1,
+                "bold",
+            ),
+        )
+        self.style.configure(
+            "TinyIcon.TButton",
+            background=button_bg,
+            foreground=fg,
+            padding=(8, 6),
+            relief="solid",
+            borderwidth=button_border,
+            bordercolor=border,
+            focuscolor=button_bg,
+            focusthickness=0,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)) + 3,
+            ),
+        )
+        self.style.map(
+            "TinyIcon.TButton",
+            background=[("active", button_active), ("pressed", button_active)],
+            relief=[("pressed", "solid")],
+        )
+        self.style.configure(
+            "Section.TLabelframe",
+            padding=8,
+            borderwidth=frame_border,
+            relief="solid",
+            background=card,
+            bordercolor=border,
+        )
+        self.style.configure(
+            "Section.TLabelframe.Label",
+            background=card,
+            foreground=muted,
+            font=(
+                getattr(self.settings, "ui_font_family", "Verdana"),
+                int(getattr(self.settings, "ui_font_size", 10)),
+                "bold",
+            ),
+        )
 
     def apply_ui_appearance(self) -> None:
         """Apply font/theme variables to the current session without writing settings.json."""
@@ -233,7 +589,11 @@ class ThemeMixin:
             if hasattr(self, "canvas_widget"):
                 self.canvas_widget.configure(background=self._palette["plot_bg"])
             if hasattr(self, "log_text") and self.log_text.winfo_exists():
-                self.log_text.configure(background=self._palette["input"], foreground=self._palette["fg"], insertbackground=self._palette["fg"])
+                self.log_text.configure(
+                    background=self._palette["input"],
+                    foreground=self._palette["fg"],
+                    insertbackground=self._palette["fg"],
+                )
         except Exception:
             pass
         try:
@@ -242,14 +602,17 @@ class ThemeMixin:
             pass
         try:
             if hasattr(self, "_refresh_live_measurement_status"):
-                self._draw_connection_status_icon(getattr(self.connection_light_text, "get", lambda: "disconnected")())
+                self._draw_connection_status_icon(
+                    getattr(self.connection_light_text, "get", lambda: "disconnected")()
+                )
                 self._refresh_live_measurement_status()
         except Exception:
             pass
         self._redraw_all_plots()
-        self.log_event(f"Applied UI appearance: {self.settings.ui_theme}, {self.settings.ui_font_family} {self.settings.ui_font_size} pt")
+        self.log_event(
+            f"Applied UI appearance: {self.settings.ui_theme}, {self.settings.ui_font_family} {self.settings.ui_font_size} pt"
+        )
 
     def preview_ui_appearance(self) -> None:
         """Backward-compatible alias for older tests/scripts."""
         self.apply_ui_appearance()
-

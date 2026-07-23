@@ -11,7 +11,10 @@ from keith_ivt.services.update_installer import launch_update_installer
 from keith_ivt.version import __version__
 
 
-class UpdateControllerMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class UpdateControllerMixin(UiMixinTyping):
     """Non-blocking GitHub release metadata checks for the UI shell.
 
     The mixin reads release metadata and can hand off installation to an
@@ -23,6 +26,9 @@ class UpdateControllerMixin:
     UPDATE_REPO = "HappyMeasure"
     UPDATE_REPO_URL = "https://github.com/Xiaolong-6/HappyMeasure"
     UPDATE_CHECK_CACHE_SECONDS = 30 * 60
+    _update_check_in_progress: bool
+    _last_update_check_result: dict[str, str | None] | None
+    _last_update_check_timestamp: float | None
 
     def _default_update_status_message(self) -> str:
         return "Update status: not checked yet. Manual upgrade remains available from the release page."
@@ -48,7 +54,10 @@ class UpdateControllerMixin:
             return
         self._set_update_check_message("Checking for updates...")
         self._update_check_in_progress = True
-        threading.Thread(target=lambda: self._check_for_updates_worker(prompt_install=prompt_install), daemon=True).start()
+        threading.Thread(
+            target=lambda: self._check_for_updates_worker(prompt_install=prompt_install),
+            daemon=True,
+        ).start()
 
     def _check_for_updates_worker(self, prompt_install: bool = False) -> None:
         try:
@@ -69,7 +78,12 @@ class UpdateControllerMixin:
                 "asset_download_url": None,
                 "asset_sha256": None,
             }
-        self.root.after(0, lambda result=result: self._handle_update_check_result(result, prompt_install=prompt_install))
+        self.root.after(
+            0,
+            lambda result=result: self._handle_update_check_result(
+                result, prompt_install=prompt_install
+            ),
+        )
 
     def _has_fresh_update_check_result(self) -> bool:
         if self._last_update_check_result is None or self._last_update_check_timestamp is None:
@@ -108,9 +122,13 @@ class UpdateControllerMixin:
             if prompt_install:
                 self._prompt_for_update_install(result)
         elif status == "offline":
-            self._set_update_check_message("No network. Update status unknown; open the release page to check manually.")
+            self._set_update_check_message(
+                "No network. Update status unknown; open the release page to check manually."
+            )
         elif status == "error":
-            self._set_update_check_message("Update check unavailable. Open the release page to check manually.")
+            self._set_update_check_message(
+                "Update check unavailable. Open the release page to check manually."
+            )
             logging.getLogger("keith_ivt.ui.updates").warning(message)
         elif status == "ahead":
             latest = result.get("latest_version") or "unknown"
@@ -121,7 +139,9 @@ class UpdateControllerMixin:
             latest = result.get("latest_version") or __version__
             self._set_update_check_message(f"You are up to date ({latest}).")
         else:
-            self._set_update_check_message("Update status: not checked yet. Manual upgrade remains available from the release page.")
+            self._set_update_check_message(
+                "Update status: not checked yet. Manual upgrade remains available from the release page."
+            )
 
     def _prompt_for_update_install(self, result: dict[str, str | None]) -> None:
         latest = result.get("latest_version") or "the latest version"
@@ -163,7 +183,10 @@ class UpdateControllerMixin:
             messagebox.showerror("Update failed", f"Could not start the updater:\n{exc}")
             return
         self.log_event(f"Updater launched for {plan.latest_version}: {plan.script_path}")
-        messagebox.showinfo("Updater started", "HappyMeasure will close now. The updater will download and install the new version, then restart the app.")
+        messagebox.showinfo(
+            "Updater started",
+            "HappyMeasure will close now. The updater will download and install the new version, then restart the app.",
+        )
         try:
             self.root.after(100, self.root.destroy)
         except Exception:
@@ -173,7 +196,9 @@ class UpdateControllerMixin:
         try:
             webbrowser.open(self._update_release_url or self.UPDATE_REPO_URL)
         except Exception as exc:
-            logging.getLogger("keith_ivt.ui.updates").warning("Failed to open release page: %s", exc)
+            logging.getLogger("keith_ivt.ui.updates").warning(
+                "Failed to open release page: %s", exc
+            )
 
     def _check_for_updates(self) -> None:
         """Compatibility hook retained for callers that still request a check."""

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+from typing import Any
+
+import tkinter as tk
+
 
 class ToolTip:
     def __init__(self, widget, text: str, delay_ms: int = 500) -> None:
         self.widget = widget
         self.text = text
         self.delay_ms = delay_ms
-        self._after_id = None
-        self._tip = None
+        self._after_id: Any | None = None
+        self._tip: tk.Toplevel | None = None
         widget.bind("<Enter>", self._schedule, add="+")
         widget.bind("<Leave>", self._hide, add="+")
         widget.bind("<ButtonPress>", self._hide, add="+")
@@ -24,7 +28,6 @@ class ToolTip:
     def _show(self) -> None:
         if self._tip is not None or not self.text:
             return
-        import tkinter as tk
         x = self.widget.winfo_rootx() + 18
         y = self.widget.winfo_rooty() + self.widget.winfo_height() + 8
         self._tip = tk.Toplevel(self.widget)

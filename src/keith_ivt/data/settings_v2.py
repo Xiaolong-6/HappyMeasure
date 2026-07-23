@@ -8,6 +8,7 @@ type-safe configuration system that provides:
 - Clear error messages for invalid configurations
 - IDE autocomplete and type hints
 """
+
 from __future__ import annotations
 
 import json
@@ -25,26 +26,31 @@ logger = logging.getLogger("keith_ivt.settings")
 # Enums for constrained choices
 # ============================================================================
 
+
 class SourceMode(str, Enum):
     """Voltage or current source mode."""
+
     VOLTAGE = "VOLT"
     CURRENT = "CURR"
 
 
 class Terminal(str, Enum):
     """Instrument terminal selection."""
+
     FRONT = "FRON"
     REAR = "REAR"
 
 
 class SenseMode(str, Enum):
     """Sense wiring configuration."""
+
     TWO_WIRE = "2W"
     FOUR_WIRE = "4W"
 
 
 class SweepKind(str, Enum):
     """Type of measurement sweep."""
+
     STEP = "STEP"
     TIME = "TIME"
     ADAPTIVE = "ADAPTIVE"
@@ -52,6 +58,7 @@ class SweepKind(str, Enum):
 
 class PlotLayout(str, Enum):
     """Plot subplot arrangement."""
+
     AUTO = "Auto"
     SINGLE = "1x1"
     HORIZONTAL = "1x2"
@@ -61,6 +68,7 @@ class PlotLayout(str, Enum):
 
 class UITheme(str, Enum):
     """UI color theme."""
+
     LIGHT = "Light"
     DARK = "Dark"
     DEBUG = "Debug"
@@ -69,6 +77,7 @@ class UITheme(str, Enum):
 # ============================================================================
 # Settings models
 # ============================================================================
+
 
 class HardwareSettings(BaseModel):
     """Hardware connection and operation settings."""
@@ -438,18 +447,49 @@ def _migrate_legacy(data: dict[str, Any]) -> AppSettings:
     logger.info("Migrating legacy settings to new format")
 
     # Extract into categories
-    hardware_keys = {"default_port", "default_baud_rate", "default_terminal",
-                     "default_sense_mode", "default_debug_model"}
-    sweep_keys = {"default_mode", "default_start", "default_stop", "default_step",
-                  "default_compliance", "default_nplc", "default_delay_s", "default_sweep_kind",
-                  "default_autorange", "auto_source_range", "auto_measure_range",
-                  "default_source_range", "default_measure_range",
-                  "default_constant_value", "default_duration_s",
-                  "default_constant_until_stop", "default_interval_s",
-                  "default_adaptive_logic"}
-    ui_keys = {"ui_font_family", "ui_font_size", "ui_theme", "default_plot_layout", "show_front_panel_on_start", "check_updates_on_startup"}
-    data_keys = {"log_max_bytes", "cache_enabled", "cache_interval_points",
-                 "default_device_name", "default_operator", "default_debug"}
+    hardware_keys = {
+        "default_port",
+        "default_baud_rate",
+        "default_terminal",
+        "default_sense_mode",
+        "default_debug_model",
+    }
+    sweep_keys = {
+        "default_mode",
+        "default_start",
+        "default_stop",
+        "default_step",
+        "default_compliance",
+        "default_nplc",
+        "default_delay_s",
+        "default_sweep_kind",
+        "default_autorange",
+        "auto_source_range",
+        "auto_measure_range",
+        "default_source_range",
+        "default_measure_range",
+        "default_constant_value",
+        "default_duration_s",
+        "default_constant_until_stop",
+        "default_interval_s",
+        "default_adaptive_logic",
+    }
+    ui_keys = {
+        "ui_font_family",
+        "ui_font_size",
+        "ui_theme",
+        "default_plot_layout",
+        "show_front_panel_on_start",
+        "check_updates_on_startup",
+    }
+    data_keys = {
+        "log_max_bytes",
+        "cache_enabled",
+        "cache_interval_points",
+        "default_device_name",
+        "default_operator",
+        "default_debug",
+    }
 
     hardware_data = {k: v for k, v in data.items() if k in hardware_keys}
     sweep_data = {k: v for k, v in data.items() if k in sweep_keys}

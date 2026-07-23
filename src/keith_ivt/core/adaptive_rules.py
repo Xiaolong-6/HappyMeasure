@@ -20,7 +20,11 @@ class AdaptiveSegment:
     enabled: bool = True
 
     def normalized_spacing(self) -> AdaptiveSpacing:
-        raw = self.spacing.value if isinstance(self.spacing, AdaptiveSpacing) else str(self.spacing).lower()
+        raw = (
+            self.spacing.value
+            if isinstance(self.spacing, AdaptiveSpacing)
+            else str(self.spacing).lower()
+        )
         return AdaptiveSpacing.LOG if raw.startswith("log") else AdaptiveSpacing.LINEAR
 
 
@@ -43,7 +47,12 @@ class AdaptiveSweepRule:
             if not segment.enabled:
                 continue
             part = segment_values(segment)
-            if deduplicate_boundaries and values and part and math.isclose(values[-1], part[0], rel_tol=1e-12, abs_tol=1e-15):
+            if (
+                deduplicate_boundaries
+                and values
+                and part
+                and math.isclose(values[-1], part[0], rel_tol=1e-12, abs_tol=1e-15)
+            ):
                 part = part[1:]
             values.extend(part)
         if not values:
@@ -54,7 +63,9 @@ class AdaptiveSweepRule:
         values = self.generate_values()
         warnings: list[str] = []
         if len(values) > max_points:
-            raise ValueError(f"Adaptive rule produced {len(values)} points, above the {max_points} point limit.")
+            raise ValueError(
+                f"Adaptive rule produced {len(values)} points, above the {max_points} point limit."
+            )
         if len(values) > 5000:
             warnings.append(f"Large adaptive plan: {len(values)} points.")
         if any(math.isnan(v) or math.isinf(v) for v in values):
@@ -85,7 +96,9 @@ def _signed_logspace(start: float, stop: float, count: int) -> list[float]:
     start = float(start)
     stop = float(stop)
     if start == 0 or stop == 0 or (start > 0) != (stop > 0):
-        raise ValueError("log segment cannot cross or include zero; split it into separate segments.")
+        raise ValueError(
+            "log segment cannot cross or include zero; split it into separate segments."
+        )
     sign = 1.0 if start > 0 else -1.0
     mags = _positive_logspace(abs(start), abs(stop), count)
     return [sign * x for x in mags]
@@ -108,8 +121,13 @@ def default_log_rule() -> AdaptiveSweepRule:
     )
 
 
-def rule_from_table(start: float, stop: float, points: int, spacing: str = "log") -> AdaptiveSweepRule:
-    return AdaptiveSweepRule(segments=(AdaptiveSegment(start, stop, int(points), spacing, True),), name="Table adaptive rule")
+def rule_from_table(
+    start: float, stop: float, points: int, spacing: str = "log"
+) -> AdaptiveSweepRule:
+    return AdaptiveSweepRule(
+        segments=(AdaptiveSegment(start, stop, int(points), spacing, True),),
+        name="Table adaptive rule",
+    )
 
 
 def logic_from_rule(rule: AdaptiveSweepRule) -> str:
@@ -122,5 +140,13 @@ def values_from_segments(rows: Iterable[dict]) -> list[float]:
     for row in rows:
         if not row.get("enabled", True):
             continue
-        segments.append(AdaptiveSegment(float(row["start"]), float(row["stop"]), int(row["points"]), str(row.get("spacing", "log")), True))
+        segments.append(
+            AdaptiveSegment(
+                float(row["start"]),
+                float(row["stop"]),
+                int(row["points"]),
+                str(row.get("spacing", "log")),
+                True,
+            )
+        )
     return AdaptiveSweepRule(tuple(segments)).generate_values()

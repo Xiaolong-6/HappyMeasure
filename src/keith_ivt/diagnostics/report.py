@@ -33,9 +33,21 @@ def collect_diagnostics(root: str | os.PathLike[str] | None = None) -> list[Chec
         Check("python", sys.version_info >= (3, 11), sys.version.replace("\n", " ")),
         Check("platform", True, platform.platform()),
         Check("working_directory", paths.root.exists(), str(paths.root)),
-        Check("public_package", (paths.root / "src" / PACKAGE_NAME).exists(), str(paths.root / "src" / PACKAGE_NAME)),
-        Check("legacy_package", (paths.root / "src" / LEGACY_PACKAGE_NAME).exists(), str(paths.root / "src" / LEGACY_PACKAGE_NAME)),
-        Check("pyproject", (paths.root / "pyproject.toml").exists(), str(paths.root / "pyproject.toml")),
+        Check(
+            "public_package",
+            (paths.root / "src" / PACKAGE_NAME).exists(),
+            str(paths.root / "src" / PACKAGE_NAME),
+        ),
+        Check(
+            "legacy_package",
+            (paths.root / "src" / LEGACY_PACKAGE_NAME).exists(),
+            str(paths.root / "src" / LEGACY_PACKAGE_NAME),
+        ),
+        Check(
+            "pyproject",
+            (paths.root / "pyproject.toml").exists(),
+            str(paths.root / "pyproject.toml"),
+        ),
         Check("matplotlib", _module_available("matplotlib"), "required for plotting"),
         Check("serial", _module_available("serial"), "pyserial; required for real hardware"),
         Check("tkinter", _module_available("tkinter"), "required for UI"),
@@ -50,15 +62,20 @@ def collect_diagnostics(root: str | os.PathLike[str] | None = None) -> list[Chec
         except Exception as exc:
             checks.append(Check(f"writable_{p.name}", False, f"{p}: {exc}"))
     try:
-        import serial.tools.list_ports  # type: ignore
+        import serial.tools.list_ports
+
         ports = [port.device for port in serial.tools.list_ports.comports()]
-        checks.append(Check("serial_ports", True, ", ".join(ports) if ports else "no ports detected"))
+        checks.append(
+            Check("serial_ports", True, ", ".join(ports) if ports else "no ports detected")
+        )
     except Exception as exc:
         checks.append(Check("serial_ports", False, str(exc)))
     return checks
 
 
-def write_diagnostics_report(root: str | os.PathLike[str] | None = None, path: str | os.PathLike[str] | None = None) -> Path:
+def write_diagnostics_report(
+    root: str | os.PathLike[str] | None = None, path: str | os.PathLike[str] | None = None
+) -> Path:
     paths = AppPaths.from_root(root)
     paths.ensure()
     out = Path(path) if path is not None else paths.logs / "diagnostics_report.txt"
@@ -69,7 +86,12 @@ def write_diagnostics_report(root: str | os.PathLike[str] | None = None, path: s
         "",
         *[check.line() for check in checks],
         "",
-        "Overall: " + ("PASS" if all(c.ok for c in checks if c.name not in {"serial", "serial_ports"}) else "WARN"),
+        "Overall: "
+        + (
+            "PASS"
+            if all(c.ok for c in checks if c.name not in {"serial", "serial_ports"})
+            else "WARN"
+        ),
     ]
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out

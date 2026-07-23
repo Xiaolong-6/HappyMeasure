@@ -8,6 +8,7 @@ def run() -> None:
     install_excepthook()
     try:
         from keith_ivt.ui.simple_app import main
+
         main()
     except Exception as exc:
         log_runtime_error("Application startup or mainloop failed", exc)

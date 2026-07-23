@@ -29,7 +29,13 @@ class SerialRetryPolicy:
         if self.backoff_factor < 1:
             raise ValueError("backoff_factor must be >= 1")
 
-    def run(self, action: Callable[[], T], *, label: str = "serial command", logger: Callable[[str], None] | None = None) -> T:
+    def run(
+        self,
+        action: Callable[[], T],
+        *,
+        label: str = "serial command",
+        logger: Callable[[str], None] | None = None,
+    ) -> T:
         last_exc: BaseException | None = None
         for attempt in range(1, self.max_attempts + 1):
             try:
@@ -40,7 +46,9 @@ class SerialRetryPolicy:
                     break
                 delay = self.base_delay_s * (self.backoff_factor ** (attempt - 1))
                 if logger is not None:
-                    logger(f"{label} failed on attempt {attempt}/{self.max_attempts}: {exc}; retrying in {delay:.2f}s")
+                    logger(
+                        f"{label} failed on attempt {attempt}/{self.max_attempts}: {exc}; retrying in {delay:.2f}s"
+                    )
                 if delay > 0:
                     time.sleep(delay)
         assert last_exc is not None

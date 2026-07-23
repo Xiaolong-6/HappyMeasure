@@ -6,6 +6,5 @@ import sys
 
 from keith_ivt.hardware_preflight import main
 
-
 if __name__ == "__main__":
     sys.exit(main())

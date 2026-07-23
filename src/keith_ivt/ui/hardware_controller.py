@@ -9,7 +9,10 @@ from keith_ivt.models import SweepKind, SweepMode
 from keith_ivt.ui.app_state import AppAction
 
 
-class HardwareControllerMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class HardwareControllerMixin(UiMixinTyping):
 
     def _detect_serial_ports(self) -> list[str]:
         """Return available serial ports. Debug mode always exposes COM3 for offline tests."""
@@ -18,6 +21,7 @@ class HardwareControllerMixin:
         ports: list[str] = []
         try:
             from serial.tools import list_ports
+
             ports = [p.device for p in list_ports.comports()]
         except Exception as exc:
             try:
@@ -36,6 +40,7 @@ class HardwareControllerMixin:
         if self.port.get() not in ports:
             self.port.set(ports[0])
         return ports
+
     def _default_capabilities(self, connected: bool = False) -> DriverCapabilities:
         if not connected:
             return DriverCapabilities(
@@ -50,33 +55,42 @@ class HardwareControllerMixin:
                 supports_fixed_range=False,
                 supports_manual_output=False,
             )
-        return DriverCapabilities(name="Generic source-meter", vendor="generic", model_family="generic-smu")
+        return DriverCapabilities(
+            name="Generic source-meter", vendor="generic", model_family="generic-smu"
+        )
 
     @staticmethod
     def _full_cap(name: str, vendor: str, family: str) -> DriverCapabilities:
         return DriverCapabilities(
-            name=name, vendor=vendor, model_family=family,
-            supports_voltage_source=True, supports_current_source=True,
-            supports_cv=False, supports_front_rear=True, supports_4wire=True,
-            supports_fixed_range=True, supports_manual_output=True,
+            name=name,
+            vendor=vendor,
+            model_family=family,
+            supports_voltage_source=True,
+            supports_current_source=True,
+            supports_cv=False,
+            supports_front_rear=True,
+            supports_4wire=True,
+            supports_fixed_range=True,
+            supports_manual_output=True,
         )
 
     def _detect_capabilities_from_idn(self, idn: str) -> DriverCapabilities:
         text = idn.upper()
         if "SIMULATED" in text:
             return self._full_cap("Debug simulator / Keithley 2400 profile", "simulator", "smu-iv")
-        if "KEITHLEY" in text and ("2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text):
+        if "KEITHLEY" in text and (
+            "2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text
+        ):
             return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
         if "KEITHLEY" in text and "2450" in text:
-            return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu",
-                supports_cv=False,
-                supports_front_rear=True,
-                supports_4wire=True,
-                supports_fixed_range=True,
-                supports_manual_output=True,
-            )
+            return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu")
         # Conservative fallback: IV only until a real driver advertises more.
-        return DriverCapabilities(name="Generic IV instrument", vendor="unknown", model_family="generic-iv", supports_cv=False)
+        return DriverCapabilities(
+            name="Generic IV instrument",
+            vendor="unknown",
+            model_family="generic-iv",
+            supports_cv=False,
+        )
 
     def _available_modes(self) -> list[str]:
         cap = self._active_capabilities
@@ -151,7 +165,17 @@ class HardwareControllerMixin:
             setattr(self, attr, None)
 
     def _set_run_state(self, state: str) -> None:
-        if state not in {"idle", "preparing", "running", "paused", "stopping", "stopped", "completed", "error", "aborted"}:
+        if state not in {
+            "idle",
+            "preparing",
+            "running",
+            "paused",
+            "stopping",
+            "stopped",
+            "completed",
+            "error",
+            "aborted",
+        }:
             raise ValueError(f"Unknown run state: {state}")
         previous = getattr(self, "_run_state", "idle")
         action = {
@@ -184,14 +208,20 @@ class HardwareControllerMixin:
         self._safe_configure("start_btn", state="normal" if can_start else "disabled")
         self._safe_configure("pause_btn", state="normal" if can_pause else "disabled")
         self._safe_configure("stop_btn", state="normal" if can_stop else "disabled")
-        self._safe_configure("connect_btn", state="normal" if can_connect_or_disconnect else "disabled")
+        self._safe_configure(
+            "connect_btn", state="normal" if can_connect_or_disconnect else "disabled"
+        )
         self._set_hardware_fields_state()
         self._set_sweep_fields_state()
         self._set_operator_identity_state()
 
     def _set_hardware_fields_state(self) -> None:
-        busy = getattr(self, "_run_state", "idle") not in {"idle", "stopped", "completed", "aborted"}
-        state = "disabled" if (self._connected or busy) else "normal"
+        busy = getattr(self, "_run_state", "idle") not in {
+            "idle",
+            "stopped",
+            "completed",
+            "aborted",
+        }
         for attr in ("port_combo", "baud_combo", "terminal_combo", "sense_combo"):
             widget = getattr(self, attr, None)
             try:
@@ -201,12 +231,16 @@ class HardwareControllerMixin:
                 pass
 
     def _set_sweep_fields_state(self) -> None:
-        editable = bool(self._connected and getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"})
+        editable = bool(
+            self._connected
+            and getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"}
+        )
         state = "normal" if editable else "disabled"
         for attr in ("mode_combo", "sweep_kind_combo", "debug_model_row"):
             widget = getattr(self, attr, None)
             try:
-                if widget and widget.winfo_exists(): widget.configure(state="readonly" if state == "normal" else "disabled")
+                if widget and widget.winfo_exists():
+                    widget.configure(state="readonly" if state == "normal" else "disabled")
             except Exception:
                 pass
         for box_attr in ("dynamic_box", "common_box"):
@@ -219,6 +253,7 @@ class HardwareControllerMixin:
                         except Exception as e:
                             # Log widget configuration errors at debug level
                             import logging
+
                             logger = logging.getLogger("keith_ivt.ui.hardware_controller")
                             logger.debug(f"Failed to configure child widget state: {e}")
                             for sub in getattr(child, "winfo_children", lambda: [])():
@@ -228,6 +263,7 @@ class HardwareControllerMixin:
                                     logger.debug(f"Failed to configure sub-widget state: {e2}")
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger("keith_ivt.ui.hardware_controller")
                 logger.debug(f"Failed to update dynamic controls state: {e}")
         try:
@@ -237,7 +273,11 @@ class HardwareControllerMixin:
         self._update_range_state()
 
     def _set_operator_identity_state(self) -> None:
-        state = "normal" if getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"} else "disabled"
+        state = (
+            "normal"
+            if getattr(self, "_run_state", "idle") in {"idle", "stopped", "completed", "aborted"}
+            else "disabled"
+        )
         for attr in ("device_entry", "operator_entry"):
             self._safe_configure(attr, state=state)
 
@@ -257,7 +297,6 @@ class HardwareControllerMixin:
             return SimulatedKeithley(model_name=self.debug_model.get())
         return Keithley2400Serial(port=self.port.get(), baud_rate=int(self.baud_rate.get()))
 
-
     def connect_or_disconnect(self) -> None:
         """Single hardware action button: connect when idle/disconnected, disconnect when idle/connected."""
         if getattr(self, "_connected", False):
@@ -274,7 +313,9 @@ class HardwareControllerMixin:
             self._connected_idn = idn
             self._active_capabilities = self._detect_capabilities_from_idn(idn)
             action = AppAction.CONNECT_SIMULATED if self.debug.get() else AppAction.CONNECT_SUCCESS
-            self.app_state.dispatch(action, device_id=idn, device_model=self._active_capabilities.name)
+            self.app_state.dispatch(
+                action, device_id=idn, device_model=self._active_capabilities.name
+            )
             self._refresh_run_status_from_state()
             self.log_event(f"Connected/detected: {idn}; profile={self._active_capabilities.name}")
         except Exception as exc:
@@ -315,7 +356,11 @@ class HardwareControllerMixin:
 
     def _refresh_instrument_indicator(self) -> None:
         self._refresh_connection_status_from_state()
-        self._safe_configure("connect_btn", text="Disconnect" if self._connected else "Connect", style="Connected.TButton" if self._connected else "TButton")
+        self._safe_configure(
+            "connect_btn",
+            text="Disconnect" if self._connected else "Connect",
+            style="Connected.TButton" if self._connected else "TButton",
+        )
         self._set_hardware_fields_state()
         self._set_sweep_fields_state()
         self._update_range_state()

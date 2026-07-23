@@ -5,7 +5,6 @@ import sys
 
 from keith_ivt.services.hardware_preflight import run_keithley_preflight
 
-
 PREFLIGHT_SAFETY_NOTE = (
     "Safety: this preflight queries *IDN? and sends OUTPUT OFF only; "
     "it does not source voltage/current or run a sweep."
@@ -29,7 +28,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Port: {args.port}")
         print(f"Baud: {args.baud}")
         print(f"Reason: {exc}")
-        print("Action: keep the instrument output off, verify cabling/resource name, then retry preflight before any real sweep.")
+        print(
+            "Action: keep the instrument output off, verify cabling/resource name, then retry preflight before any real sweep."
+        )
         return 1
 
     print("PASS hardware preflight")

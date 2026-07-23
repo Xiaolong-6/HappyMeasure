@@ -5,7 +5,10 @@ from tkinter import ttk
 from keith_ivt.ui.widgets import add_tip
 
 
-class OperatorBarMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class OperatorBarMixin(UiMixinTyping):
     """Bottom device/operator/control strip.
 
     Contract: this strip hosts editable run metadata and Start/Pause/Stop only.
@@ -15,7 +18,9 @@ class OperatorBarMixin:
     def _build_operator_bar(self) -> None:
         """Bottom device-operation strip shared by all pages."""
         self.action_bar = ttk.Frame(self.root, style="Operator.TFrame", padding=(12, 10))
-        self.action_bar.grid(row=1, column=getattr(self, "_workspace_column", 0), sticky="ew", padx=8, pady=(2, 4))
+        self.action_bar.grid(
+            row=1, column=getattr(self, "_workspace_column", 0), sticky="ew", padx=8, pady=(2, 4)
+        )
         for col, (weight, minsize) in enumerate([(2, 170), (2, 170), (3, 300)]):
             self.action_bar.columnconfigure(col, weight=weight, minsize=minsize)
 
@@ -30,7 +35,9 @@ class OperatorBarMixin:
         operator_box = ttk.Frame(self.action_bar, style="OperatorGroup.TFrame")
         operator_box.grid(row=0, column=1, sticky="ew", padx=(0, 12))
         operator_box.columnconfigure(0, weight=1)
-        ttk.Label(operator_box, text="Operator", style="Muted.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(operator_box, text="Operator", style="Muted.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
         self.operator_entry = ttk.Entry(operator_box, textvariable=self.operator)
         self.operator_entry.grid(row=1, column=0, sticky="ew", pady=(3, 0))
         add_tip(self.operator_entry, "Operator name saved in CSV metadata.")
@@ -40,20 +47,32 @@ class OperatorBarMixin:
         controls.columnconfigure(0, weight=1)
         controls.columnconfigure(1, weight=1)
         controls.columnconfigure(2, weight=1)
-        ttk.Label(controls, textvariable=self.controls_title_text, style="Muted.TLabel").grid(row=0, column=0, columnspan=3, sticky="w")
-        self.start_btn = ttk.Button(controls, text="Start", style="Start.TButton", command=self.start_sweep)
+        ttk.Label(controls, textvariable=self.controls_title_text, style="Muted.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w"
+        )
+        self.start_btn = ttk.Button(
+            controls, text="Start", style="Start.TButton", command=self.start_sweep
+        )
         self.start_btn.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
         add_tip(
             self.start_btn,
             "Start the selected sweep. Real hardware output may turn ON after configuration.",
         )
-        self.pause_btn = ttk.Button(controls, text="Pause", style="Pause.TButton", command=self.toggle_pause, state="disabled")
+        self.pause_btn = ttk.Button(
+            controls,
+            text="Pause",
+            style="Pause.TButton",
+            command=self.toggle_pause,
+            state="disabled",
+        )
         self.pause_btn.grid(row=1, column=1, sticky="ew", padx=6, pady=(3, 0))
         add_tip(
             self.pause_btn,
             "Pause or resume point collection. Pause holds the current source state; it does not turn output off. Use STOP for output off.",
         )
-        self.stop_btn = ttk.Button(controls, text="STOP", style="Stop.TButton", command=self.abort_sweep)
+        self.stop_btn = ttk.Button(
+            controls, text="STOP", style="Stop.TButton", command=self.abort_sweep
+        )
         self.stop_btn.grid(row=1, column=2, sticky="ew", padx=(6, 0), pady=(3, 0))
         add_tip(
             self.stop_btn,

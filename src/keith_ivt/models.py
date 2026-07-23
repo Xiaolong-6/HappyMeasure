@@ -138,7 +138,9 @@ def source_values_for_config(config: SweepConfig) -> list[float]:
     if config.sweep_kind is SweepKind.CONSTANT_TIME:
         if config.continuous_time:
             return []
-        return make_constant_time_values(config.constant_value, config.duration_s, config.interval_s)
+        return make_constant_time_values(
+            config.constant_value, config.duration_s, config.interval_s
+        )
     if config.sweep_kind is SweepKind.ADAPTIVE:
         from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
 
@@ -166,7 +168,7 @@ def serial_round_trip_seconds(
     """
     try:
         baud = max(1200.0, float(baud_rate))
-    except Exception:
+    except (TypeError, ValueError):
         baud = 9600.0
     total_chars = max(0, int(source_chars)) + max(0, int(query_chars)) + max(0, int(response_chars))
     serial_s = (total_chars * max(1, int(framing_bits))) / baud
@@ -225,7 +227,9 @@ def validate_config(config: SweepConfig) -> None:
             source_values_for_config(config)
         min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, overhead_s=0.0)
         if config.interval_s < min_interval:
-            raise ValueError(f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s.")
+            raise ValueError(
+                f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s."
+            )
     elif config.sweep_kind is SweepKind.ADAPTIVE:
         source_values_for_config(config)
     else:

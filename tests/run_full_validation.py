@@ -22,7 +22,9 @@ def run(cmd: list[str]) -> None:
 
 def main() -> None:
     print(f"Full validation for HappyMeasure {version.VERSION} ({version.RELEASE_STAGE})")
-    print("Quality gates: compileall, legacy UI contracts, full pytest, and coverage >=95% for the unit-testable core/hardware subset. Tk widgets and real hardware entrypoints are omitted from coverage and handled by smoke/bench protocols.")
+    print(
+        "Quality gates: compileall, legacy UI contracts, full pytest, and coverage >=95% for the unit-testable core/hardware subset. Tk widgets and real hardware entrypoints are omitted from coverage and handled by smoke/bench protocols."
+    )
     ok = compileall.compile_dir(str(SRC), quiet=1)
     ok = compileall.compile_dir(str(ROOT / "tests"), quiet=1) and ok
     if not ok:

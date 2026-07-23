@@ -26,8 +26,6 @@ def test_authoritative_state_enums_match_contract():
     }
 
 
-
-
 def test_runstate_running_is_documented_legacy_alias():
     assert "RUNNING" in RunState.__members__
     assert RunState.RUNNING is RunState.SWEEPING
@@ -49,7 +47,9 @@ def test_initial_state_and_connection_gate():
     assert state.run_state is RunState.IDLE
     assert state.connection_state is ConnectionState.DISCONNECTED
     assert not state.can_start_sweep()
-    assert state.dispatch(AppAction.CONNECT_SIMULATED, device_id="sim", device_model="Keithley 2400")
+    assert state.dispatch(
+        AppAction.CONNECT_SIMULATED, device_id="sim", device_model="Keithley 2400"
+    )
     assert state.can_start_sweep()
     assert state.connection_state is ConnectionState.SIMULATED
 

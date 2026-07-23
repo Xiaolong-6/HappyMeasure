@@ -32,7 +32,7 @@ def test_alpha3_import_export_and_plot_menu_contracts():
     assert "Export visible" in trace_controls
     assert "def save_checked_traces" in trace_panel
     assert "_show_plot_context_menu_tk" in plot_controls
-    assert '<Button-3>' in plot_panel and '<Control-Button-1>' in plot_panel
+    assert "<Button-3>" in plot_panel and "<Control-Button-1>" in plot_panel
 
 
 def test_alpha3_hardware_log_stop_contracts():
@@ -44,6 +44,6 @@ def test_alpha3_hardware_log_stop_contracts():
     assert "_interruptible_sleep" in runner
     assert "_interruptible_sleep(max(0.0, config.interval_s), _should_stop)" in runner
     assert "def _should_stop" in runner
-    log = panels[panels.index('def _build_log_panel'):panels.index('def _build_about_panel')]
+    log = panels[panels.index("def _build_log_panel") : panels.index("def _build_about_panel")]
     assert 'box.grid(row=0, column=0, sticky="nsew"' in log
     assert 'self.log_text.grid(row=1, column=0, sticky="nsew")' in log

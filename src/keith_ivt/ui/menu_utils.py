@@ -4,6 +4,7 @@ from __future__ import annotations
 def make_touch_menu(root, font_family: str = "Verdana", font_size: int = 10):
     """Create a larger Tk context menu suitable for mouse and touch use."""
     import tkinter as tk
+
     menu = tk.Menu(root, tearoff=False)
     try:
         menu.configure(

@@ -22,7 +22,7 @@ def test_status_bar_is_compact_and_uses_live_vi_readout() -> None:
     status = read("src/keith_ivt/ui/status_bar.py")
     app_state = read("src/keith_ivt/ui/app_state.py")
     simple = read("src/keith_ivt/ui/simple_app.py")
-    controller = read("src/keith_ivt/ui/sweep_controller.py")
+    read("src/keith_ivt/ui/sweep_controller.py")
     assert "textvariable=self.status_connection_text" in status
     assert "textvariable=self.status" in status
     assert "textvariable=self.measurement_status_text" in status

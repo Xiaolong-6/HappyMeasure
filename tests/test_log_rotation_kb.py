@@ -1,4 +1,5 @@
 """Test that log rotation KB setting works immediately."""
+
 import tempfile
 from pathlib import Path
 from keith_ivt.data.logging_utils import AppLog

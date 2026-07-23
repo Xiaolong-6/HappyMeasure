@@ -87,7 +87,9 @@ def iv_vectors(result: SweepResult) -> tuple[list[float], list[float]]:
     return voltage, current
 
 
-def xy_for_view(result: SweepResult, view: PlotView) -> tuple[list[float], list[float], str, str, str, bool]:
+def xy_for_view(
+    result: SweepResult, view: PlotView
+) -> tuple[list[float], list[float], str, str, str, bool]:
     """Return x, y, xlabel, ylabel, title, y_is_log for a plot view."""
     points = result.points
     source = [p.source_value for p in points]
@@ -101,20 +103,55 @@ def xy_for_view(result: SweepResult, view: PlotView) -> tuple[list[float], list[
 
     if view is PlotView.LOG_ABS:
         if result.config.mode is SweepMode.CURRENT_SOURCE:
-            return current, safe_abs_log_values(voltage), "Current (A)", "|Voltage (V)|", "Log |V|", True
-        return voltage, safe_abs_log_values(current), "Voltage (V)", "|Current (A)|", "Log |I|", True
+            return (
+                current,
+                safe_abs_log_values(voltage),
+                "Current (A)",
+                "|Voltage (V)|",
+                "Log |V|",
+                True,
+            )
+        return (
+            voltage,
+            safe_abs_log_values(current),
+            "Voltage (V)",
+            "|Current (A)|",
+            "Log |I|",
+            True,
+        )
 
     if view is PlotView.V_OVER_I:
-        return source, resistance_values(result), result.config.source_label, "V/I (Ohm)", "Static resistance V/I", False
+        return (
+            source,
+            resistance_values(result),
+            result.config.source_label,
+            "V/I (Ohm)",
+            "Static resistance V/I",
+            False,
+        )
 
     if view is PlotView.DV_DI:
-        return source, differential_resistance_values(result), result.config.source_label, "dV/dI (Ohm)", "Differential resistance dV/dI", False
+        return (
+            source,
+            differential_resistance_values(result),
+            result.config.source_label,
+            "dV/dI (Ohm)",
+            "Differential resistance dV/dI",
+            False,
+        )
 
     if view is PlotView.SIGNAL_TIME:
         ylabel = result.config.measure_label
         x = [getattr(p, "elapsed_s", 0.0) for p in points]
         if not any(x):
-            return list(range(1, len(points) + 1)), measured, "Point index", ylabel, "Signal vs point index", False
+            return (
+                list(range(1, len(points) + 1)),
+                measured,
+                "Point index",
+                ylabel,
+                "Signal vs point index",
+                False,
+            )
         return x, measured, "Elapsed time (s)", ylabel, "Signal vs time", False
 
     return [], [], "", "", "Spare plot", False

@@ -14,22 +14,22 @@ def source_text(relative: str) -> str:
     return (SRC / "keith_ivt" / relative).read_text(encoding="utf-8")
 
 
-
-
 def test_start_sweep_allows_completed_stopped_and_aborted_ready_states() -> None:
     sweep_controller = source_text("ui/sweep_controller.py")
     assert 'ready_states = {"idle", "stopped", "completed", "aborted"}' in sweep_controller
-    assert 'if self._run_state not in ready_states:' in sweep_controller
+    assert "if self._run_state not in ready_states:" in sweep_controller
     assert 'if self._run_state != "idle":' not in sweep_controller
+
 
 def test_make_config_imports_model_enums_after_decomposition() -> None:
     """Start path must not lose model imports when simple_app is kept tiny."""
     app = source_text("ui/simple_app.py")
     sweep_config = source_text("ui/sweep_config.py")
-    assert "from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepMode, SweepResult, Terminal" in app
+    assert "SweepConfig" in app and "SweepKind" in app and "SweepResult" in app
+    assert "SweepMode" in sweep_config
     assert "def _mode_from_ui" in sweep_config
     assert "def _sweep_kind_from_ui" in sweep_config
-    make_config = app[app.index("def _make_config"):]
+    make_config = app[app.index("def _make_config") :]
     assert "mode=self._mode_from_ui()" in make_config
     assert "sweep_kind=sweep_kind" in make_config
     assert "terminal=Terminal(self._terminal_scpi" in make_config
@@ -39,8 +39,8 @@ def test_make_config_imports_model_enums_after_decomposition() -> None:
 def test_plot_toolbar_fills_width_for_wrapping_without_residual_empty_column() -> None:
     plot = source_text("ui/plot_panel.py")
     assert 'toolbar.grid(row=0, column=0, sticky="ew"' in plot
-    assert 'toolbar.columnconfigure(1, weight=1)' in plot
-    assert 'view toolbar take the available width' in plot
+    assert "toolbar.columnconfigure(1, weight=1)" in plot
+    assert "view toolbar take the available width" in plot
 
 
 def test_visual_polish_uses_explicit_scrollbar_and_status_styles() -> None:
@@ -51,7 +51,7 @@ def test_visual_polish_uses_explicit_scrollbar_and_status_styles() -> None:
     assert 'style="Vertical.TScrollbar"' in scaffold
     assert 'style="Vertical.TScrollbar"' in plot
     assert 'style="StatusCell.TLabel"' in status
-    assert '[(2, 170), (2, 170), (3, 300)]' in operator
+    assert "[(2, 170), (2, 170), (3, 300)]" in operator
 
 
 def test_make_config_smoke_with_tk_when_enabled() -> None:

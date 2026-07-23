@@ -40,24 +40,45 @@ class RangeMeter(SourceMeter):
         self.change_on_read = change_on_read
         self.source_value = 0.0
 
-    def connect(self) -> None: pass
-    def close(self) -> None: pass
-    def identify(self) -> str: return "RANGE-METER"
-    def reset(self) -> None: self.events.append("reset")
-    def configure_for_sweep(self, config: SweepConfig) -> None: self.events.append("configure")
+    def connect(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def identify(self) -> str:
+        return "RANGE-METER"
+
+    def reset(self) -> None:
+        self.events.append("reset")
+
+    def configure_for_sweep(self, config: SweepConfig) -> None:
+        self.events.append("configure")
+
     def set_source(self, source_cmd: str, value: float) -> None:
         self.source_value = float(value)
         self.events.append(f"source:{value}")
-    def output_on(self) -> None: self.events.append("output_on")
-    def output_off(self) -> None: self.events.append("output_off")
-    def get_current_autorange(self) -> bool: return self.autorange
+
+    def output_on(self) -> None:
+        self.events.append("output_on")
+
+    def output_off(self) -> None:
+        self.events.append("output_off")
+
+    def get_current_autorange(self) -> bool:
+        return self.autorange
+
     def set_current_autorange(self, enabled: bool) -> None:
         self.events.append(f"autorange:{enabled}")
         self.autorange = bool(enabled)
-    def get_current_range(self) -> float: return self.range_A
+
+    def get_current_range(self) -> float:
+        return self.range_A
+
     def set_current_range(self, range_A: float) -> None:
         self.events.append(f"range:{range_A}")
         self.range_A = float(range_A)
+
     def read_source_and_measure(self) -> tuple[float, float]:
         self.read_count += 1
         if self.change_on_read == self.read_count:
@@ -87,7 +108,9 @@ def test_lock_current_range_uses_actual_range_and_disables_autorange() -> None:
     control = CurrentRangeControl()
     control.request_lock_current()
 
-    SweepRunner(meter).run(_time_config(stop=0.0, discard_after_range_change=0), current_range_control=control)
+    SweepRunner(meter).run(
+        _time_config(stop=0.0, discard_after_range_change=0), current_range_control=control
+    )
 
     assert "autorange:False" in meter.events
     assert "range:1e-09" in meter.events
@@ -100,7 +123,9 @@ def test_fixed_range_selection_disables_autorange_before_setting_range() -> None
     control = CurrentRangeControl()
     control.request_fixed_range(10e-9)
 
-    SweepRunner(meter).run(_time_config(stop=0.0, discard_after_range_change=0), current_range_control=control)
+    SweepRunner(meter).run(
+        _time_config(stop=0.0, discard_after_range_change=0), current_range_control=control
+    )
 
     assert meter.events.index("autorange:False") < meter.events.index("range:1e-08")
     assert control.snapshot().status_fragment() == "Fixed/10 nA"
@@ -115,7 +140,11 @@ def test_range_change_rereads_same_source_without_skipping_requested_points() ->
     assert [point.source_value for point in result.points] == [0.0, 1.0, 2.0, 3.0]
     assert [point.measured_value for point in result.points] == [1.0, 4.0, 5.0, 6.0]
     path = save_csv(result, ROOT / "logs" / "range_filtered_test.csv")
-    rows = [line.split(",") for line in path.read_text(encoding="utf-8").splitlines() if line and not line.startswith("#")][1:]
+    rows = [
+        line.split(",")
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    ][1:]
     measured_values = [float(row[2]) for row in rows]
     assert 100.0 not in measured_values
     assert control.snapshot().actual_range_A == 10e-9
@@ -142,6 +171,7 @@ def test_wide_voltage_sweep_keeps_every_setpoint_across_multiple_range_changes()
 
 def test_simulator_can_deterministically_trigger_autorange_change(monkeypatch) -> None:
     import keith_ivt.instrument.simulator as sim
+
     monkeypatch.setattr(sim.time, "sleep", lambda _s: None)
 
     cfg = _time_config(stop=0.0)

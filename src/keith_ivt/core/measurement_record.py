@@ -24,7 +24,9 @@ class MeasurementSession:
     traces: list[TraceRecord] = field(default_factory=list)
 
     def add_result(self, result: SweepResult, name: str | None = None) -> TraceRecord:
-        record = TraceRecord(result=result, name=name or result.config.device_name or f"Trace_{len(self.traces) + 1}")
+        record = TraceRecord(
+            result=result, name=name or result.config.device_name or f"Trace_{len(self.traces) + 1}"
+        )
         self.traces.append(record)
         return record
 

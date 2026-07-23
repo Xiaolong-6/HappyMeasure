@@ -94,6 +94,13 @@ def load_app_config(path: str | os.PathLike[str]) -> AppConfig:
     return AppConfig(
         hardware=HardwareConfig(**data.get("hardware", {})),
         sweep=SweepDefaults(**data.get("sweep", {})),
-        plot=PlotConfig(**{**data.get("plot", {}), "default_views": tuple(data.get("plot", {}).get("default_views", PlotConfig().default_views))}),
+        plot=PlotConfig(
+            **{
+                **data.get("plot", {}),
+                "default_views": tuple(
+                    data.get("plot", {}).get("default_views", PlotConfig().default_views)
+                ),
+            }
+        ),
         ui=UiConfig(**data.get("ui", {})),
     )

@@ -119,7 +119,6 @@ class AppState:
             "error": [],
         }
 
-
     @property
     def run_state_text(self) -> str:
         with self._lock:
@@ -155,7 +154,9 @@ class AppState:
         """Return to disconnected from any connection state."""
         self.dispatch(AppAction.DISCONNECT)
 
-    def on_state_change(self, event_type: str, callback: Callable[[StateChangeEvent], None]) -> None:
+    def on_state_change(
+        self, event_type: str, callback: Callable[[StateChangeEvent], None]
+    ) -> None:
         with self._lock:
             if event_type not in self._listeners:
                 self._listeners[event_type] = []
@@ -173,7 +174,8 @@ class AppState:
     def can_start_sweep(self) -> bool:
         with self._lock:
             return (
-                self.run_state in {RunState.IDLE, RunState.STOPPED, RunState.COMPLETED, RunState.ABORTED}
+                self.run_state
+                in {RunState.IDLE, RunState.STOPPED, RunState.COMPLETED, RunState.ABORTED}
                 and self.connection_state in {ConnectionState.CONNECTED, ConnectionState.SIMULATED}
                 and not self.stop_requested
             )
@@ -220,7 +222,9 @@ class AppState:
                 if new_state == RunState.IDLE:
                     self.point_count = 0
                     self.estimated_total = 0
-            event = StateChangeEvent(old_state=old_state.value, new_state=new_state.value, context=context or {})
+            event = StateChangeEvent(
+                old_state=old_state.value, new_state=new_state.value, context=context or {}
+            )
             self._emit_event("run_state", event)
             return True
 
@@ -236,7 +240,9 @@ class AppState:
             if old_state != new_state:
                 self._emit_event(
                     "run_state",
-                    StateChangeEvent(old_state=old_state.value, new_state=new_state.value, context=context or {}),
+                    StateChangeEvent(
+                        old_state=old_state.value, new_state=new_state.value, context=context or {}
+                    ),
                 )
             return True
 
@@ -365,7 +371,9 @@ class AppState:
                     return False
                 self.stop_requested = True
                 self.pause_requested = False
-                self._emit_event("stop_requested", StateChangeEvent(context={"reason": "user_stop"}))
+                self._emit_event(
+                    "stop_requested", StateChangeEvent(context={"reason": "user_stop"})
+                )
             return self._set_run_state_locked(RunState.STOPPING, context)
         if action is AppAction.SWEEP_STOPPED:
             return self._set_run_state_locked(RunState.STOPPED, context)
@@ -395,22 +403,60 @@ class AppState:
     def _is_valid_transition(from_state: RunState, to_state: RunState) -> bool:
         valid = {
             RunState.IDLE: {RunState.PREPARING, RunState.SWEEPING, RunState.ERROR},
-            RunState.PREPARING: {RunState.SWEEPING, RunState.STOPPING, RunState.ERROR, RunState.ABORTED},
-            RunState.SWEEPING: {RunState.PAUSED, RunState.STOPPING, RunState.COMPLETED, RunState.ERROR, RunState.ABORTED},
-            RunState.PAUSED: {RunState.SWEEPING, RunState.STOPPING, RunState.ERROR, RunState.ABORTED},
+            RunState.PREPARING: {
+                RunState.SWEEPING,
+                RunState.STOPPING,
+                RunState.ERROR,
+                RunState.ABORTED,
+            },
+            RunState.SWEEPING: {
+                RunState.PAUSED,
+                RunState.STOPPING,
+                RunState.COMPLETED,
+                RunState.ERROR,
+                RunState.ABORTED,
+            },
+            RunState.PAUSED: {
+                RunState.SWEEPING,
+                RunState.STOPPING,
+                RunState.ERROR,
+                RunState.ABORTED,
+            },
             RunState.STOPPING: {RunState.STOPPED, RunState.ABORTED, RunState.ERROR},
-            RunState.STOPPED: {RunState.IDLE, RunState.PREPARING, RunState.SWEEPING, RunState.ERROR},
-            RunState.COMPLETED: {RunState.IDLE, RunState.PREPARING, RunState.SWEEPING, RunState.ERROR},
+            RunState.STOPPED: {
+                RunState.IDLE,
+                RunState.PREPARING,
+                RunState.SWEEPING,
+                RunState.ERROR,
+            },
+            RunState.COMPLETED: {
+                RunState.IDLE,
+                RunState.PREPARING,
+                RunState.SWEEPING,
+                RunState.ERROR,
+            },
             RunState.ABORTED: {RunState.IDLE, RunState.PREPARING, RunState.ERROR},
             RunState.ERROR: {RunState.IDLE},
         }
         return to_state in valid.get(from_state, set())
 
     @staticmethod
-    def _is_valid_connection_transition(from_state: ConnectionState, to_state: ConnectionState) -> bool:
+    def _is_valid_connection_transition(
+        from_state: ConnectionState, to_state: ConnectionState
+    ) -> bool:
         valid = {
-            ConnectionState.DISCONNECTED: {ConnectionState.CONNECTING, ConnectionState.CONNECTED, ConnectionState.SIMULATED, ConnectionState.ERROR},
-            ConnectionState.CONNECTING: {ConnectionState.CONNECTED, ConnectionState.SIMULATED, ConnectionState.DISCONNECTED, ConnectionState.ERROR},
+            ConnectionState.DISCONNECTED: {
+                ConnectionState.CONNECTING,
+                ConnectionState.CONNECTED,
+                ConnectionState.SIMULATED,
+                ConnectionState.ERROR,
+            },
+            ConnectionState.CONNECTING: {
+                ConnectionState.CONNECTED,
+                ConnectionState.SIMULATED,
+                ConnectionState.DISCONNECTED,
+                ConnectionState.ERROR,
+            },
             ConnectionState.CONNECTED: {ConnectionState.DISCONNECTED, ConnectionState.ERROR},
             ConnectionState.SIMULATED: {ConnectionState.DISCONNECTED, ConnectionState.ERROR},
             ConnectionState.ERROR: {ConnectionState.DISCONNECTED, ConnectionState.CONNECTING},

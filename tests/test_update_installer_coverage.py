@@ -74,6 +74,7 @@ def test_write_updater_script_returns_launch_plan(tmp_path: Path) -> None:
 
 def test_launch_update_installer_raises_on_empty_url() -> None:
     import pytest
+
     with pytest.raises(ValueError, match="Missing release asset"):
         launch_update_installer(asset_url="", latest_version="v1.1b3", expected_sha256=SHA256)
 
@@ -110,7 +111,7 @@ def test_launch_update_installer_returns_plan(tmp_path: Path) -> None:
 
 
 def test_launch_update_installer_default_target_dir() -> None:
-    with patch("keith_ivt.services.update_installer.subprocess.Popen") as mock_popen:
+    with patch("keith_ivt.services.update_installer.subprocess.Popen"):
         with patch("keith_ivt.services.update_installer.default_install_dir") as mock_dir:
             mock_dir.return_value = Path("/fake/dir")
             plan = launch_update_installer(

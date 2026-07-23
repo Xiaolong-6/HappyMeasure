@@ -3,13 +3,13 @@
 
 def test_trace_selection_preserves_ctrl_click():
     """Verify that Ctrl/Cmd+click works for native Treeview multi-select.
-    
-    The fix removes the <Control-Button-1> binding that was opening the 
+
+    The fix removes the <Control-Button-1> binding that was opening the
     context menu, which prevented native extended selection mode from working.
-    
+
     Now:
     - Ctrl/Cmd+click: Add/remove item from selection (native Treeview behavior)
-    - Shift+click: Select range of items (native Treeview behavior)  
+    - Shift+click: Select range of items (native Treeview behavior)
     - Right-click: Open context menu
     - Click on Vis column: Toggle visibility
     - Click on Color column: Choose color

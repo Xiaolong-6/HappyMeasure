@@ -21,6 +21,7 @@ def run_linear(config: SweepConfig):
 
 def test_linear_resistor_voltage_and_current_modes_are_linear(monkeypatch):
     import keith_ivt.instrument.simulator as sim
+
     monkeypatch.setattr(sim.time, "sleep", lambda _s: None)
 
     vcfg = SweepConfig(
@@ -33,7 +34,9 @@ def test_linear_resistor_voltage_and_current_modes_are_linear(monkeypatch):
         sweep_kind=SweepKind.STEP,
     )
     vres = run_linear(vcfg)
-    assert [round(p.measured_value / p.source_value, 8) for p in vres.points if p.source_value] == [0.0001] * 4
+    assert [round(p.measured_value / p.source_value, 8) for p in vres.points if p.source_value] == [
+        0.0001
+    ] * 4
 
     icfg = SweepConfig(
         mode=SweepMode.CURRENT_SOURCE,
@@ -45,11 +48,14 @@ def test_linear_resistor_voltage_and_current_modes_are_linear(monkeypatch):
         sweep_kind=SweepKind.STEP,
     )
     ires = run_linear(icfg)
-    assert [round(p.measured_value / p.source_value, 3) for p in ires.points if p.source_value] == [10000.0] * 4
+    assert [round(p.measured_value / p.source_value, 3) for p in ires.points if p.source_value] == [
+        10000.0
+    ] * 4
 
 
 def test_simulator_compliance_and_fixed_ranges_have_effect(monkeypatch):
     import keith_ivt.instrument.simulator as sim
+
     monkeypatch.setattr(sim.time, "sleep", lambda _s: None)
 
     cfg = SweepConfig(
@@ -83,6 +89,7 @@ def test_simulator_compliance_and_fixed_ranges_have_effect(monkeypatch):
 
 def test_higher_nplc_reduces_simulated_noise(monkeypatch):
     import keith_ivt.instrument.simulator as sim
+
     monkeypatch.setattr(sim.time, "sleep", lambda _s: None)
 
     def sample_std(nplc: float) -> float:
@@ -97,8 +104,13 @@ def test_higher_nplc_reduces_simulated_noise(monkeypatch):
         )
         random.seed(123)
         vals = []
-        with SimulatedKeithley(resistance_ohm=10_000.0, noise_fraction=0.2, model_name=None) as inst:
-            inst.reset(); inst.configure_for_sweep(cfg); inst.output_on(); inst.set_source(cfg.source_scpi, 1.0)
+        with SimulatedKeithley(
+            resistance_ohm=10_000.0, noise_fraction=0.2, model_name=None
+        ) as inst:
+            inst.reset()
+            inst.configure_for_sweep(cfg)
+            inst.output_on()
+            inst.set_source(cfg.source_scpi, 1.0)
             for _ in range(200):
                 vals.append(inst.read_source_and_measure()[1])
         mean = sum(vals) / len(vals)

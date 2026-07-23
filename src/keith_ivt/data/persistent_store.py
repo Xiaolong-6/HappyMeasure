@@ -8,6 +8,7 @@ providing:
 - Backup and recovery
 - Efficient storage of large datasets
 """
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,15 @@ from pathlib import Path
 from typing import Any
 
 from keith_ivt.data.dataset_store import DatasetStore, DeviceTrace
-from keith_ivt.models import SweepConfig, SweepMode, SweepPoint, SweepResult, Terminal, SenseMode, SweepKind
+from keith_ivt.models import (
+    SweepConfig,
+    SweepMode,
+    SweepPoint,
+    SweepResult,
+    Terminal,
+    SenseMode,
+    SweepKind,
+)
 
 logger = logging.getLogger("keith_ivt.data.persistent_store")
 
@@ -86,7 +95,7 @@ class PersistentDatasetStore(DatasetStore):
             if row is None:
                 cursor.execute(
                     "INSERT INTO metadata (key, value) VALUES ('schema_version', ?)",
-                    (str(DB_VERSION),)
+                    (str(DB_VERSION),),
                 )
             else:
                 version = int(row["value"])
@@ -159,7 +168,7 @@ class PersistentDatasetStore(DatasetStore):
                 # Load points
                 cursor.execute(
                     "SELECT * FROM sweep_points WHERE trace_id = ? ORDER BY point_index",
-                    (trace_row["trace_id"],)
+                    (trace_row["trace_id"],),
                 )
                 point_rows = cursor.fetchall()
 
@@ -221,33 +230,39 @@ class PersistentDatasetStore(DatasetStore):
             config_json = json.dumps(self._config_to_dict(trace.result.config))
 
             # Insert trace
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO traces (trace_id, name, color, visible, created_at, config_json, session_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                trace.trace_id,
-                trace.name,
-                trace.color,
-                int(trace.visible),
-                trace.created_at.isoformat(),
-                config_json,
-                self._session_id,
-            ))
+            """,
+                (
+                    trace.trace_id,
+                    trace.name,
+                    trace.color,
+                    int(trace.visible),
+                    trace.created_at.isoformat(),
+                    config_json,
+                    self._session_id,
+                ),
+            )
 
             # Insert points
             for idx, point in enumerate(trace.result.points):
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO sweep_points
                     (trace_id, point_index, source_value, measured_value, elapsed_s, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    trace.trace_id,
-                    idx,
-                    point.source_value,
-                    point.measured_value,
-                    point.elapsed_s,
-                    point.timestamp if point.timestamp else None,
-                ))
+                """,
+                    (
+                        trace.trace_id,
+                        idx,
+                        point.source_value,
+                        point.measured_value,
+                        point.elapsed_s,
+                        point.timestamp if point.timestamp else None,
+                    ),
+                )
 
             conn.commit()
             logger.debug(f"Saved trace {trace.trace_id} ({trace.name}) to database")
@@ -299,8 +314,7 @@ class PersistentDatasetStore(DatasetStore):
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "UPDATE traces SET name = ? WHERE trace_id = ?",
-                    (trace.name, trace_id)
+                    "UPDATE traces SET name = ? WHERE trace_id = ?", (trace.name, trace_id)
                 )
                 conn.commit()
             finally:
@@ -319,7 +333,7 @@ class PersistentDatasetStore(DatasetStore):
                 cursor = conn.cursor()
                 cursor.execute(
                     "UPDATE traces SET visible = ? WHERE trace_id = ?",
-                    (int(trace.visible), trace_id)
+                    (int(trace.visible), trace_id),
                 )
                 conn.commit()
             finally:
@@ -336,10 +350,7 @@ class PersistentDatasetStore(DatasetStore):
             conn = self._get_connection()
             try:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE traces SET color = ? WHERE trace_id = ?",
-                    (color, trace_id)
-                )
+                cursor.execute("UPDATE traces SET color = ? WHERE trace_id = ?", (color, trace_id))
                 conn.commit()
             finally:
                 conn.close()
@@ -348,7 +359,9 @@ class PersistentDatasetStore(DatasetStore):
     # Session Management
     # ========================================================================
 
-    def start_session(self, session_id: str | None = None, metadata: dict[str, Any] | None = None) -> str:
+    def start_session(
+        self, session_id: str | None = None, metadata: dict[str, Any] | None = None
+    ) -> str:
         """Start a new measurement session.
 
         Args:
@@ -369,14 +382,17 @@ class PersistentDatasetStore(DatasetStore):
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO sessions (session_id, created_at, metadata_json)
                 VALUES (?, ?, ?)
-            """, (
-                session_id,
-                datetime.now().isoformat(),
-                json.dumps(metadata or {}),
-            ))
+            """,
+                (
+                    session_id,
+                    datetime.now().isoformat(),
+                    json.dumps(metadata or {}),
+                ),
+            )
             conn.commit()
             logger.info(f"Started session: {session_id}")
         finally:
@@ -396,10 +412,7 @@ class PersistentDatasetStore(DatasetStore):
         conn = self._get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT metadata_json FROM sessions WHERE session_id = ?",
-                (session_id,)
-            )
+            cursor.execute("SELECT metadata_json FROM sessions WHERE session_id = ?", (session_id,))
             row = cursor.fetchone()
             if row:
                 return json.loads(row["metadata_json"])

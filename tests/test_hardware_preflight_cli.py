@@ -10,7 +10,9 @@ def test_preflight_cli_reports_pass(monkeypatch, capsys) -> None:
         idn = "KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0"
         output_off_confirmed = True
 
-    monkeypatch.setattr(hardware_preflight, "run_keithley_preflight", lambda port, baud, logger=None: Result())
+    monkeypatch.setattr(
+        hardware_preflight, "run_keithley_preflight", lambda port, baud, logger=None: Result()
+    )
     code = hardware_preflight.main(["COM9", "--baud", "9600"])
     out = capsys.readouterr().out
     assert code == 0

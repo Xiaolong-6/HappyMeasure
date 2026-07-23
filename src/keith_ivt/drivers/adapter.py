@@ -3,6 +3,7 @@
 This module provides backward compatibility during the migration from the old
 SourceMeter ABC to the new SMUDriver Protocol. New code should use SMUDriver directly.
 """
+
 from __future__ import annotations
 
 import time
@@ -38,17 +39,7 @@ class SourceMeterAdapter(SMUDriver):
 
     def __init__(self, meter: "SourceMeter"):
         self._meter = meter
-        self._profile: ConnectionProfile | None = None
-        self._config: SweepConfig | None = None
-        self._source_mode = SourceMode.VOLTAGE
-        self._measure_mode = MeasureMode.CURRENT
-
-    @property
-    def capabilities(self) -> DriverCapabilities:
-        """Derive capabilities from the underlying instrument type."""
-        # For now, return generic capabilities
-        # Future: inspect meter type and set appropriate flags
-        return DriverCapabilities(
+        self.capabilities = DriverCapabilities(
             name="Legacy SourceMeter (adapted)",
             vendor="unknown",
             model_family="legacy-adapter",
@@ -60,6 +51,10 @@ class SourceMeterAdapter(SMUDriver):
             supports_fixed_range=True,
             supports_manual_output=True,
         )
+        self._profile: ConnectionProfile | None = None
+        self._config: SweepConfig | None = None
+        self._source_mode = SourceMode.VOLTAGE
+        self._measure_mode = MeasureMode.CURRENT
 
     def connect(self, profile: ConnectionProfile) -> None:
         """Connect the underlying instrument."""
@@ -101,7 +96,11 @@ class SourceMeterAdapter(SMUDriver):
         self._measure_mode = measure_mode
 
         # Map SourceMode to SweepMode
-        sweep_mode = SweepMode.VOLTAGE_SOURCE if source_mode == SourceMode.VOLTAGE else SweepMode.CURRENT_SOURCE
+        sweep_mode = (
+            SweepMode.VOLTAGE_SOURCE
+            if source_mode == SourceMode.VOLTAGE
+            else SweepMode.CURRENT_SOURCE
+        )
 
         # Create a SweepConfig from SMUDriver parameters
         # This is a simplified mapping - full implementation would need more context
@@ -151,12 +150,22 @@ class SourceMeterAdapter(SMUDriver):
 
     def close(self) -> None:
         """Close the instrument connection."""
+        output_error: Exception | None = None
         try:
             self._meter.output_off()
-        except Exception:
-            pass
-        finally:
+        except Exception as exc:
+            output_error = exc
+        try:
             self._meter.close()
+        except Exception as close_error:
+            if output_error is not None:
+                raise RuntimeError(
+                    "Output-off and instrument close both failed: "
+                    f"output-off={output_error}; close={close_error}"
+                ) from output_error
+            raise
+        if output_error is not None:
+            raise output_error
 
     def __enter__(self) -> "SourceMeterAdapter":
         self.connect(self._profile or ConnectionProfile())

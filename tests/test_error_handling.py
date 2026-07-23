@@ -1,4 +1,5 @@
 """Tests for error handling and logging system."""
+
 import logging
 import pytest
 from pathlib import Path
@@ -27,7 +28,7 @@ class TestLoggingSetup:
         with tempfile.TemporaryDirectory() as tmpdir:
             log_dir = Path(tmpdir) / "logs"
             try:
-                logger = setup_logging(
+                setup_logging(
                     log_dir=log_dir,
                     level=logging.INFO,
                     console_output=False,  # Disable console for tests
@@ -154,6 +155,7 @@ class TestSafeExecute:
 
     def test_safe_execute_success(self):
         """safe_execute should return function result on success."""
+
         def add(a, b):
             return a + b
 
@@ -162,6 +164,7 @@ class TestSafeExecute:
 
     def test_safe_execute_returns_default_on_error(self):
         """safe_execute should return default value on failure."""
+
         def failing_func():
             raise ValueError("Test error")
 
@@ -175,6 +178,7 @@ class TestSafeExecute:
 
     def test_safe_execute_reraises_critical(self):
         """safe_execute should re-raise critical errors as AppError."""
+
         def critical_failure():
             raise ConnectionError("Critical hardware failure")
 
@@ -240,6 +244,7 @@ class TestErrorRecoveryHandler:
 
     def test_retry_exhausted_raises_last_exception(self):
         """Should raise last exception after all retries fail."""
+
         def always_fails():
             raise ValueError("Always fails")
 

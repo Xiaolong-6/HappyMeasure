@@ -18,7 +18,11 @@ def make_result(name: str, scale: float = 1.0) -> SweepResult:
         device_name=name,
         debug=True,
     )
-    pts = [SweepPoint(-1.0, -scale, elapsed_s=0.0), SweepPoint(0.0, 0.0, elapsed_s=0.1), SweepPoint(1.0, scale, elapsed_s=0.2)]
+    pts = [
+        SweepPoint(-1.0, -scale, elapsed_s=0.0),
+        SweepPoint(0.0, 0.0, elapsed_s=0.1),
+        SweepPoint(1.0, scale, elapsed_s=0.2),
+    ]
     return SweepResult(cfg, pts)
 
 

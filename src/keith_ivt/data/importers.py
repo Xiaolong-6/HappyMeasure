@@ -5,20 +5,28 @@ import json
 from pathlib import Path
 from typing import Any
 
-from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepMode, SweepPoint, SweepResult, Terminal
+from keith_ivt.models import (
+    SenseMode,
+    SweepConfig,
+    SweepKind,
+    SweepMode,
+    SweepPoint,
+    SweepResult,
+    Terminal,
+)
 
 
 def _float_or_default(value: Any, default: float) -> float:
     try:
         return float(value)
-    except Exception:
+    except (TypeError, ValueError):
         return default
 
 
 def _int_or_default(value: Any, default: int) -> int:
     try:
         return int(value)
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
@@ -58,7 +66,11 @@ def _terminal_from_text(value: Any) -> Terminal:
 
 def _sense_mode_from_text(value: Any) -> SenseMode:
     text = str(value or SenseMode.TWO_WIRE.value).strip().upper()
-    return SenseMode.FOUR_WIRE if text.startswith("4") or text.startswith("FOUR") else SenseMode.TWO_WIRE
+    return (
+        SenseMode.FOUR_WIRE
+        if text.startswith("4") or text.startswith("FOUR")
+        else SenseMode.TWO_WIRE
+    )
 
 
 def _inferred_step(points: list[SweepPoint]) -> float:
@@ -67,7 +79,9 @@ def _inferred_step(points: list[SweepPoint]) -> float:
     return points[1].source_value - points[0].source_value
 
 
-def _config_from_metadata(metadata: dict[str, Any], fallback_name: str = "Imported_Device") -> SweepConfig:
+def _config_from_metadata(
+    metadata: dict[str, Any], fallback_name: str = "Imported_Device"
+) -> SweepConfig:
     mode = _sweep_mode_from_text(metadata.get("mode", "VOLT"))
     autorange = _bool_or_default(metadata.get("autorange"), True)
     return SweepConfig(
@@ -118,12 +132,12 @@ def _parse_metadata_rows(rows: list[list[str]]) -> tuple[dict[str, Any], list[di
         if key == "metadata" and len(row) > 1:
             try:
                 metadata = json.loads(row[1])
-            except Exception:
+            except (json.JSONDecodeError, TypeError):
                 metadata = {}
         elif key == "device_metadata" and len(row) > 1:
             try:
                 all_metadata.append(json.loads(row[1]))
-            except Exception:
+            except (json.JSONDecodeError, TypeError):
                 pass
         elif key == "format" and len(row) > 1:
             combined_format = row[1]
@@ -167,18 +181,28 @@ def load_csv(path: str | Path) -> list[SweepResult]:
     if header is None:
         raise ValueError("CSV data section is missing.")
 
-    if combined_format == "wide-v2" or (all_metadata and len(header) >= 3 and header[0] == "Elapsed_s"):
+    if combined_format == "wide-v2" or (
+        all_metadata and len(header) >= 3 and header[0] == "Elapsed_s"
+    ):
         results: list[SweepResult] = []
         source_values = [_float_or_default(r[1], 0.0) for r in data_rows if len(r) >= 2]
         for col in range(2, len(header)):
             trace_meta = all_metadata[col - 2] if col - 2 < len(all_metadata) else {}
-            cfg = _config_from_metadata(trace_meta, fallback_name=header[col].split("[")[0].strip() or f"Imported_{col-1}")
+            cfg = _config_from_metadata(
+                trace_meta, fallback_name=header[col].split("[")[0].strip() or f"Imported_{col-1}"
+            )
             points = []
             for row in data_rows:
                 if len(row) <= col:
                     continue
                 elapsed = _float_or_default(row[0], 0.0)
-                points.append(SweepPoint(source_value=_float_or_default(row[1], 0.0), measured_value=_float_or_default(row[col], 0.0), elapsed_s=elapsed))
+                points.append(
+                    SweepPoint(
+                        source_value=_float_or_default(row[1], 0.0),
+                        measured_value=_float_or_default(row[col], 0.0),
+                        elapsed_s=elapsed,
+                    )
+                )
             if points:
                 if not trace_meta:
                     cfg = SweepConfig(
@@ -201,10 +225,18 @@ def load_csv(path: str | Path) -> list[SweepResult]:
                 continue
             idx = _int_or_default(row[0], 1)
             names[idx] = row[1]
-            grouped.setdefault(idx, []).append(SweepPoint(source_value=_float_or_default(row[7], 0.0), measured_value=_float_or_default(row[8], 0.0), elapsed_s=_float_or_default(row[6], 0.0)))
+            grouped.setdefault(idx, []).append(
+                SweepPoint(
+                    source_value=_float_or_default(row[7], 0.0),
+                    measured_value=_float_or_default(row[8], 0.0),
+                    elapsed_s=_float_or_default(row[6], 0.0),
+                )
+            )
         results = []
         for idx, points in sorted(grouped.items()):
-            cfg = _config_from_metadata(meta_by_index.get(idx, {}), fallback_name=names.get(idx, f"Imported_{idx}"))
+            cfg = _config_from_metadata(
+                meta_by_index.get(idx, {}), fallback_name=names.get(idx, f"Imported_{idx}")
+            )
             results.append(SweepResult(config=cfg, points=points))
         return results
 
@@ -214,8 +246,21 @@ def load_csv(path: str | Path) -> list[SweepResult]:
     for row in data_rows:
         if len(row) <= y_col:
             continue
-        points.append(SweepPoint(source_value=_float_or_default(row[x_col], 0.0), measured_value=_float_or_default(row[y_col], 0.0), elapsed_s=_float_or_default(row[0], 0.0) if x_col == 1 else 0.0))
+        points.append(
+            SweepPoint(
+                source_value=_float_or_default(row[x_col], 0.0),
+                measured_value=_float_or_default(row[y_col], 0.0),
+                elapsed_s=_float_or_default(row[0], 0.0) if x_col == 1 else 0.0,
+            )
+        )
     cfg = _config_from_metadata(metadata)
     if points and not metadata:
-        cfg = SweepConfig(mode=cfg.mode, start=points[0].source_value, stop=points[-1].source_value, step=_inferred_step(points), compliance=cfg.compliance, device_name=path.stem)
+        cfg = SweepConfig(
+            mode=cfg.mode,
+            start=points[0].source_value,
+            stop=points[-1].source_value,
+            step=_inferred_step(points),
+            compliance=cfg.compliance,
+            device_name=path.stem,
+        )
     return [SweepResult(config=cfg, points=points)]

@@ -33,8 +33,12 @@ def test_source_value_generation_and_validation_errors() -> None:
 
 
 def test_timing_helpers_and_constant_time_validation() -> None:
-    assert minimum_interval_seconds(1.0, line_frequency_hz=50, overhead_s=0.03) == pytest.approx(0.05)
-    assert estimate_point_seconds(1.0, mode=SweepKind.CONSTANT_TIME.value, interval_s=0.2) == pytest.approx(0.2)
+    assert minimum_interval_seconds(1.0, line_frequency_hz=50, overhead_s=0.03) == pytest.approx(
+        0.05
+    )
+    assert estimate_point_seconds(
+        1.0, mode=SweepKind.CONSTANT_TIME.value, interval_s=0.2
+    ) == pytest.approx(0.2)
     assert make_constant_time_values(2.0, duration_s=1.0, interval_s=0.5) == [2.0, 2.0, 2.0]
     with pytest.raises(ValueError):
         make_constant_time_values(0.0, duration_s=0.0, interval_s=1.0)
@@ -43,7 +47,9 @@ def test_timing_helpers_and_constant_time_validation() -> None:
 
 
 def test_config_properties_and_validation_edges() -> None:
-    vcfg = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1)
+    vcfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1
+    )
     assert vcfg.source_scpi == "VOLT"
     assert vcfg.measure_scpi == "CURR"
     assert vcfg.source_label == "Voltage (V)"
@@ -51,19 +57,51 @@ def test_config_properties_and_validation_edges() -> None:
     assert vcfg.csv_headers == ("Voltage_V", "Current_A")
     validate_config(vcfg)
 
-    icfg = SweepConfig(mode=SweepMode.CURRENT_SOURCE, start=0, stop=1e-3, step=1e-3, compliance=5, nplc=0.1)
+    icfg = SweepConfig(
+        mode=SweepMode.CURRENT_SOURCE, start=0, stop=1e-3, step=1e-3, compliance=5, nplc=0.1
+    )
     assert icfg.source_scpi == "CURR"
     assert icfg.measure_scpi == "VOLT"
     assert icfg.csv_headers == ("Current_A", "Voltage_V")
 
     with pytest.raises(ValueError):
-        validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0, nplc=0.1))
+        validate_config(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0, nplc=0.1
+            )
+        )
     with pytest.raises(ValueError):
-        validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=1, nplc=0.001))
+        validate_config(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=1, nplc=0.001
+            )
+        )
     with pytest.raises(ValueError):
-        validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=1, nplc=0.1, auto_source_range=False, source_range=0))
+        validate_config(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE,
+                start=0,
+                stop=1,
+                step=1,
+                compliance=1,
+                nplc=0.1,
+                auto_source_range=False,
+                source_range=0,
+            )
+        )
     with pytest.raises(ValueError):
-        validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=1, nplc=0.1, auto_measure_range=False, measure_range=0))
+        validate_config(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE,
+                start=0,
+                stop=1,
+                step=1,
+                compliance=1,
+                nplc=0.1,
+                auto_measure_range=False,
+                measure_range=0,
+            )
+        )
 
 
 def test_command_plan_covers_fixed_ranges_without_output() -> None:
@@ -89,7 +127,15 @@ def test_command_plan_covers_fixed_ranges_without_output() -> None:
 
 def test_dataset_store_unique_names_mutation_and_missing_ids() -> None:
     store = DatasetStore()
-    cfg = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=0.1, device_name="D")
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0,
+        stop=0,
+        step=1,
+        compliance=1,
+        nplc=0.1,
+        device_name="D",
+    )
     result = SweepResult(cfg, [SweepPoint(0.0, 0.0), SweepPoint(1.0, 1e-3)])
     t1 = store.add_result(result, "D")
     t2 = store.add_result(result, "D")
@@ -131,7 +177,9 @@ def test_retry_policy_success_retry_and_validation(monkeypatch) -> None:
             raise TimeoutError("temporary")
         return "ok"
 
-    result = SerialRetryPolicy(max_attempts=2, base_delay_s=0.01).run(flaky, label="query", logger=messages.append)
+    result = SerialRetryPolicy(max_attempts=2, base_delay_s=0.01).run(
+        flaky, label="query", logger=messages.append
+    )
     assert result == "ok"
     assert sleeps == [0.01]
     assert messages and "temporary" in messages[0]
@@ -156,6 +204,7 @@ def test_small_formatting_and_thread_buffer_edges() -> None:
     buf.clear()
     assert buf.get_snapshot() == ([], [])
 
+
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.drivers.base import DriverCapabilities, DriverReadback, MeasureMode, SourceMode
@@ -164,25 +213,40 @@ from keith_ivt.sweeps.plan import SweepExecutionKind, make_plan
 from keith_ivt.utils.thread_safe import ThreadSafeBuffer
 
 
-
-
 class RecordingMeterForCoverage:
     def __init__(self) -> None:
         self.calls: list[str] = []
         self.value = 0.0
-    def connect(self): self.calls.append("connect")
-    def close(self): self.calls.append("close")
-    def identify(self): return "FAKE"
-    def reset(self): self.calls.append("reset")
-    def configure_for_sweep(self, config): self.calls.append(f"configure:{config.mode.value}")
+
+    def connect(self):
+        self.calls.append("connect")
+
+    def close(self):
+        self.calls.append("close")
+
+    def identify(self):
+        return "FAKE"
+
+    def reset(self):
+        self.calls.append("reset")
+
+    def configure_for_sweep(self, config):
+        self.calls.append(f"configure:{config.mode.value}")
+
     def set_source(self, source_cmd, value):
         self.calls.append(f"set:{source_cmd}:{value}")
         self.value = value
+
     def read_source_and_measure(self):
         self.calls.append("read")
         return self.value, self.value / 1000.0
-    def output_on(self): self.calls.append("on")
-    def output_off(self): self.calls.append("off")
+
+    def output_on(self):
+        self.calls.append("on")
+
+    def output_off(self):
+        self.calls.append("off")
+
 
 class FakeSMUDriver:
     capabilities = DriverCapabilities(name="fake")
@@ -191,21 +255,48 @@ class FakeSMUDriver:
         self.calls: list[str] = []
         self.value = 0.0
 
-    def connect(self, profile): self.calls.append("connect")
-    def disconnect(self): self.calls.append("disconnect")
-    def identify(self): return "fake"
-    def reset(self): self.calls.append("reset")
-    def configure_source_measure(self, source_mode, measure_mode, compliance, nplc, autorange=True, source_range=None, measure_range=None):
-        self.calls.append(f"config:{source_mode.value}:{measure_mode.value}:{compliance}:{nplc}:{autorange}:{source_range}:{measure_range}")
+    def connect(self, profile):
+        self.calls.append("connect")
+
+    def disconnect(self):
+        self.calls.append("disconnect")
+
+    def identify(self):
+        return "fake"
+
+    def reset(self):
+        self.calls.append("reset")
+
+    def configure_source_measure(
+        self,
+        source_mode,
+        measure_mode,
+        compliance,
+        nplc,
+        autorange=True,
+        source_range=None,
+        measure_range=None,
+    ):
+        self.calls.append(
+            f"config:{source_mode.value}:{measure_mode.value}:{compliance}:{nplc}:{autorange}:{source_range}:{measure_range}"
+        )
+
     def set_source(self, source_mode, value):
         self.calls.append(f"set:{source_mode.value}:{value}")
         self.value = value
+
     def read(self):
         self.calls.append("read")
         return DriverReadback(self.value, self.value / 1000.0)
-    def output_on(self): self.calls.append("on")
-    def output_off(self): self.calls.append("off")
-    def close(self): self.calls.append("close")
+
+    def output_on(self):
+        self.calls.append("on")
+
+    def output_off(self):
+        self.calls.append("off")
+
+    def close(self):
+        self.calls.append("close")
 
 
 def test_app_log_tail_and_missing_tail(tmp_path) -> None:
@@ -251,8 +342,12 @@ def test_measurement_service_run_plan_and_legacy_bridge(monkeypatch) -> None:
     assert driver.calls[-1] == "off"
 
     points = []
-    cfg = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1)
-    result = service.run_legacy_config(cfg, on_point=lambda p, i, t: points.append((p.source_value, i, t)))
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1
+    )
+    result = service.run_legacy_config(
+        cfg, on_point=lambda p, i, t: points.append((p.source_value, i, t))
+    )
     assert len(result.points) == 2
     assert points[-1] == (1.0, 2, 2)
 
@@ -261,11 +356,24 @@ def test_measurement_service_manual_and_stop_pause_paths(monkeypatch) -> None:
     driver = FakeSMUDriver()
     service = MeasurementService(driver)
     monkeypatch.setattr("keith_ivt.services.measurement_service.time.sleep", lambda _s: None)
-    manual = make_plan(source_mode=SourceMode.VOLTAGE, measure_mode=MeasureMode.CURRENT, values=[], compliance=1, nplc=0.1, execution_kind=SweepExecutionKind.MANUAL_OUTPUT)
+    manual = make_plan(
+        source_mode=SourceMode.VOLTAGE,
+        measure_mode=MeasureMode.CURRENT,
+        values=[],
+        compliance=1,
+        nplc=0.1,
+        execution_kind=SweepExecutionKind.MANUAL_OUTPUT,
+    )
     with pytest.raises(ValueError):
         service.run_plan(manual)
 
-    plan = make_plan(source_mode=SourceMode.VOLTAGE, measure_mode=MeasureMode.CURRENT, values=[1, 2], compliance=1, nplc=0.1)
+    plan = make_plan(
+        source_mode=SourceMode.VOLTAGE,
+        measure_mode=MeasureMode.CURRENT,
+        values=[1, 2],
+        compliance=1,
+        nplc=0.1,
+    )
     assert service.run_plan(plan, should_stop=lambda: True) == []
     assert driver.calls[-1] == "off"
 
@@ -273,7 +381,9 @@ def test_measurement_service_manual_and_stop_pause_paths(monkeypatch) -> None:
 def test_sweep_runner_constant_time_manual_and_no_output_off(monkeypatch) -> None:
     meter = RecordingMeterForCoverage()
     runner = SweepRunner(meter)
-    monkeypatch.setattr("keith_ivt.core.sweep_runner._interruptible_sleep", lambda _s, _stop=None: None)
+    monkeypatch.setattr(
+        "keith_ivt.core.sweep_runner._interruptible_sleep", lambda _s, _stop=None: None
+    )
     cfg = SweepConfig(
         mode=SweepMode.VOLTAGE_SOURCE,
         start=0,
@@ -291,46 +401,106 @@ def test_sweep_runner_constant_time_manual_and_no_output_off(monkeypatch) -> Non
     assert len(result.points) == 2
     assert meter.calls[-1] != "off"
     with pytest.raises(ValueError):
-        runner.run(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=0.1, sweep_kind=SweepKind.MANUAL_OUTPUT))
+        runner.run(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE,
+                start=0,
+                stop=0,
+                step=1,
+                compliance=1,
+                nplc=0.1,
+                sweep_kind=SweepKind.MANUAL_OUTPUT,
+            )
+        )
 
 
 def test_constant_time_interval_too_short_validation() -> None:
     with pytest.raises(ValueError):
-        validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=1, sweep_kind=SweepKind.CONSTANT_TIME, interval_s=0.001, duration_s=1))
+        validate_config(
+            SweepConfig(
+                mode=SweepMode.VOLTAGE_SOURCE,
+                start=0,
+                stop=0,
+                step=1,
+                compliance=1,
+                nplc=1,
+                sweep_kind=SweepKind.CONSTANT_TIME,
+                interval_s=0.001,
+                duration_s=1,
+            )
+        )
 
 
 def test_additional_small_branch_coverage(monkeypatch) -> None:
-    assert estimate_point_seconds(0.1, mode="STEP", interval_s=None) == pytest.approx(minimum_interval_seconds(0.1))
+    assert estimate_point_seconds(0.1, mode="STEP", interval_s=None) == pytest.approx(
+        minimum_interval_seconds(0.1)
+    )
     store = DatasetStore()
-    cfg = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=0.1)
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=0.1
+    )
     trace = store.add_result(SweepResult(cfg, []), name="A")
     store.rename(trace.trace_id, "   ")
     assert trace.name == "A"
     with pytest.raises(ValueError):
         ThreadSafeXYBuffer(maxsize=0)
-    validate_config(SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=1, nplc=0.1, sweep_kind=SweepKind.ADAPTIVE, adaptive_logic="values=[0, 1]"))
+    validate_config(
+        SweepConfig(
+            mode=SweepMode.VOLTAGE_SOURCE,
+            start=0,
+            stop=0,
+            step=1,
+            compliance=1,
+            nplc=0.1,
+            sweep_kind=SweepKind.ADAPTIVE,
+            adaptive_logic="values=[0, 1]",
+        )
+    )
 
 
 def test_pause_paths_break_cleanly(monkeypatch) -> None:
-    monkeypatch.setattr("keith_ivt.core.sweep_runner._interruptible_sleep", lambda _s, _stop=None: None)
+    monkeypatch.setattr(
+        "keith_ivt.core.sweep_runner._interruptible_sleep", lambda _s, _stop=None: None
+    )
     meter = RecordingMeterForCoverage()
     runner = SweepRunner(meter)
-    cfg = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1)
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=1, step=1, compliance=0.01, nplc=0.1
+    )
     pause_calls = {"n": 0}
+
     def pause_then_stop() -> bool:
         pause_calls["n"] += 1
         return pause_calls["n"] == 1
-    result = runner.run(cfg, should_pause=pause_then_stop, should_stop=lambda: pause_calls["n"] >= 1)
+
+    result = runner.run(
+        cfg, should_pause=pause_then_stop, should_stop=lambda: pause_calls["n"] >= 1
+    )
     assert result.points == []
     assert meter.calls[-1] == "off"
 
     meter2 = RecordingMeterForCoverage()
-    continuous = SweepConfig(mode=SweepMode.VOLTAGE_SOURCE, start=0, stop=0, step=1, compliance=0.01, nplc=0.1, sweep_kind=SweepKind.CONSTANT_TIME, continuous_time=True, constant_value=0.1, interval_s=0.1)
+    continuous = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0,
+        stop=0,
+        step=1,
+        compliance=0.01,
+        nplc=0.1,
+        sweep_kind=SweepKind.CONSTANT_TIME,
+        continuous_time=True,
+        constant_value=0.1,
+        interval_s=0.1,
+    )
     stop_calls = {"n": 0}
+
     def stop_after_pause() -> bool:
         stop_calls["n"] += 1
         return stop_calls["n"] >= 2
-    result2 = SweepRunner(meter2).run(continuous, should_pause=lambda: True, should_stop=stop_after_pause)
+
+    result2 = SweepRunner(meter2).run(
+        continuous, should_pause=lambda: True, should_stop=stop_after_pause
+    )
     assert result2.points == []
     assert meter2.calls[-1] == "off"
 
@@ -339,14 +509,23 @@ def test_measurement_service_pause_stop_inner_branch(monkeypatch) -> None:
     driver = FakeSMUDriver()
     service = MeasurementService(driver)
     monkeypatch.setattr("keith_ivt.services.measurement_service.time.sleep", lambda _s: None)
-    plan = make_plan(source_mode=SourceMode.VOLTAGE, measure_mode=MeasureMode.CURRENT, values=[1, 2], compliance=1, nplc=0.1)
+    plan = make_plan(
+        source_mode=SourceMode.VOLTAGE,
+        measure_mode=MeasureMode.CURRENT,
+        values=[1, 2],
+        compliance=1,
+        nplc=0.1,
+    )
     calls = {"pause": 0, "stop": 0}
+
     def pause_once() -> bool:
         calls["pause"] += 1
         return calls["pause"] == 1
+
     def stop_during_pause() -> bool:
         calls["stop"] += 1
         return calls["stop"] >= 2
+
     reads = service.run_plan(plan, should_pause=pause_once, should_stop=stop_during_pause)
     assert reads == []
     assert driver.calls[-1] == "off"

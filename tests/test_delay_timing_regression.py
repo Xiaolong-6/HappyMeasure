@@ -4,7 +4,13 @@ import pytest
 
 from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.drivers.command_plan import build_keithley2400_sweep_command_plan
-from keith_ivt.models import SweepConfig, SweepMode, estimate_point_seconds, minimum_interval_seconds, serial_round_trip_seconds
+from keith_ivt.models import (
+    SweepConfig,
+    SweepMode,
+    estimate_point_seconds,
+    minimum_interval_seconds,
+    serial_round_trip_seconds,
+)
 from keith_ivt.sweeps.plan import SweepExecutionKind, make_plan, plan_from_config
 
 
@@ -64,7 +70,9 @@ def test_delay_is_preserved_in_sweep_plan() -> None:
     )
     plan = plan_from_config(cfg)
     assert plan.delay_s == pytest.approx(0.1)
-    assert plan.estimated_seconds == pytest.approx(3 * minimum_interval_seconds(0.5, delay_s=0.1, baud_rate=9600))
+    assert plan.estimated_seconds == pytest.approx(
+        3 * minimum_interval_seconds(0.5, delay_s=0.1, baud_rate=9600)
+    )
 
     direct = make_plan(
         source_mode=plan.source_mode,
@@ -81,7 +89,10 @@ def test_delay_is_preserved_in_sweep_plan() -> None:
 
 def test_sweep_runner_applies_delay_between_set_and_read(monkeypatch) -> None:
     sleeps: list[float] = []
-    monkeypatch.setattr("keith_ivt.core.sweep_runner._interruptible_sleep", lambda seconds, _stop=None: sleeps.append(seconds))
+    monkeypatch.setattr(
+        "keith_ivt.core.sweep_runner._interruptible_sleep",
+        lambda seconds, _stop=None: sleeps.append(seconds),
+    )
     meter = DelayRecordingMeter()
     cfg = SweepConfig(
         mode=SweepMode.VOLTAGE_SOURCE,
@@ -102,4 +113,3 @@ def test_higher_baud_rate_reduces_estimated_overhead() -> None:
     slow = minimum_interval_seconds(1.0, delay_s=0.0, baud_rate=9600)
     fast = minimum_interval_seconds(1.0, delay_s=0.0, baud_rate=57600)
     assert fast < slow
-

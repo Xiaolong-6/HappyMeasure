@@ -1,4 +1,5 @@
 """Tests for SQLite-backed persistent dataset store."""
+
 import pytest
 from datetime import datetime
 
@@ -35,7 +36,7 @@ class TestPersistentDatasetStore:
     def test_create_store_creates_database(self, tmp_path):
         """Creating store should create database file."""
         db_path = tmp_path / "test.db"
-        store = PersistentDatasetStore(db_path=db_path)
+        PersistentDatasetStore(db_path=db_path)
 
         assert db_path.exists()
 
@@ -172,6 +173,7 @@ class TestSessionManagement:
         store = PersistentDatasetStore(db_path=db_path)
 
         import time
+
         store.start_session()
         time.sleep(0.01)
         store.start_session()
@@ -203,7 +205,7 @@ class TestQueryAndFiltering:
         db_path = tmp_path / "test.db"
         store = PersistentDatasetStore(db_path=db_path)
 
-        trace1 = store.add_result(create_test_result(), "Visible")
+        store.add_result(create_test_result(), "Visible")
         trace2 = store.add_result(create_test_result(), "Hidden")
         store.toggle_visibility(trace2.trace_id)
 
@@ -219,6 +221,7 @@ class TestQueryAndFiltering:
         store.add_result(create_test_result())
 
         from datetime import timedelta
+
         now = datetime.now()
         past = now - timedelta(days=1)
         future = now + timedelta(days=1)

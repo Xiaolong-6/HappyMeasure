@@ -11,8 +11,8 @@ def read(rel: str) -> str:
 
 def test_plot_range_dialog_is_scheduled_after_context_menu_returns():
     plot_controls = read("src/keith_ivt/ui/plot_controls.py")
-    assert "command=lambda a=ax: self._schedule_axis_range_dialog(axis=\"x\", ax=a)" in plot_controls
-    assert "command=lambda a=ax: self._schedule_axis_range_dialog(axis=\"y\", ax=a)" in plot_controls
+    assert 'command=lambda a=ax: self._schedule_axis_range_dialog(axis="x", ax=a)' in plot_controls
+    assert 'command=lambda a=ax: self._schedule_axis_range_dialog(axis="y", ax=a)' in plot_controls
     assert "def _schedule_axis_range_dialog" in plot_controls
     assert "self.root.after(250" in plot_controls
     assert "simpledialog" not in plot_controls
@@ -26,10 +26,10 @@ def test_plot_range_dialog_is_scheduled_after_context_menu_returns():
 def test_axis_range_dialog_uses_custom_toplevel_editor():
     plot_controls = read("src/keith_ivt/ui/plot_controls.py")
     assert "win = Toplevel(self.root)" in plot_controls
-    assert "win.title(\"Set axis range\")" in plot_controls
+    assert 'win.title("Set axis range")' in plot_controls
     assert "ttk.Entry" in plot_controls
     assert "_apply_axis_range_text" in plot_controls
-    assert "messagebox.showerror(\"Invalid axis range\", str(exc), parent=win)" in plot_controls
+    assert 'messagebox.showerror("Invalid axis range", str(exc), parent=win)' in plot_controls
 
 
 def test_runtime_tee_handles_missing_original_stream(tmp_path):

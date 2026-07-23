@@ -41,7 +41,9 @@ def run_keithley_preflight(
         inst.output_off()
         output_off = True
         log("Output OFF command sent successfully")
-        return HardwarePreflightResult(port=port, baud_rate=baud_rate, idn=idn, output_off_confirmed=output_off)
+        return HardwarePreflightResult(
+            port=port, baud_rate=baud_rate, idn=idn, output_off_confirmed=output_off
+        )
     finally:
         try:
             if not output_off:

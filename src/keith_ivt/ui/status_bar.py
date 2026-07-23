@@ -4,12 +4,23 @@ import math
 import tkinter as tk
 from tkinter import Toplevel, ttk
 
-from keith_ivt.core.current_range import current_range_labels, format_current_range, parse_current_range_label
+from keith_ivt.core.current_range import (
+    current_range_labels,
+    format_current_range,
+    parse_current_range_label,
+)
 from keith_ivt.models import SweepMode
 
 
-class StatusBarMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class StatusBarMixin(UiMixinTyping):
     """Dedicated bottom status bar builder for compact connection/run/live readout."""
+
+    _front_panel_window: Toplevel | None
+    _last_source_value: float | None
+    _last_measured_value: float | None
 
     def _build_status_bar(self) -> None:
         self.status_bar = ttk.Frame(self.root, style="Status.TFrame", padding=(8, 5))
@@ -33,17 +44,29 @@ class StatusBarMixin:
         self.connection_light_canvas.grid(row=0, column=0, sticky="w", padx=(0, 6))
         self.connection_light_label = self.connection_light_canvas
         self._draw_connection_status_icon("disconnected")
-        ttk.Label(conn, textvariable=self.status_connection_text, style="StatusCell.TLabel").grid(row=0, column=1, sticky="ew")
+        ttk.Label(conn, textvariable=self.status_connection_text, style="StatusCell.TLabel").grid(
+            row=0, column=1, sticky="ew"
+        )
 
-        ttk.Label(self.status_bar, textvariable=self.status, style="StatusCell.TLabel").grid(row=0, column=1, sticky="ew", padx=(0, 8))
-        live = ttk.Label(self.status_bar, textvariable=self.measurement_status_text, style="StatusCell.TLabel")
+        ttk.Label(self.status_bar, textvariable=self.status, style="StatusCell.TLabel").grid(
+            row=0, column=1, sticky="ew", padx=(0, 8)
+        )
+        live = ttk.Label(
+            self.status_bar, textvariable=self.measurement_status_text, style="StatusCell.TLabel"
+        )
         live.grid(row=0, column=2, sticky="ew")
         live.bind("<Double-1>", lambda _e: self._open_front_panel_popup(auto_open=False))
-        self.connection_light_canvas.bind("<Double-1>", lambda _e: self._open_front_panel_popup(auto_open=False))
+        self.connection_light_canvas.bind(
+            "<Double-1>", lambda _e: self._open_front_panel_popup(auto_open=False)
+        )
 
     def _status_icon_size(self) -> int:
         try:
-            size_pt = int(self.ui_font_size.get()) if hasattr(self, "ui_font_size") else int(getattr(self.settings, "ui_font_size", 10))
+            size_pt = (
+                int(self.ui_font_size.get())
+                if hasattr(self, "ui_font_size")
+                else int(getattr(self.settings, "ui_font_size", 10))
+            )
         except Exception:
             size_pt = 10
         return max(14, min(30, size_pt + 7))
@@ -87,8 +110,23 @@ class StatusBarMixin:
             margin = max(2, icon_size // 5)
             shine_margin = margin + max(2, icon_size // 7)
             shine_size = max(3, icon_size // 4)
-            canvas.create_oval(margin, margin, icon_size - margin, icon_size - margin, fill=fill, outline=colors["border"], width=1)
-            canvas.create_oval(shine_margin, shine_margin, shine_margin + shine_size, shine_margin + shine_size, fill="#FFFFFF", outline="")
+            canvas.create_oval(
+                margin,
+                margin,
+                icon_size - margin,
+                icon_size - margin,
+                fill=fill,
+                outline=colors["border"],
+                width=1,
+            )
+            canvas.create_oval(
+                shine_margin,
+                shine_margin,
+                shine_margin + shine_size,
+                shine_margin + shine_size,
+                fill="#FFFFFF",
+                outline="",
+            )
         except Exception:
             return
 
@@ -104,13 +142,37 @@ class StatusBarMixin:
         hole_outer = max(4, icon_size * 0.25)
         hole_inner = max(2, icon_size * 0.12)
         canvas.create_polygon(points, fill=colors["accent"], outline=colors["border"], width=1)
-        canvas.create_oval(cx - hole_outer, cy - hole_outer, cx + hole_outer, cy + hole_outer, fill=colors["bg"], outline=colors["border"], width=1)
-        canvas.create_oval(cx - hole_inner, cy - hole_inner, cx + hole_inner, cy + hole_inner, fill=colors["accent"], outline="")
+        canvas.create_oval(
+            cx - hole_outer,
+            cy - hole_outer,
+            cx + hole_outer,
+            cy + hole_outer,
+            fill=colors["bg"],
+            outline=colors["border"],
+            width=1,
+        )
+        canvas.create_oval(
+            cx - hole_inner,
+            cy - hole_inner,
+            cx + hole_inner,
+            cy + hole_inner,
+            fill=colors["accent"],
+            outline="",
+        )
 
     def _format_eng_value(self, value: float | None, unit: str) -> str:
         if value is None:
             return f"-- {unit}".strip()
-        prefixes = [(1e9, "G"), (1e6, "M"), (1e3, "k"), (1.0, ""), (1e-3, "m"), (1e-6, "μ"), (1e-9, "n"), (1e-12, "p")]
+        prefixes = [
+            (1e9, "G"),
+            (1e6, "M"),
+            (1e3, "k"),
+            (1.0, ""),
+            (1e-3, "m"),
+            (1e-6, "μ"),
+            (1e-9, "n"),
+            (1e-12, "p"),
+        ]
         magnitude = abs(float(value))
         scale, prefix = 1.0, ""
         for cand_scale, cand_prefix in prefixes:
@@ -213,11 +275,12 @@ class StatusBarMixin:
         self._refresh_live_measurement_status()
 
     def _open_front_panel_popup(self, *, auto_open: bool = False) -> None:
-        if getattr(self, "_front_panel_window", None) is not None:
+        existing_window = getattr(self, "_front_panel_window", None)
+        if existing_window is not None:
             try:
-                if self._front_panel_window.winfo_exists():
-                    self._front_panel_window.deiconify()
-                    self._front_panel_window.lift()
+                if existing_window.winfo_exists():
+                    existing_window.deiconify()
+                    existing_window.lift()
                     self._front_panel_auto_opened = bool(auto_open)
                     self._refresh_front_panel_popup()
                     return
@@ -231,7 +294,6 @@ class StatusBarMixin:
         card_bg = "#FFFFFF"
         border = "#D7E1EA"
         muted = "#5F7083"
-        accent = "#2B7FD3"
         win.configure(background=panel_bg)
         self._front_panel_window = win
         self._front_panel_auto_opened = bool(auto_open)
@@ -322,14 +384,30 @@ class StatusBarMixin:
             summary.columnconfigure(col, weight=1, uniform="range_summary")
 
         range_value_widgets: list[tk.Label] = []
-        for col, title in enumerate(("Autorange", "Actual range", "Range menu", "Last range change")):
-            cell = tk.Frame(summary, bg="#F8FAFC", highlightbackground=border, highlightthickness=1, padx=10, pady=8)
+        for col, title in enumerate(
+            ("Autorange", "Actual range", "Range menu", "Last range change")
+        ):
+            cell = tk.Frame(
+                summary,
+                bg="#F8FAFC",
+                highlightbackground=border,
+                highlightthickness=1,
+                padx=10,
+                pady=8,
+            )
             cell.grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 8, 0))
             cell.columnconfigure(0, weight=1)
-            tk.Label(cell, text=title, bg="#F8FAFC", fg=muted, font=("Segoe UI", 9), anchor="center").grid(
-                row=0, column=0, sticky="ew"
+            tk.Label(
+                cell, text=title, bg="#F8FAFC", fg=muted, font=("Segoe UI", 9), anchor="center"
+            ).grid(row=0, column=0, sticky="ew")
+            value = tk.Label(
+                cell,
+                text="Unknown",
+                bg="#F8FAFC",
+                fg="#165FA7",
+                font=("Segoe UI", 14),
+                anchor="center",
             )
-            value = tk.Label(cell, text="Unknown", bg="#F8FAFC", fg="#165FA7", font=("Segoe UI", 14), anchor="center")
             value.grid(row=1, column=0, sticky="ew", pady=(3, 0))
             range_value_widgets.append(value)
         self._front_panel_range_mode_value = range_value_widgets[0]
@@ -349,9 +427,13 @@ class StatusBarMixin:
         )
         self._front_panel_autorange_check.grid(row=0, column=0, sticky="w", padx=(0, 18))
 
-        self._front_panel_range_combo = ttk.Combobox(controls, values=current_range_labels(), state="readonly", width=22)
+        self._front_panel_range_combo = ttk.Combobox(
+            controls, values=current_range_labels(), state="readonly", width=22
+        )
         self._front_panel_range_combo.grid(row=0, column=1, sticky="ew", padx=(0, 12))
-        self._front_panel_range_combo.bind("<<ComboboxSelected>>", self._front_panel_fixed_range_selected)
+        self._front_panel_range_combo.bind(
+            "<<ComboboxSelected>>", self._front_panel_fixed_range_selected
+        )
 
         self._front_panel_lock_btn = ttk.Button(
             controls,
@@ -360,18 +442,37 @@ class StatusBarMixin:
         )
         self._front_panel_lock_btn.grid(row=0, column=2, sticky="ew")
 
-        settle = tk.Frame(range_card, bg="#F8FAFC", highlightbackground=border, highlightthickness=1, padx=10, pady=9)
+        settle = tk.Frame(
+            range_card,
+            bg="#F8FAFC",
+            highlightbackground=border,
+            highlightthickness=1,
+            padx=10,
+            pady=9,
+        )
         settle.grid(row=3, column=0, sticky="ew", pady=(0, 10))
         settle.columnconfigure(8, weight=1)
-        tk.Label(settle, text="After range change", bg="#F8FAFC", fg=muted, font=("Segoe UI", 9)).grid(
-            row=0, column=0, sticky="w", padx=(0, 16)
+        tk.Label(
+            settle, text="After range change", bg="#F8FAFC", fg=muted, font=("Segoe UI", 9)
+        ).grid(row=0, column=0, sticky="w", padx=(0, 16))
+        tk.Label(
+            settle, text="Range settle delay", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)
+        ).grid(row=0, column=1, sticky="w")
+        ttk.Entry(settle, textvariable=self.range_settle_delay_ms, width=7).grid(
+            row=0, column=2, sticky="w", padx=(6, 4)
         )
-        tk.Label(settle, text="Range settle delay", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(row=0, column=1, sticky="w")
-        ttk.Entry(settle, textvariable=self.range_settle_delay_ms, width=7).grid(row=0, column=2, sticky="w", padx=(6, 4))
-        tk.Label(settle, text="ms", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(row=0, column=3, sticky="w", padx=(0, 18))
-        tk.Label(settle, text="Discard", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(row=0, column=4, sticky="w")
-        ttk.Entry(settle, textvariable=self.discard_after_range_change, width=7).grid(row=0, column=5, sticky="w", padx=(6, 4))
-        tk.Label(settle, text="readings", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(row=0, column=6, sticky="w")
+        tk.Label(settle, text="ms", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
+            row=0, column=3, sticky="w", padx=(0, 18)
+        )
+        tk.Label(settle, text="Discard", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
+            row=0, column=4, sticky="w"
+        )
+        ttk.Entry(settle, textvariable=self.discard_after_range_change, width=7).grid(
+            row=0, column=5, sticky="w", padx=(6, 4)
+        )
+        tk.Label(settle, text="readings", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
+            row=0, column=6, sticky="w"
+        )
 
         self._front_panel_range_warning = tk.Label(
             range_card,
@@ -388,7 +489,9 @@ class StatusBarMixin:
 
         btns = tk.Frame(main, bg=panel_bg)
         btns.grid(row=2, column=0, sticky="ew", pady=(10, 0))
-        ttk.Button(btns, text="Close", command=self._close_front_panel_popup).pack(side="right", ipadx=14)
+        ttk.Button(btns, text="Close", command=self._close_front_panel_popup).pack(
+            side="right", ipadx=14
+        )
         win.protocol("WM_DELETE_WINDOW", self._close_front_panel_popup)
         self._refresh_front_panel_popup()
 
@@ -414,7 +517,11 @@ class StatusBarMixin:
             return
         range_state = self._current_range_snapshot()
         if range_state is not None:
-            mode = "AUTO" if range_state.autorange is True else "FIXED" if range_state.autorange is False else "UNKNOWN"
+            mode = (
+                "AUTO"
+                if range_state.autorange is True
+                else "FIXED" if range_state.autorange is False else "UNKNOWN"
+            )
             actual = format_current_range(range_state.actual_range_A)
             change = range_state.last_change_text()
             warning = f"Warning: {range_state.warning}" if range_state.warning else ""
@@ -423,7 +530,9 @@ class StatusBarMixin:
             actual = "Unknown"
             change = "none"
             warning = ""
-        self._front_panel_range_mode_value.configure(text="ON" if mode == "AUTO" else "OFF" if mode == "FIXED" else "Unknown")
+        self._front_panel_range_mode_value.configure(
+            text="ON" if mode == "AUTO" else "OFF" if mode == "FIXED" else "Unknown"
+        )
         self._front_panel_range_actual_value.configure(text=actual)
         if hasattr(self, "_front_panel_range_menu_value"):
             self._front_panel_range_menu_value.configure(text="Auto" if mode == "AUTO" else actual)
@@ -436,19 +545,34 @@ class StatusBarMixin:
                     text="Autorange may switch range during I-t acquisition; lock range for final data."
                 )
             else:
-                self._front_panel_range_warning.configure(text="Fixed range is active; readings remain continuous unless overload occurs.")
+                self._front_panel_range_warning.configure(
+                    text="Fixed range is active; readings remain continuous unless overload occurs."
+                )
         try:
             fixed_value = float(self.measure_range.get())
         except Exception:
             fixed_value = None
-        if bool(self.auto_measure_range.get()) and range_state is not None and range_state.actual_range_A is not None:
+        if (
+            bool(self.auto_measure_range.get())
+            and range_state is not None
+            and range_state.actual_range_A is not None
+        ):
             fixed_value = range_state.actual_range_A
         elif fixed_value is None and range_state is not None:
             fixed_value = range_state.fixed_range_A or range_state.actual_range_A
-        label = next((item for item in current_range_labels() if fixed_value is not None and item.startswith(format_current_range(fixed_value))), "")
+        label = next(
+            (
+                item
+                for item in current_range_labels()
+                if fixed_value is not None and item.startswith(format_current_range(fixed_value))
+            ),
+            "",
+        )
         if label:
             self._front_panel_range_combo.set(label)
-        self._front_panel_range_combo.configure(state="disabled" if bool(self.auto_measure_range.get()) else "readonly")
+        self._front_panel_range_combo.configure(
+            state="disabled" if bool(self.auto_measure_range.get()) else "readonly"
+        )
 
     def _refresh_front_panel_popup(self) -> None:
         win = getattr(self, "_front_panel_window", None)
@@ -469,7 +593,9 @@ class StatusBarMixin:
             compliance_value = float(self.compliance.get())
         except Exception:
             pass
-        main_value = self._format_eng_value(getattr(self, "_last_measured_value", None), measure_unit)
+        main_value = self._format_eng_value(
+            getattr(self, "_last_measured_value", None), measure_unit
+        )
         sub_value = f"{src_label}:{self._format_eng_value(getattr(self, '_last_source_value', None), source_unit)}   Cmpl:{self._format_eng_value(compliance_value, cmpl_unit)}"
         self._front_panel_main_value.configure(text=main_value)
         self._front_panel_sub_value.configure(text=sub_value)
@@ -482,11 +608,17 @@ class StatusBarMixin:
         except Exception:
             model = "--"
         state = getattr(self, "_run_state", "idle")
-        conn = self.status_connection_text.get() if hasattr(self, "status_connection_text") else "--"
+        conn = (
+            self.status_connection_text.get() if hasattr(self, "status_connection_text") else "--"
+        )
+        sense_var = getattr(self, "sense_mode", None)
+        sense_text = sense_var.get() if sense_var is not None else "--"
         self._refresh_front_panel_range_widgets()
-        self._front_panel_meta.configure(text=(
-            f"Model: {model}\n"
-            f"Connection: {conn}\n"
-            f"Run state: {state.title()}\n"
-            f"Terminal: {terminal} · Sense: {getattr(self, 'sense_mode', None).get() if hasattr(self, 'sense_mode') else '--'}"
-        ))
+        self._front_panel_meta.configure(
+            text=(
+                f"Model: {model}\n"
+                f"Connection: {conn}\n"
+                f"Run state: {state.title()}\n"
+                f"Terminal: {terminal} · Sense: {sense_text}"
+            )
+        )

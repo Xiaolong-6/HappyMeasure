@@ -9,10 +9,20 @@ from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
 
 PRESETS_PATH = Path("config") / "presets.json"
 SWEEP_PRESET_KEYS = {
-    "default_mode", "default_sweep_kind", "default_start", "default_stop", "default_step",
-    "default_constant_value", "default_duration_s", "default_interval_s",
-    "default_compliance", "default_nplc", "default_autorange",
-    "default_source_range", "default_measure_range", "default_adaptive_logic",
+    "default_mode",
+    "default_sweep_kind",
+    "default_start",
+    "default_stop",
+    "default_step",
+    "default_constant_value",
+    "default_duration_s",
+    "default_interval_s",
+    "default_compliance",
+    "default_nplc",
+    "default_autorange",
+    "default_source_range",
+    "default_measure_range",
+    "default_adaptive_logic",
 }
 
 
@@ -39,7 +49,7 @@ def load_presets(path: str | Path = PRESETS_PATH) -> dict[str, dict[str, Any]]:
         return out
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return out
     if not isinstance(raw, dict):
         return out
@@ -50,7 +60,9 @@ def load_presets(path: str | Path = PRESETS_PATH) -> dict[str, dict[str, Any]]:
     return out
 
 
-def save_preset(name: str, settings: dict[str, Any] | AppSettings, path: str | Path = PRESETS_PATH) -> Path:
+def save_preset(
+    name: str, settings: dict[str, Any] | AppSettings, path: str | Path = PRESETS_PATH
+) -> Path:
     name = name.strip()
     if not name:
         raise ValueError("Preset name cannot be empty.")

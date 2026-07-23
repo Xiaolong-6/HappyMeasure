@@ -45,13 +45,20 @@ def test_default_page_and_header_status_separation_contract() -> None:
 
 
 def test_live_only_plot_and_trace_list_contract() -> None:
-    app = source_text("ui/simple_app.py")
-    assert 'self.plot_trace_pane.forget(self.trace_panel)' in source_text("ui/plot_panel.py")
-    assert 'traces = [] if getattr(self, "_plot_live_only", False)' in source_text("ui/plot_panel.py")
-    assert 'getattr(self, "_run_state", "idle") in {"running", "paused", "stopping"}' in source_text("ui/plot_panel.py")
+    source_text("ui/simple_app.py")
+    assert "self.plot_trace_pane.forget(self.trace_panel)" in source_text("ui/plot_panel.py")
+    compact_plot = "".join(source_text("ui/plot_panel.py").split())
+    assert 'traces=([]ifgetattr(self,"_plot_live_only",False)' in compact_plot
+    assert (
+        'getattr(self, "_run_state", "idle") in {"running", "paused", "stopping"}'
+        in source_text("ui/plot_panel.py")
+    )
 
 
-@pytest.mark.skipif(os.environ.get("HAPPYMEASURE_RUN_TK_SMOKE") != "1", reason="Set HAPPYMEASURE_RUN_TK_SMOKE=1 on a desktop session to run Tk instantiation smoke test")
+@pytest.mark.skipif(
+    os.environ.get("HAPPYMEASURE_RUN_TK_SMOKE") != "1",
+    reason="Set HAPPYMEASURE_RUN_TK_SMOKE=1 on a desktop session to run Tk instantiation smoke test",
+)
 def test_tk_app_instantiates_default_hardware_page() -> None:
     from keith_ivt.ui.simple_app import SimpleKeithIVtApp
 

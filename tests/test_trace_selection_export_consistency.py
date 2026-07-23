@@ -129,7 +129,9 @@ def test_rename_then_save_all_exports_edited_trace_name(monkeypatch) -> None:
     app._datasets.rename(trace.trace_id, "EditedDevice")
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(trace_panel_module.filedialog, "asksaveasfilename", lambda **_kwargs: "combined.csv")
+    monkeypatch.setattr(
+        trace_panel_module.filedialog, "asksaveasfilename", lambda **_kwargs: "combined.csv"
+    )
 
     def fake_save_combined_csv(results, path):
         captured["names"] = [result.config.device_name for result in results]
@@ -147,11 +149,13 @@ def test_rename_then_save_all_exports_edited_trace_name(monkeypatch) -> None:
 def test_save_all_includes_hidden_traces_but_visible_export_filters_them(monkeypatch) -> None:
     app = DummyTraceApp()
     hidden = app._datasets.add_result(_result("Hidden", 1.0), name="Hidden")
-    visible = app._datasets.add_result(_result("Visible", 2.0), name="Visible")
+    app._datasets.add_result(_result("Visible", 2.0), name="Visible")
     app._datasets.toggle_visibility(hidden.trace_id)
     captured: list[list[str]] = []
 
-    monkeypatch.setattr(trace_panel_module.filedialog, "asksaveasfilename", lambda **_kwargs: "out.csv")
+    monkeypatch.setattr(
+        trace_panel_module.filedialog, "asksaveasfilename", lambda **_kwargs: "out.csv"
+    )
 
     def fake_save_combined_csv(results, path):
         captured.append([result.config.device_name for result in results])

@@ -4,10 +4,16 @@ from collections.abc import Callable
 import sys
 import time
 import math
+from typing import TYPE_CHECKING
 
+from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.drivers.base import DriverReadback, SMUDriver
 from keith_ivt.models import SweepPoint, SweepResult, SweepConfig
 from keith_ivt.sweeps.plan import SweepExecutionKind, SweepPlan, plan_from_config
+
+if TYPE_CHECKING:
+    from keith_ivt.core.current_range import CurrentRangeControl
+    from keith_ivt.instrument.base import SourceMeter
 
 PlanPointCallback = Callable[[DriverReadback, int, int], None]
 StopCallback = Callable[[], bool]
@@ -15,14 +21,33 @@ PauseCallback = Callable[[], bool]
 
 
 class MeasurementService:
-    """Hardware-independent execution service for future IV/CV workflows.
+    """Canonical hardware-independent measurement orchestration boundary.
 
-    The UI should eventually call this service with a SweepPlan. Existing code can
-    keep using SweepRunner/SweepConfig while migration continues.
+    Native drivers execute :class:`SweepPlan` objects through ``run_plan``.
+    The current UI's legacy instruments enter through ``run_source_meter`` so
+    callers no longer depend directly on the legacy runner.
     """
 
     def __init__(self, driver: SMUDriver):
         self.driver = driver
+
+    @staticmethod
+    def run_source_meter(
+        meter: "SourceMeter",
+        config: SweepConfig,
+        on_point: Callable[[SweepPoint, int, int], None] | None = None,
+        should_stop: StopCallback | None = None,
+        should_pause: PauseCallback | None = None,
+        current_range_control: "CurrentRangeControl | None" = None,
+    ) -> SweepResult:
+        """Run a legacy instrument through the canonical service facade."""
+        return SweepRunner(meter).run(
+            config,
+            on_point=on_point,
+            should_stop=should_stop,
+            should_pause=should_pause,
+            current_range_control=current_range_control,
+        )
 
     def run_plan(
         self,
@@ -94,14 +119,17 @@ class MeasurementService:
             self._safe_output_off_preserving_error()
         return reads
 
-
     @staticmethod
     def _validated_readback(read: DriverReadback) -> DriverReadback:
         source = float(read.source_value)
         measured = float(read.measured_value)
         if not math.isfinite(source) or not math.isfinite(measured):
-            raise RuntimeError(f"Non-finite measurement readback: source={source!r}, measured={measured!r}")
-        return DriverReadback(source_value=source, measured_value=measured, timestamp_s=read.timestamp_s)
+            raise RuntimeError(
+                f"Non-finite measurement readback: source={source!r}, measured={measured!r}"
+            )
+        return DriverReadback(
+            source_value=source, measured_value=measured, timestamp_s=read.timestamp_s
+        )
 
     def _safe_output_off_preserving_error(self) -> None:
         active_exc = sys.exc_info()[1]
@@ -123,11 +151,20 @@ class MeasurementService:
         should_pause: PauseCallback | None = None,
     ) -> SweepResult:
         plan = plan_from_config(config)
+
         def _bridge(read: DriverReadback, index: int, total: int) -> None:
             if on_point is not None:
-                on_point(SweepPoint(source_value=read.source_value, measured_value=read.measured_value), index, total)
+                on_point(
+                    SweepPoint(source_value=read.source_value, measured_value=read.measured_value),
+                    index,
+                    total,
+                )
+
         reads = self.run_plan(plan, _bridge, should_stop, should_pause)
         return SweepResult(
             config=config,
-            points=[SweepPoint(source_value=r.source_value, measured_value=r.measured_value) for r in reads],
+            points=[
+                SweepPoint(source_value=r.source_value, measured_value=r.measured_value)
+                for r in reads
+            ],
         )

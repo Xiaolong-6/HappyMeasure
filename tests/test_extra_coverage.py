@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
@@ -52,6 +54,7 @@ class DummyMeter(SourceMeter):
 def test_source_meter_base_autorange_not_supported() -> None:
     meter = DummyMeter()
     import pytest
+
     with pytest.raises(NotImplementedError, match="not supported"):
         meter.get_current_autorange()
     with pytest.raises(NotImplementedError, match="not supported"):
@@ -145,6 +148,36 @@ def test_source_meter_adapter_close() -> None:
     assert meter.closed is True
 
 
+@pytest.mark.parametrize(
+    ("fail_output", "fail_close", "message"),
+    [
+        (True, False, "output failed"),
+        (False, True, "close failed"),
+        (True, True, "both failed"),
+    ],
+)
+def test_source_meter_adapter_close_preserves_safety_failures(
+    fail_output: bool, fail_close: bool, message: str
+) -> None:
+    class FailingMeter(DummyMeter):
+        def output_off(self) -> None:
+            if fail_output:
+                raise RuntimeError("output failed")
+            super().output_off()
+
+        def close(self) -> None:
+            if fail_close:
+                raise RuntimeError("close failed")
+            super().close()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        SourceMeterAdapter(FailingMeter()).close()
+    if fail_output and fail_close:
+        assert "Output-off and instrument close both failed" in str(exc_info.value)
+    else:
+        assert message in str(exc_info.value)
+
+
 def test_source_meter_adapter_disconnect() -> None:
     meter = DummyMeter()
     adapter = SourceMeterAdapter(meter)
@@ -168,6 +201,7 @@ def test_source_meter_adapter_set_source() -> None:
 
 def test_services_lazy_import() -> None:
     import keith_ivt.services as svc
+
     ms = svc.MeasurementService
     assert ms is not None
 
@@ -175,5 +209,6 @@ def test_services_lazy_import() -> None:
 def test_services_lazy_import_unknown() -> None:
     import keith_ivt.services as svc
     import pytest
+
     with pytest.raises(AttributeError):
         _ = svc.UnknownAttribute

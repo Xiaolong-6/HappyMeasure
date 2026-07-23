@@ -77,7 +77,9 @@ def _coerce_bool(value: Any, default: bool) -> bool:
     return default
 
 
-def _coerce_int(value: Any, default: int, *, minimum: int | None = None, maximum: int | None = None) -> int:
+def _coerce_int(
+    value: Any, default: int, *, minimum: int | None = None, maximum: int | None = None
+) -> int:
     try:
         coerced = int(value)
     except (TypeError, ValueError, OverflowError):
@@ -99,7 +101,9 @@ def _coerce_float(value: Any, default: float, *, minimum: float | None = None) -
     return coerced
 
 
-def _coerce_choice(value: Any, default: str, allowed: set[str], *, aliases: dict[str, str] | None = None) -> str:
+def _coerce_choice(
+    value: Any, default: str, allowed: set[str], *, aliases: dict[str, str] | None = None
+) -> str:
     text = str(value).strip() if value is not None else ""
     upper = text.upper()
     if aliases and upper in aliases:
@@ -161,7 +165,19 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         "default_duration_s",
         "default_interval_s",
     ):
-        minimum = 0.0 if key in {"default_step", "default_compliance", "default_nplc", "default_delay_s", "default_duration_s", "default_interval_s"} else None
+        minimum = (
+            0.0
+            if key
+            in {
+                "default_step",
+                "default_compliance",
+                "default_nplc",
+                "default_delay_s",
+                "default_duration_s",
+                "default_interval_s",
+            }
+            else None
+        )
         merged[key] = _coerce_float(merged.get(key), defaults[key], minimum=minimum)
 
     for key in (
@@ -176,16 +192,27 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
     ):
         merged[key] = _coerce_bool(merged.get(key), defaults[key])
 
-    merged["default_mode"] = _coerce_choice(merged.get("default_mode"), defaults["default_mode"], {"VOLT", "CURR"})
-    merged["default_terminal"] = _coerce_choice(
-        merged.get("default_terminal"), defaults["default_terminal"], {"FRON", "REAR"}, aliases={"FRONT": "FRON"}
+    merged["default_mode"] = _coerce_choice(
+        merged.get("default_mode"), defaults["default_mode"], {"VOLT", "CURR"}
     )
-    merged["default_sense_mode"] = _coerce_choice(merged.get("default_sense_mode"), defaults["default_sense_mode"], {"2W", "4W"})
+    merged["default_terminal"] = _coerce_choice(
+        merged.get("default_terminal"),
+        defaults["default_terminal"],
+        {"FRON", "REAR"},
+        aliases={"FRONT": "FRON"},
+    )
+    merged["default_sense_mode"] = _coerce_choice(
+        merged.get("default_sense_mode"), defaults["default_sense_mode"], {"2W", "4W"}
+    )
     merged["default_sweep_kind"] = _coerce_choice(
-        merged.get("default_sweep_kind"), defaults["default_sweep_kind"], {"STEP", "TIME", "ADAPTIVE"}
+        merged.get("default_sweep_kind"),
+        defaults["default_sweep_kind"],
+        {"STEP", "TIME", "ADAPTIVE"},
     )
     merged["default_plot_layout"] = _coerce_choice(
-        merged.get("default_plot_layout"), defaults["default_plot_layout"], {"Auto", "1x1", "1x2", "2x1", "2x2"}
+        merged.get("default_plot_layout"),
+        defaults["default_plot_layout"],
+        {"Auto", "1x1", "1x2", "2x1", "2x2"},
     )
     merged["ui_theme"] = _normalize_theme(merged.get("ui_theme"))
 
@@ -215,7 +242,7 @@ def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
         return AppSettings()
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, UnicodeError, json.JSONDecodeError):
         return AppSettings()
     if not isinstance(loaded, dict):
         return AppSettings()

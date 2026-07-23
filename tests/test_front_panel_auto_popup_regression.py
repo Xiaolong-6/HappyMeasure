@@ -18,7 +18,10 @@ def source_text(relative: str) -> str:
 def test_front_panel_auto_popup_setting_defaults_enabled_and_sanitized() -> None:
     assert AppSettings().show_front_panel_on_start is True
     assert sanitize_settings_dict({})["show_front_panel_on_start"] is True
-    assert sanitize_settings_dict({"show_front_panel_on_start": "no"})["show_front_panel_on_start"] is False
+    assert (
+        sanitize_settings_dict({"show_front_panel_on_start": "no"})["show_front_panel_on_start"]
+        is False
+    )
 
 
 def test_start_stop_complete_error_paths_manage_auto_front_panel_popup() -> None:
@@ -57,4 +60,7 @@ def test_stop_paths_zero_live_status_before_closing_panel() -> None:
     status = Path("src/keith_ivt/ui/status_bar.py").read_text(encoding="utf-8")
     assert "self._last_source_value = 0.0" in status
     assert "self._last_measured_value = 0.0" in status
-    assert "self._reset_live_measurement_status()\n        self._close_auto_front_panel_popup()" in sweep
+    assert (
+        "self._reset_live_measurement_status()\n        self._close_auto_front_panel_popup()"
+        in sweep
+    )

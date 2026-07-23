@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+from typing import Any
 import warnings
 from tkinter import StringVar, filedialog, ttk
 
@@ -13,7 +15,15 @@ from keith_ivt.ui.plot_views import PlotView, layout_grid, xy_for_view
 from keith_ivt.ui.widgets import add_tip
 
 
-class PlotPanelMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class PlotPanelMixin(UiMixinTyping):
+    _axes: list[Any]
+    _swapped_views: set[PlotView]
+    _plot_pan_state: dict[str, Any] | None
+    _plot_hover_annotation: Any | None
+
     def _build_plot_panel(self) -> None:
         self.plot_frame.rowconfigure(1, weight=1)
         self.plot_frame.columnconfigure(0, weight=1)
@@ -24,7 +34,9 @@ class PlotPanelMixin:
         toolbar.grid(row=0, column=0, sticky="ew", padx=(4, 8), pady=(0, 6))
         toolbar.columnconfigure(1, weight=1)
 
-        ttk.Label(toolbar, text="Views", style="Card.TLabel").grid(row=0, column=0, padx=(0, 8), sticky="w")
+        ttk.Label(toolbar, text="Views", style="Card.TLabel").grid(
+            row=0, column=0, padx=(0, 8), sticky="w"
+        )
         self.views_frame = ttk.Frame(toolbar, style="ToolbarInner.TFrame")
         self.views_frame.grid(row=0, column=1, sticky="ew")
         self.views_frame.bind("<Configure>", lambda _e: self._update_plot_view_layout(), add="+")
@@ -37,8 +49,25 @@ class PlotPanelMixin:
             PlotView.DV_DI: "dV/dI",
             PlotView.SIGNAL_TIME: "Time",
         }
-        for col, view in enumerate([PlotView.LINEAR, PlotView.LOG_ABS, PlotView.V_OVER_I, PlotView.DV_DI, PlotView.SIGNAL_TIME]):
-            btn = ttk.Button(self.views_frame, text=short_names[view], width=max(3, len(short_names[view])), style="ToggleOn.TButton" if self.plot_view_vars[view].get() else "ToggleOff.TButton", command=lambda v=view: self._toggle_plot_view(v), takefocus=False)
+        for col, view in enumerate(
+            [
+                PlotView.LINEAR,
+                PlotView.LOG_ABS,
+                PlotView.V_OVER_I,
+                PlotView.DV_DI,
+                PlotView.SIGNAL_TIME,
+            ]
+        ):
+            btn = ttk.Button(
+                self.views_frame,
+                text=short_names[view],
+                width=max(3, len(short_names[view])),
+                style=(
+                    "ToggleOn.TButton" if self.plot_view_vars[view].get() else "ToggleOff.TButton"
+                ),
+                command=partial(self._toggle_plot_view, view),
+                takefocus=False,
+            )
             btn.grid(row=0, column=col, padx=(0 if col == 0 else 5, 0), pady=(0, 0), sticky="w")
             self.plot_view_buttons[view] = btn
             add_tip(btn, f"Toggle the {view.value} plot view.")
@@ -46,7 +75,9 @@ class PlotPanelMixin:
         # Keep this toolbar view-only; plot image actions live in the plot context menu,
         # while data import/export actions live in the trace-list context menu.
 
-        self.plot_trace_pane = ttk.PanedWindow(self.plot_frame, orient="vertical", style="Nordic.TPanedwindow")
+        self.plot_trace_pane = ttk.PanedWindow(
+            self.plot_frame, orient="vertical", style="Nordic.TPanedwindow"
+        )
         self.plot_trace_pane.grid(row=1, column=0, sticky="nsew", padx=(4, 8), pady=(0, 8))
 
         self.plot_body = ttk.Frame(self.plot_trace_pane, style="App.TFrame")
@@ -65,12 +96,19 @@ class PlotPanelMixin:
         self.canvas_widget.bind("<Button-5>", self._on_plot_mousewheel, add="+")
         self.canvas_widget.bind("<Button-3>", self._show_plot_context_menu_tk, add="+")
         self.canvas_widget.bind("<Control-Button-1>", self._show_plot_context_menu_tk, add="+")
-        self._mpl_double_click_cid = self.canvas.mpl_connect("button_press_event", self._on_mpl_plot_click)
-        self._mpl_release_cid = self.canvas.mpl_connect("button_release_event", self._on_mpl_plot_release)
-        self._mpl_motion_cid = self.canvas.mpl_connect("motion_notify_event", self._on_mpl_plot_motion)
+        self._mpl_double_click_cid = self.canvas.mpl_connect(
+            "button_press_event", self._on_mpl_plot_click
+        )
+        self._mpl_release_cid = self.canvas.mpl_connect(
+            "button_release_event", self._on_mpl_plot_release
+        )
+        self._mpl_motion_cid = self.canvas.mpl_connect(
+            "motion_notify_event", self._on_mpl_plot_motion
+        )
 
         # Initialize plot performance optimizer
         from keith_ivt.ui.plot_optimizer import FastPlotRenderer
+
         self._plot_renderer = FastPlotRenderer(self.figure, max_points=2000)
 
         self.trace_panel = ttk.Frame(self.plot_trace_pane, style="Card.TFrame", padding=(10, 8))
@@ -80,14 +118,28 @@ class PlotPanelMixin:
         header.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         header.columnconfigure(0, weight=1)
         self.trace_title_text = StringVar(value="Traces (0)")
-        ttk.Label(header, textvariable=self.trace_title_text, style="TraceTitle.TLabel").grid(row=0, column=0, sticky="w")
-        ttk.Button(header, text="⚙", width=3, style="TinyIcon.TButton", command=self._show_trace_column_menu_from_button).grid(row=0, column=1, sticky="e")
+        ttk.Label(header, textvariable=self.trace_title_text, style="TraceTitle.TLabel").grid(
+            row=0, column=0, sticky="w"
+        )
+        ttk.Button(
+            header,
+            text="⚙",
+            width=3,
+            style="TinyIcon.TButton",
+            command=self._show_trace_column_menu_from_button,
+        ).grid(row=0, column=1, sticky="e")
 
         legend_box = ttk.Frame(self.trace_panel, style="Card.TFrame")
         legend_box.grid(row=1, column=0, sticky="nsew")
         legend_box.rowconfigure(0, weight=1)
         legend_box.columnconfigure(0, weight=1)
-        self.trace_tree = ttk.Treeview(legend_box, columns=("show", "color", "name", "operator", "mode", "sweep", "points", "start"), show="headings", selectmode="extended", height=7)
+        self.trace_tree = ttk.Treeview(
+            legend_box,
+            columns=("show", "color", "name", "operator", "mode", "sweep", "points", "start"),
+            show="headings",
+            selectmode="extended",
+            height=7,
+        )
         self._trace_columns = {
             "show": ("Vis", 44),
             "color": ("Color", 78),
@@ -100,10 +152,17 @@ class PlotPanelMixin:
         }
         for col_name, (title, width) in self._trace_columns.items():
             self.trace_tree.heading(col_name, text=title)
-            self.trace_tree.column(col_name, width=width, minwidth=0, stretch=col_name in {"name", "start"})
+            self.trace_tree.column(
+                col_name, width=width, minwidth=0, stretch=col_name in {"name", "start"}
+            )
         self._apply_trace_column_visibility()
         self.trace_tree.grid(row=0, column=0, sticky="nsew")
-        yscroll = ttk.Scrollbar(legend_box, orient="vertical", command=self.trace_tree.yview, style="Vertical.TScrollbar")
+        yscroll = ttk.Scrollbar(
+            legend_box,
+            orient="vertical",
+            command=self.trace_tree.yview,
+            style="Vertical.TScrollbar",
+        )
         yscroll.grid(row=0, column=1, sticky="ns")
         self.trace_tree.configure(yscrollcommand=yscroll.set)
         self.trace_tree.bind("<ButtonRelease-1>", self._on_tree_click, add="+")
@@ -112,7 +171,10 @@ class PlotPanelMixin:
         self.trace_tree.bind("<Button-3>", self._show_trace_context_menu, add="+")
         self.trace_tree.bind("<Delete>", self.delete_selected_trace, add="+")
         self.trace_tree.bind("<BackSpace>", self.delete_selected_trace, add="+")
-        add_tip(self.trace_tree, "Click Vis (☑/☐) to show/hide. Ctrl/Cmd+click or Shift+click to multi-select. Delete removes selected traces. Double-click to rename. Right-click for menu.")
+        add_tip(
+            self.trace_tree,
+            "Click Vis (☑/☐) to show/hide. Ctrl/Cmd+click or Shift+click to multi-select. Delete removes selected traces. Double-click to rename. Right-click for menu.",
+        )
         self.trace_menu = None
         self._plot_trace_sash_initialized = False
         self._ensure_plot_trace_panes(show_plot=True, show_trace=True)
@@ -178,7 +240,13 @@ class PlotPanelMixin:
         try:
             width = max(1, self.views_frame.winfo_width() or (self.plot_frame.winfo_width() - 120))
             per_row = 5 if width >= 420 else (3 if width >= 260 else 2)
-            ordered = [PlotView.LINEAR, PlotView.LOG_ABS, PlotView.V_OVER_I, PlotView.DV_DI, PlotView.SIGNAL_TIME]
+            ordered = [
+                PlotView.LINEAR,
+                PlotView.LOG_ABS,
+                PlotView.V_OVER_I,
+                PlotView.DV_DI,
+                PlotView.SIGNAL_TIME,
+            ]
             for idx, view in enumerate(ordered):
                 btn = self.plot_view_buttons.get(view)
                 if btn is None:
@@ -186,9 +254,20 @@ class PlotPanelMixin:
                 row, col = divmod(idx, per_row)
                 label = str(btn.cget("text"))
                 btn.configure(width=max(3, len(label)))
-                btn.grid_configure(row=row, column=col, padx=(0 if col == 0 else 5, 0), pady=(0 if row == 0 else 5, 0), sticky="ew")
+                btn.grid_configure(
+                    row=row,
+                    column=col,
+                    padx=(0 if col == 0 else 5, 0),
+                    pady=(0 if row == 0 else 5, 0),
+                    sticky="ew",
+                )
             for col in range(5):
-                self.views_frame.columnconfigure(col, weight=1 if col < per_row else 0, minsize=0, uniform="plot_view_buttons" if col < per_row else "")
+                self.views_frame.columnconfigure(
+                    col,
+                    weight=1 if col < per_row else 0,
+                    minsize=0,
+                    uniform="plot_view_buttons" if col < per_row else "",
+                )
         except Exception:
             pass
 
@@ -196,8 +275,11 @@ class PlotPanelMixin:
         """Keep plot and traces split by a draggable sash; never overlay traces on plots."""
         if not hasattr(self, "plot_body") or not hasattr(self, "trace_panel"):
             return
-        views = self._selected_views() if hasattr(self, "plot_view_vars") else []
-        live_only = bool(getattr(self, "_plot_live_only", False) or getattr(self, "_run_state", "idle") in {"running", "paused", "stopping"})
+        self._selected_views() if hasattr(self, "plot_view_vars") else []
+        live_only = bool(
+            getattr(self, "_plot_live_only", False)
+            or getattr(self, "_run_state", "idle") in {"running", "paused", "stopping"}
+        )
         try:
             self.canvas_widget.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
             self._ensure_plot_trace_panes(show_plot=True, show_trace=not live_only)
@@ -211,10 +293,17 @@ class PlotPanelMixin:
     def _refresh_plot_view_buttons(self) -> None:
         for view, btn in getattr(self, "plot_view_buttons", {}).items():
             try:
-                btn.configure(style="ToggleOn.TButton" if self.plot_view_vars[view].get() else "ToggleOff.TButton")
+                btn.configure(
+                    style=(
+                        "ToggleOn.TButton"
+                        if self.plot_view_vars[view].get()
+                        else "ToggleOff.TButton"
+                    )
+                )
             except Exception as e:
                 # Silently ignore widget state errors (widget may be destroyed)
                 import logging
+
                 logger = logging.getLogger("keith_ivt.ui.plot_panel")
                 logger.debug(f"Failed to update plot view button style: {e}")
 
@@ -238,8 +327,11 @@ class PlotPanelMixin:
         self._redraw_all_plots()
 
     def _selected_views(self) -> list[PlotView]:
-        return [v for v, var in self.plot_view_vars.items() if var.get() and v is not PlotView.SPARE]
+        return [
+            v for v, var in self.plot_view_vars.items() if var.get() and v is not PlotView.SPARE
+        ]
 
+    @staticmethod
     def _unit_family(label: str) -> str:
         lower = label.lower()
         if "current" in lower or "(a" in lower:
@@ -267,10 +359,17 @@ class PlotPanelMixin:
         if unit == "Auto":
             return 1.0, label
         table = {
-            "A": (1.0, "A"), "mA": (1e3, "mA"), "µA": (1e6, "µA"), "nA": (1e9, "nA"),
-            "V": (1.0, "V"), "mV": (1e3, "mV"),
-            "Ω": (1.0, "Ω"), "kΩ": (1e-3, "kΩ"), "MΩ": (1e-6, "MΩ"),
-            "s": (1.0, "s"), "ms": (1e3, "ms"),
+            "A": (1.0, "A"),
+            "mA": (1e3, "mA"),
+            "µA": (1e6, "µA"),
+            "nA": (1e9, "nA"),
+            "V": (1.0, "V"),
+            "mV": (1e3, "mV"),
+            "Ω": (1.0, "Ω"),
+            "kΩ": (1e-3, "kΩ"),
+            "MΩ": (1e-6, "MΩ"),
+            "s": (1.0, "s"),
+            "ms": (1e3, "ms"),
         }
         if unit not in table or unit not in self._unit_choices_for_label(label):
             return 1.0, label
@@ -289,7 +388,7 @@ class PlotPanelMixin:
             ax.yaxis.set_major_formatter(EngFormatter())
 
     def _is_view_swapped(self, view) -> bool:
-        swapped = getattr(self, "_swapped_views", set())
+        swapped: set[PlotView] = getattr(self, "_swapped_views", set())
         try:
             return view in swapped
         except Exception:
@@ -343,12 +442,25 @@ class PlotPanelMixin:
         figure.set_facecolor(self._palette["plot_bg"])
         views = self._selected_views()
         if not views:
-            figure.text(0.5, 0.5, "No plot views selected", ha="center", va="center", color=self._palette["muted"])
+            figure.text(
+                0.5,
+                0.5,
+                "No plot views selected",
+                ha="center",
+                va="center",
+                color=self._palette["muted"],
+            )
             return []
         rows, cols = layout_grid(len(views), self.arrangement.get())
         axes = []
-        traces = [] if getattr(self, "_plot_live_only", False) else [t for t in self._datasets.all() if t.visible]
-        selected_trace_ids = set(self._selected_trace_ids()) if hasattr(self, "_selected_trace_ids") else set()
+        traces = (
+            []
+            if getattr(self, "_plot_live_only", False)
+            else [t for t in self._datasets.all() if t.visible]
+        )
+        selected_trace_ids = (
+            set(self._selected_trace_ids()) if hasattr(self, "_selected_trace_ids") else set()
+        )
         if traces and not selected_trace_ids:
             # Default to the first trace (which is now the latest due to reverse ordering)
             selected_trace_ids = {traces[0].trace_id}
@@ -362,34 +474,44 @@ class PlotPanelMixin:
         linestyle = "-" if "line" in fmt else "None"
         for idx, view in enumerate(views, start=1):
             ax = figure.add_subplot(rows, cols, idx)
-            ax._happy_view = view
+            setattr(ax, "_happy_view", view)
             ax.set_facecolor(self._palette["plot_bg"])
             ax.set_title(view.value, color=self._palette["fg"])
             ax.tick_params(colors=self._palette["muted"])
             for spine in ax.spines.values():
                 spine.set_color(self._palette["grid"])
             if live_result is not None:
-                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(live_result, view)
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
+                    live_result, view
+                )
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
-                ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
+                ax.set_xlabel(xlabel, color=self._palette["fg"])
+                ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
                     if swapped:
                         ax.set_xscale("log")
                     else:
                         ax.set_yscale("log")
             for trace in traces:
-                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(trace.result, view)
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
+                    trace.result, view
+                )
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
-                    x, y, marker=marker, linestyle=linestyle,
+                    x,
+                    y,
+                    marker=marker,
+                    linestyle=linestyle,
                     linewidth=2.4 if is_selected else 0.9,
                     alpha=1.0 if is_selected else 0.35,
                     zorder=4 if is_selected else 2,
-                    label=trace.name, color=getattr(trace, "color", None),
+                    label=trace.name,
+                    color=getattr(trace, "color", None),
                 )
                 ax.set_title(title, color=self._palette["fg"])
-                ax.set_xlabel(xlabel, color=self._palette["fg"]); ax.set_ylabel(ylabel, color=self._palette["fg"])
+                ax.set_xlabel(xlabel, color=self._palette["fg"])
+                ax.set_ylabel(ylabel, color=self._palette["fg"])
                 if y_is_log:
                     if swapped:
                         ax.set_xscale("log")
@@ -430,8 +552,15 @@ class PlotPanelMixin:
                     ax.tick_params(colors=self._palette["muted"])
                     for spine in ax.spines.values():
                         spine.set_color(self._palette["grid"])
-                    ax.text(0.5, 0.5, "Waiting for data...", ha="center", va="center",
-                           color=self._palette["muted"], fontsize=12)
+                    ax.text(
+                        0.5,
+                        0.5,
+                        "Waiting for data...",
+                        ha="center",
+                        va="center",
+                        color=self._palette["muted"],
+                        fontsize=12,
+                    )
                     ax.grid(True, alpha=0.35, color=self._palette["grid"])
             self._axes = []
             try:
@@ -440,7 +569,7 @@ class PlotPanelMixin:
             except Exception:
                 self.canvas.draw()
             return
-        
+
         if not hasattr(self, "_plot_renderer"):
             # No optimizer available - just skip incremental update
             # The caller will handle fallback if needed
@@ -463,13 +592,15 @@ class PlotPanelMixin:
             axes = self._plot_renderer.prepare_axes(len(views), rows, cols)
 
             # Build data series for incremental drawing
-            data_series = []
+            data_series: list[dict[str, Any]] = []
             fmt = self.plot_format.get().lower()
             marker = "." if "marker" in fmt else None
             linestyle = "-" if "line" in fmt else "None"
 
             for idx, view in enumerate(views):
-                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(live_result, view)
+                x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
+                    live_result, view
+                )
 
                 # Downsample for display if needed
                 key = f"live_{view.value}"
@@ -481,13 +612,15 @@ class PlotPanelMixin:
                     "color": self._palette.get("accent", None),
                 }
 
-                data_series.append({
-                    "ax_index": idx,
-                    "key": key,
-                    "x": x,
-                    "y": y,
-                    "style": style,
-                })
+                data_series.append(
+                    {
+                        "ax_index": idx,
+                        "key": key,
+                        "x": x,
+                        "y": y,
+                        "style": style,
+                    }
+                )
 
                 # Configure axis
                 ax = axes[idx]
@@ -507,6 +640,7 @@ class PlotPanelMixin:
         except Exception as e:
             # On error, clear caches and show error (NO recursive retry!)
             import logging
+
             logger = logging.getLogger("keith_ivt.ui.plot_panel")
             logger.debug(f"Incremental plot update failed: {e}")
             try:
@@ -514,8 +648,14 @@ class PlotPanelMixin:
                     self._plot_renderer.reset()
                 self.figure.clear()
                 self.figure.set_facecolor(self._palette["plot_bg"])
-                self.figure.text(0.5, 0.5, f"Plot error: {str(e)[:50]}", 
-                                ha="center", va="center", color=self._palette["muted"])
+                self.figure.text(
+                    0.5,
+                    0.5,
+                    f"Plot error: {str(e)[:50]}",
+                    ha="center",
+                    va="center",
+                    color=self._palette["muted"],
+                )
                 self.canvas.draw_idle()
                 self.canvas.flush_events()
             except Exception:
@@ -523,8 +663,14 @@ class PlotPanelMixin:
                 try:
                     self.figure.clear()
                     self.figure.set_facecolor(self._palette["plot_bg"])
-                    self.figure.text(0.5, 0.5, f"Plot error: {str(e)[:50]}", 
-                                    ha="center", va="center", color=self._palette["muted"])
+                    self.figure.text(
+                        0.5,
+                        0.5,
+                        f"Plot error: {str(e)[:50]}",
+                        ha="center",
+                        va="center",
+                        color=self._palette["muted"],
+                    )
                     self.canvas.draw_idle()
                     self.canvas.flush_events()
                 except Exception:
@@ -692,8 +838,17 @@ class PlotPanelMixin:
                 textcoords="offset points",
                 fontsize=9,
                 color=self._palette.get("fg", "black"),
-                bbox={"boxstyle": "round,pad=0.25", "fc": self._palette.get("card", "white"), "ec": self._palette.get("grid", "0.7"), "alpha": 0.92},
-                arrowprops={"arrowstyle": "->", "color": self._palette.get("muted", "0.4"), "lw": 0.8},
+                bbox={
+                    "boxstyle": "round,pad=0.25",
+                    "fc": self._palette.get("card", "white"),
+                    "ec": self._palette.get("grid", "0.7"),
+                    "alpha": 0.92,
+                },
+                arrowprops={
+                    "arrowstyle": "->",
+                    "color": self._palette.get("muted", "0.4"),
+                    "lw": 0.8,
+                },
                 zorder=10,
             )
             self._plot_hover_annotation = annotation
@@ -701,7 +856,9 @@ class PlotPanelMixin:
         if label.startswith("_"):
             label = "point"
         annotation.xy = (x, y)
-        annotation.set_text(f"{label}\nX: {self._format_hover_value(x)}\nY: {self._format_hover_value(y)}")
+        annotation.set_text(
+            f"{label}\nX: {self._format_hover_value(x)}\nY: {self._format_hover_value(y)}"
+        )
         annotation.set_visible(True)
         self.canvas.draw_idle()
 
@@ -710,10 +867,13 @@ class PlotPanelMixin:
         self.log_event("Plots autoscaled.")
 
     def save_figure(self) -> bool:
-        path = filedialog.asksaveasfilename(defaultextension=".png", initialfile=suggested_figure_name(), filetypes=[("PNG image", "*.png"), ("PDF", "*.pdf"), ("SVG", "*.svg")])
+        path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            initialfile=suggested_figure_name(),
+            filetypes=[("PNG image", "*.png"), ("PDF", "*.pdf"), ("SVG", "*.svg")],
+        )
         if not path:
             return False
         self.figure.savefig(path, facecolor=self.figure.get_facecolor(), bbox_inches="tight")
         self.log_event(f"Saved figure: {path}")
         return True
-

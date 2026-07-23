@@ -14,7 +14,7 @@ def test_batch_build_script_has_single_pick_python_label():
 def test_batch_build_script_has_no_accidental_inline_duplicate_header():
     text = (ROOT / "tools" / "build" / "Build_Portable_Windows_App.bat").read_text(encoding="utf-8")
     assert text.count("Building HappyMeasure portable Windows app") == 1
-    assert text.count("if not exist \".venv\\Scripts\\python.exe\"") == 1
+    assert text.count('if not exist ".venv\\Scripts\\python.exe"') == 1
 
 
 def test_all_build_scripts_remind_release_owner_to_verify_asset_digest():

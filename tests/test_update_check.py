@@ -12,7 +12,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from keith_ivt.services import update_check
-from keith_ivt.services.update_check import check_github_release, is_newer_version, parse_version, select_portable_zip_asset
+from keith_ivt.services.update_check import (
+    check_github_release,
+    is_newer_version,
+    parse_version,
+    select_portable_zip_asset,
+)
 
 
 class DummyResponse:
@@ -85,7 +90,9 @@ def test_remote_newer_release(monkeypatch) -> None:
 
     assert result["status"] == "newer"
     assert result["latest_version"] == "v0.7.0-alpha.2"
-    assert result["message"] == "New version available: v0.7.0-alpha.2. Ready to download and install."
+    assert (
+        result["message"] == "New version available: v0.7.0-alpha.2. Ready to download and install."
+    )
     assert result["release_url"].endswith("/v0.7.0-alpha.2")
     assert result["asset_download_url"] == "portable"
     assert result["asset_sha256"] == "a" * 64
@@ -176,13 +183,18 @@ def test_ui_update_check_cache_contract() -> None:
 
 
 def test_select_portable_zip_asset_ignores_source_archives() -> None:
-    name, url = select_portable_zip_asset({
-        "assets": [
-            "invalid asset entry",
-            {"name": "Source code (zip)", "browser_download_url": "bad"},
-            {"name": "HappyMeasure-v1.1b1-windows-portable.zip", "browser_download_url": "good"},
-        ]
-    })
+    name, url = select_portable_zip_asset(
+        {
+            "assets": [
+                "invalid asset entry",
+                {"name": "Source code (zip)", "browser_download_url": "bad"},
+                {
+                    "name": "HappyMeasure-v1.1b1-windows-portable.zip",
+                    "browser_download_url": "good",
+                },
+            ]
+        }
+    )
     assert name == "HappyMeasure-v1.1b1-windows-portable.zip"
     assert url == "good"
 

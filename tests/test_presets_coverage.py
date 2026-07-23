@@ -87,12 +87,14 @@ def test_load_presets_skips_empty_name(tmp_path: Path) -> None:
 
 def test_save_preset_empty_name_raises(tmp_path: Path) -> None:
     import pytest
+
     with pytest.raises(ValueError, match="empty"):
         save_preset("", {}, path=tmp_path / "presets.json")
 
 
 def test_save_preset_default_name_raises(tmp_path: Path) -> None:
     import pytest
+
     with pytest.raises(ValueError, match="Default"):
         save_preset("Default", {}, path=tmp_path / "presets.json")
 

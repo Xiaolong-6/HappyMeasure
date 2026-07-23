@@ -8,7 +8,14 @@ from datetime import datetime
 
 from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
 from keith_ivt.instrument.base import SourceMeter
-from keith_ivt.models import SweepConfig, SweepKind, SweepPoint, SweepResult, validate_config, source_values_for_config
+from keith_ivt.models import (
+    SweepConfig,
+    SweepKind,
+    SweepPoint,
+    SweepResult,
+    validate_config,
+    source_values_for_config,
+)
 
 PointCallback = Callable[[SweepPoint, int, int], None]
 StopCallback = Callable[[], bool]
@@ -40,7 +47,9 @@ class SweepRunner:
     ) -> SweepResult:
         validate_config(config)
         if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
-            raise ValueError("MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path.")
+            raise ValueError(
+                "MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path."
+            )
         values = source_values_for_config(config)
         points: list[SweepPoint] = []
         t0 = time.monotonic()
@@ -76,18 +85,25 @@ class SweepRunner:
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
-                    stable_read, discard_remaining, last_actual_range_A = self._read_stable_at_source(
-                        config,
-                        current_range_control,
-                        discard_remaining,
-                        last_actual_range_A,
-                        _should_stop,
+                    stable_read, discard_remaining, last_actual_range_A = (
+                        self._read_stable_at_source(
+                            config,
+                            current_range_control,
+                            discard_remaining,
+                            last_actual_range_A,
+                            _should_stop,
+                        )
                     )
                     if stable_read is None:
                         break
                     reported_source, measured = stable_read
                     index += 1
-                    point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
+                    point = SweepPoint(
+                        source_value=reported_source,
+                        measured_value=measured,
+                        elapsed_s=time.monotonic() - t0,
+                        timestamp=datetime.now().isoformat(timespec="milliseconds"),
+                    )
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, 0)
@@ -107,17 +123,24 @@ class SweepRunner:
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
-                    stable_read, discard_remaining, last_actual_range_A = self._read_stable_at_source(
-                        config,
-                        current_range_control,
-                        discard_remaining,
-                        last_actual_range_A,
-                        _should_stop,
+                    stable_read, discard_remaining, last_actual_range_A = (
+                        self._read_stable_at_source(
+                            config,
+                            current_range_control,
+                            discard_remaining,
+                            last_actual_range_A,
+                            _should_stop,
+                        )
                     )
                     if stable_read is None:
                         break
                     reported_source, measured = stable_read
-                    point = SweepPoint(source_value=reported_source, measured_value=measured, elapsed_s=time.monotonic() - t0, timestamp=datetime.now().isoformat(timespec="milliseconds"))
+                    point = SweepPoint(
+                        source_value=reported_source,
+                        measured_value=measured,
+                        elapsed_s=time.monotonic() - t0,
+                        timestamp=datetime.now().isoformat(timespec="milliseconds"),
+                    )
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, total)
@@ -161,14 +184,12 @@ class SweepRunner:
                 return None, discard_remaining, last_actual_range_A
             reported_source, measured = self.instrument.read_source_and_measure()
             reported_source, measured = self._validated_readback(reported_source, measured)
-            discard_remaining, last_actual_range_A, should_discard = (
-                self._range_discard_decision(
-                    config,
-                    control,
-                    discard_remaining,
-                    last_actual_range_A,
-                    should_stop,
-                )
+            discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
+                config,
+                control,
+                discard_remaining,
+                last_actual_range_A,
+                should_stop,
             )
             if not should_discard:
                 return (reported_source, measured), discard_remaining, last_actual_range_A
@@ -190,25 +211,31 @@ class SweepRunner:
             actual = float(self.instrument.get_current_range())
         except Exception as exc:
             warning = f"Current range query failed: {exc}"
-        return control.update_state(CurrentRangeState(
-            autorange=autorange,
-            actual_range_A=actual,
-            fixed_range_A=None if autorange else actual,
-            last_change_monotonic_s=previous.last_change_monotonic_s,
-            warning=warning,
-        ))
+        return control.update_state(
+            CurrentRangeState(
+                autorange=autorange,
+                actual_range_A=actual,
+                fixed_range_A=None if autorange else actual,
+                last_change_monotonic_s=previous.last_change_monotonic_s,
+                warning=warning,
+            )
+        )
 
-    def _mark_range_change(self, control: CurrentRangeControl | None, range_A: float | None = None) -> None:
+    def _mark_range_change(
+        self, control: CurrentRangeControl | None, range_A: float | None = None
+    ) -> None:
         if control is None:
             return
         state = control.snapshot()
-        control.update_state(CurrentRangeState(
-            autorange=state.autorange,
-            actual_range_A=range_A if range_A is not None else state.actual_range_A,
-            fixed_range_A=state.fixed_range_A,
-            last_change_monotonic_s=time.monotonic(),
-            warning=state.warning,
-        ))
+        control.update_state(
+            CurrentRangeState(
+                autorange=state.autorange,
+                actual_range_A=range_A if range_A is not None else state.actual_range_A,
+                fixed_range_A=state.fixed_range_A,
+                last_change_monotonic_s=time.monotonic(),
+                warning=state.warning,
+            )
+        )
 
     def _apply_current_range_actions(
         self,
@@ -267,7 +294,6 @@ class SweepRunner:
             return discard_remaining - 1, last_actual_range_A, True
         return discard_remaining, last_actual_range_A, False
 
-
     @staticmethod
     def _validated_readback(source_value: float, measured_value: float) -> tuple[float, float]:
         """Reject non-finite instrument readbacks before they enter datasets.
@@ -280,7 +306,9 @@ class SweepRunner:
         source = float(source_value)
         measured = float(measured_value)
         if not math.isfinite(source) or not math.isfinite(measured):
-            raise RuntimeError(f"Non-finite measurement readback: source={source!r}, measured={measured!r}")
+            raise RuntimeError(
+                f"Non-finite measurement readback: source={source!r}, measured={measured!r}"
+            )
         return source, measured
 
     def _safe_output_off_preserving_error(self) -> None:

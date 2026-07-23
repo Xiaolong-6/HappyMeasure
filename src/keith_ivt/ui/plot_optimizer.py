@@ -6,11 +6,11 @@ This module provides optimized plotting strategies for real-time data visualizat
 3. Downsampling for large datasets
 4. Line object reuse to minimize matplotlib overhead
 """
+
 from __future__ import annotations
 
 import time
 from typing import TYPE_CHECKING, Any
-
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -55,7 +55,9 @@ class PlotOptimizer:
             return True
         return False
 
-    def downsample_if_needed(self, x: list[float], y: list[float]) -> tuple[list[float], list[float]]:
+    def downsample_if_needed(
+        self, x: list[float], y: list[float]
+    ) -> tuple[list[float], list[float]]:
         """Downsample data if it exceeds the threshold.
 
         Uses LTTB (Largest-Triangle-Three-Buckets) inspired simple decimation
@@ -149,8 +151,7 @@ class PlotOptimizer:
             self._line_cache.clear()
         else:
             self._line_cache = {
-                k: v for k, v in self._line_cache.items()
-                if not k.startswith(prefix)
+                k: v for k, v in self._line_cache.items() if not k.startswith(prefix)
             }
 
     def remove_stale_lines(self, active_keys: set[str]) -> None:

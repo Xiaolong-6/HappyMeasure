@@ -85,12 +85,14 @@ def install_console_logging(log_dir: str | Path = _LOG_DIR) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     console_file = (log_dir / "console_last_run.log").open("w", encoding="utf-8", buffering=1)
     console_file.write(f"[{_stamp()}] HappyMeasure console capture started.\n")
-    sys.stdout = TeeTextIO(sys.stdout, console_file)  # type: ignore[assignment]
-    sys.stderr = TeeTextIO(sys.stderr, console_file)  # type: ignore[assignment]
+    sys.stdout = TeeTextIO(sys.stdout, console_file)
+    sys.stderr = TeeTextIO(sys.stderr, console_file)
     _INSTALLED = True
 
 
-def log_runtime_error(message: str, exc: BaseException | None = None, log_dir: str | Path = _LOG_DIR) -> None:
+def log_runtime_error(
+    message: str, exc: BaseException | None = None, log_dir: str | Path = _LOG_DIR
+) -> None:
     """Log runtime errors through the central logging configuration."""
     logger = _runtime_logger(log_dir)
     if exc is not None:
@@ -120,6 +122,7 @@ def install_excepthook(log_dir: str | Path = _LOG_DIR) -> None:
 
 def install_tk_exception_logging(root, log_dir: str | Path = _LOG_DIR) -> None:
     """Capture Tk callback exceptions, which otherwise only print to stderr."""
+
     def _report(exc_type, exc, tb):
         try:
             logger = _runtime_logger(log_dir)

@@ -44,12 +44,10 @@ class Keithley2400Driver:
             self._driver = None
 
     def identify(self) -> str:
-        self._require_driver()
-        return self._driver.identify()  # type: ignore[union-attr]
+        return self._connected_driver().identify()
 
     def reset(self) -> None:
-        self._require_driver()
-        self._driver.reset()  # type: ignore[union-attr]
+        self._connected_driver().reset()
 
     def configure_source_measure(
         self,
@@ -62,13 +60,17 @@ class Keithley2400Driver:
         source_range: float | None = None,
         measure_range: float | None = None,
     ) -> None:
-        self._require_driver()
+        driver = self._connected_driver()
         if measure_mode is MeasureMode.CAPACITANCE:
             raise NotImplementedError("Keithley 2400 adapter does not support CV mode.")
         self._source_mode = source_mode
         self._measure_mode = measure_mode
         cfg = SweepConfig(
-            mode=SweepMode.VOLTAGE_SOURCE if source_mode is SourceMode.VOLTAGE else SweepMode.CURRENT_SOURCE,
+            mode=(
+                SweepMode.VOLTAGE_SOURCE
+                if source_mode is SourceMode.VOLTAGE
+                else SweepMode.CURRENT_SOURCE
+            ),
             start=0.0,
             stop=0.0,
             step=1.0,
@@ -86,28 +88,25 @@ class Keithley2400Driver:
             measure_range=float(measure_range or 0.0),
         )
         self._config = cfg
-        self._driver.configure_for_sweep(cfg)  # type: ignore[union-attr]
+        driver.configure_for_sweep(cfg)
 
     def set_source(self, source_mode: SourceMode, value: float) -> None:
-        self._require_driver()
-        self._driver.set_source(source_mode.value, value)  # type: ignore[union-attr]
+        self._connected_driver().set_source(source_mode.value, value)
 
     def read(self) -> DriverReadback:
-        self._require_driver()
-        source, measured = self._driver.read_source_and_measure()  # type: ignore[union-attr]
+        source, measured = self._connected_driver().read_source_and_measure()
         return DriverReadback(source_value=source, measured_value=measured)
 
     def output_on(self) -> None:
-        self._require_driver()
-        self._driver.output_on()  # type: ignore[union-attr]
+        self._connected_driver().output_on()
 
     def output_off(self) -> None:
-        self._require_driver()
-        self._driver.output_off()  # type: ignore[union-attr]
+        self._connected_driver().output_off()
 
-    def _require_driver(self) -> None:
+    def _connected_driver(self) -> Keithley2400Serial:
         if self._driver is None:
             raise RuntimeError("Keithley2400Driver is not connected.")
+        return self._driver
 
     def __enter__(self) -> "Keithley2400Driver":
         self.connect(self._profile)

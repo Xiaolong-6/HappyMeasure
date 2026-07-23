@@ -1,4 +1,5 @@
 """Tests for Pydantic-based settings system."""
+
 import json
 import pytest
 
@@ -246,7 +247,7 @@ class TestSettingsMigration:
 
         legacy_data = {
             "default_step": -1.0,  # Invalid: must be positive
-            "ui_font_size": 100,   # Invalid: too large
+            "ui_font_size": 100,  # Invalid: too large
         }
         settings_file.write_text(json.dumps(legacy_data))
 
@@ -288,11 +289,7 @@ class TestSettingsValidation:
     def test_validate_invalid_values(self, tmp_path):
         """Invalid values should fail validation."""
         settings_file = tmp_path / "bad_values.json"
-        bad_data = {
-            "hardware": {
-                "default_baud_rate": 999999  # Out of range
-            }
-        }
+        bad_data = {"hardware": {"default_baud_rate": 999999}}  # Out of range
         settings_file.write_text(json.dumps(bad_data))
 
         is_valid, errors = validate_settings_file(settings_file)

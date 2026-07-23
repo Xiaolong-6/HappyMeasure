@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Grouped UI mixins for the HappyMeasure application shell.
 
 The alpha UI is still intentionally mixin-based because the original Tk app was
@@ -8,6 +6,8 @@ surface of :class:`SimpleKeithIVtApp` by grouping related mixins into a few
 cohesive layers.  Keep feature implementations in their focused modules; use
 these groups only as composition boundaries.
 """
+
+from __future__ import annotations
 
 from keith_ivt.ui.app_state_bridge import AppStateBridgeMixin
 from keith_ivt.ui.data_actions import DataActionMixin

@@ -23,20 +23,23 @@ def test_load_settings_tolerates_corrupt_or_non_dict_json(tmp_path: Path) -> Non
 
 def test_load_settings_sanitizes_legacy_string_values(tmp_path: Path) -> None:
     path = tmp_path / "settings.json"
-    write_json(path, {
-        "default_debug": "False",
-        "cache_enabled": "yes",
-        "default_autorange": "0",
-        "auto_source_range": "false",
-        "auto_measure_range": "true",
-        "default_step": "not-a-number",
-        "default_compliance": "-1",
-        "default_terminal": "FRONT",
-        "ui_theme": "Nordic Dark",
-        "ui_font_size": "99",
-        "log_max_bytes": "bad",
-        "unknown_future_key": "ignored",
-    })
+    write_json(
+        path,
+        {
+            "default_debug": "False",
+            "cache_enabled": "yes",
+            "default_autorange": "0",
+            "auto_source_range": "false",
+            "auto_measure_range": "true",
+            "default_step": "not-a-number",
+            "default_compliance": "-1",
+            "default_terminal": "FRONT",
+            "ui_theme": "Nordic Dark",
+            "ui_font_size": "99",
+            "log_max_bytes": "bad",
+            "unknown_future_key": "ignored",
+        },
+    )
     settings = load_settings(path)
     assert settings.default_debug is False
     assert settings.cache_enabled is True
@@ -63,18 +66,21 @@ def test_save_settings_writes_sanitized_payload(tmp_path: Path) -> None:
 
 def test_load_presets_sanitizes_partial_legacy_presets(tmp_path: Path) -> None:
     path = tmp_path / "presets.json"
-    write_json(path, {
-        "Legacy": {
-            "default_mode": "CURR",
-            "default_start": "-5",
-            "default_stop": "bad",
-            "default_autorange": "False",
-            "default_source_range": "1e-3",
-            "unknown": "ignored",
+    write_json(
+        path,
+        {
+            "Legacy": {
+                "default_mode": "CURR",
+                "default_start": "-5",
+                "default_stop": "bad",
+                "default_autorange": "False",
+                "default_source_range": "1e-3",
+                "unknown": "ignored",
+            },
+            "Broken": ["not", "dict"],
+            "": {"default_mode": "VOLT"},
         },
-        "Broken": ["not", "dict"],
-        "": {"default_mode": "VOLT"},
-    })
+    )
     presets = load_presets(path)
     assert "Default" in presets
     assert "Legacy" in presets

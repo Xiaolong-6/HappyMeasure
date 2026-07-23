@@ -5,7 +5,6 @@ import math
 
 from keith_ivt.core.adaptive_rules import default_log_rule, logic_from_rule
 
-
 MAX_ADAPTIVE_POINTS = 100_000
 MAX_LOGIC_LENGTH = 100_000
 MAX_AST_NODES = 200_000
@@ -59,6 +58,7 @@ def dedupe_adjacent_values(values: list[float], tolerance: float = 1e-15) -> lis
         cleaned.append(f)
     return cleaned
 
+
 def _numeric_literal(node: ast.AST) -> float | int:
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
@@ -76,7 +76,9 @@ def _evaluate_values_expression(node: ast.AST) -> list[float]:
 
     if isinstance(node, ast.Call):
         if not isinstance(node.func, ast.Name) or node.func.id not in {"linspace", "logspace"}:
-            raise ValueError("Only linspace(start, stop, count) and logspace(start, stop, count) are allowed.")
+            raise ValueError(
+                "Only linspace(start, stop, count) and logspace(start, stop, count) are allowed."
+            )
         if node.keywords or len(node.args) != 3:
             raise ValueError(f"{node.func.id} requires exactly three positional arguments.")
         start = float(_numeric_literal(node.args[0]))
@@ -129,5 +131,6 @@ def adaptive_values_from_logic(logic: str) -> list[float]:
     if any(not math.isfinite(value) for value in values):
         raise ValueError("Adaptive logic produced NaN or infinite source values.")
     return values
+
 
 DEFAULT_ADAPTIVE_LOGIC = logic_from_rule(default_log_rule())

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from queue import SimpleQueue
+from queue import Empty, SimpleQueue
 import threading
 import time
 from typing import Literal
-
 
 CURRENT_RANGE_OPTIONS_A: tuple[float, ...] = (
     1e-12,
@@ -47,7 +46,7 @@ def parse_current_range_label(label: str) -> float | None:
             return value
     try:
         return float(text)
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -106,7 +105,8 @@ class CurrentRangeControl:
             changed = (
                 previous.actual_range_A is not None
                 and state.actual_range_A is not None
-                and abs(previous.actual_range_A - state.actual_range_A) > max(1e-15, abs(previous.actual_range_A) * 1e-6)
+                and abs(previous.actual_range_A - state.actual_range_A)
+                > max(1e-15, abs(previous.actual_range_A) * 1e-6)
             )
             if changed and state.last_change_monotonic_s is None:
                 state = replace(state, last_change_monotonic_s=time.monotonic())
@@ -132,5 +132,5 @@ class CurrentRangeControl:
         while True:
             try:
                 actions.append(self._pending.get_nowait())
-            except Exception:
+            except Empty:
                 return actions

@@ -31,7 +31,9 @@ def compact_result_tag(result: SweepResult | None, fallback: str = "data") -> st
     operator = safe_token(cfg.operator, "", 12)
     mode = "Isrc" if getattr(cfg.mode, "value", cfg.mode) == "CURR" else "Vsrc"
     kind_raw = str(getattr(cfg.sweep_kind, "value", cfg.sweep_kind)).upper()
-    kind = {"STEP": "step", "TIME": "time", "ADAPTIVE": "adapt"}.get(kind_raw, safe_token(kind_raw, "sweep", 8))
+    kind = {"STEP": "step", "TIME": "time", "ADAPTIVE": "adapt"}.get(
+        kind_raw, safe_token(kind_raw, "sweep", 8)
+    )
     npts = len(result.points)
     if kind == "time":
         sweep = f"time-{_compact_num(getattr(cfg, 'constant_value', 0.0))}"
@@ -46,11 +48,13 @@ def compact_result_tag(result: SweepResult | None, fallback: str = "data") -> st
     return "_".join(parts)
 
 
-def suggested_single_csv_name(result: SweepResult, trace_name: str | None = None, max_len: int = 96) -> str:
+def suggested_single_csv_name(
+    result: SweepResult, trace_name: str | None = None, max_len: int = 96
+) -> str:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     tag = compact_result_tag(result)
     if trace_name:
-        tag = safe_token(trace_name, "device", 18) + tag[tag.find("_"):]
+        tag = safe_token(trace_name, "device", 18) + tag[tag.find("_") :]
     return _trim_filename(f"HM_{stamp}_{tag}.csv", max_len)
 
 

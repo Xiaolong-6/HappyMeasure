@@ -4,19 +4,29 @@ import queue
 import threading
 import time
 import traceback
+from pathlib import Path
 from tkinter import messagebox, simpledialog
 
 from keith_ivt.core.current_range import CurrentRangeState
-from keith_ivt.core.sweep_runner import SweepRunner
 from keith_ivt.data.backup import autosave_result
 from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
+from keith_ivt.services.measurement_service import MeasurementService
 from keith_ivt.ui.app_state import AppAction
 
 
-class SweepControllerMixin:
+from keith_ivt.ui.mixin_typing import UiMixinTyping
+
+
+class SweepControllerMixin(UiMixinTyping):
+    _last_result: SweepResult | None
+    _last_backup_path: Path | None
+
     def start_sweep(self) -> None:
         if not self._connected:
-            messagebox.showinfo("Not connected", "Connect a device before starting a sweep. Debug simulator also requires Connect.")
+            messagebox.showinfo(
+                "Not connected",
+                "Connect a device before starting a sweep. Debug simulator also requires Connect.",
+            )
             self._update_run_button_states()
             return
         ready_states = {"idle", "stopped", "completed", "aborted"}
@@ -31,9 +41,14 @@ class SweepControllerMixin:
             # Adaptive table/logic is parsed by SweepRunner; it no longer requires
             # a separate validate click before a debug or real run.
             if config.sweep_kind is SweepKind.CONSTANT_TIME:
-                min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate)
+                min_interval = minimum_interval_seconds(
+                    config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate
+                )
                 if config.interval_s < min_interval:
-                    messagebox.showerror("Interval too short", f"NPLC={config.nplc} needs interval >= {min_interval:.3f} s.")
+                    messagebox.showerror(
+                        "Interval too short",
+                        f"NPLC={config.nplc} needs interval >= {min_interval:.3f} s.",
+                    )
                     return
         except Exception as exc:
             messagebox.showerror("Invalid sweep configuration", str(exc))
@@ -48,11 +63,21 @@ class SweepControllerMixin:
         self._y_data.clear()
         self._live_points.clear()
         self._live_config = config
-        self._current_range_control.update_state(CurrentRangeState(
-            autorange=bool(config.auto_measure_range),
-            actual_range_A=config.measure_range if (not config.auto_measure_range and config.measure_range > 0) else None,
-            fixed_range_A=config.measure_range if (not config.auto_measure_range and config.measure_range > 0) else None,
-        ))
+        self._current_range_control.update_state(
+            CurrentRangeState(
+                autorange=bool(config.auto_measure_range),
+                actual_range_A=(
+                    config.measure_range
+                    if (not config.auto_measure_range and config.measure_range > 0)
+                    else None
+                ),
+                fixed_range_A=(
+                    config.measure_range
+                    if (not config.auto_measure_range and config.measure_range > 0)
+                    else None
+                ),
+            )
+        )
         self._reset_live_measurement_status()
         try:
             self._measurement_xy.clear()
@@ -78,14 +103,20 @@ class SweepControllerMixin:
     def _run_sweep_thread(self, config: SweepConfig) -> None:
         try:
             with self._make_instrument(config) as inst:
-                runner = SweepRunner(inst)
                 stop_event = getattr(self, "_stop_event", None)
                 pause_event = getattr(self, "_pause_event", None)
-                result = runner.run(
+                result = MeasurementService.run_source_meter(
+                    inst,
                     config,
                     on_point=self._on_point_thread,
-                    should_stop=(stop_event.is_set if stop_event is not None else lambda: self._stop_requested),
-                    should_pause=(pause_event.is_set if pause_event is not None else lambda: self._paused),
+                    should_stop=(
+                        stop_event.is_set
+                        if stop_event is not None
+                        else lambda: self._stop_requested
+                    ),
+                    should_pause=(
+                        pause_event.is_set if pause_event is not None else lambda: self._paused
+                    ),
                     current_range_control=getattr(self, "_current_range_control", None),
                 )
             self._queue.put(("complete", result))
@@ -142,7 +173,9 @@ class SweepControllerMixin:
         if token != "ENABLE OUTPUT":
             self.log_event("Manual output cancelled by safety interlock.")
             return
-        if not messagebox.askyesno("Final confirmation", "Turn source output ON now? You must stop it manually."):
+        if not messagebox.askyesno(
+            "Final confirmation", "Turn source output ON now? You must stop it manually."
+        ):
             return
         try:
             with self._make_instrument(config) as inst:
@@ -154,8 +187,12 @@ class SweepControllerMixin:
                     time.sleep(0.2)
                 finally:
                     inst.output_off()
-            self.log_event("Manual output interlock path executed. Alpha implementation turns output off after smoke-test pulse.")
-            messagebox.showinfo("Manual output", "Alpha safety path executed and output was turned off.")
+            self.log_event(
+                "Manual output interlock path executed. Alpha implementation turns output off after smoke-test pulse."
+            )
+            messagebox.showinfo(
+                "Manual output", "Alpha safety path executed and output was turned off."
+            )
         except Exception as exc:
             self.log_event(f"Manual output failed: {exc}")
             messagebox.showerror("Manual output failed", str(exc))

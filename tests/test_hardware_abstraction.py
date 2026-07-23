@@ -1,4 +1,5 @@
 """Tests for unified hardware abstraction layer."""
+
 import pytest
 from keith_ivt.drivers.base import (
     ConnectionProfile,
@@ -107,9 +108,12 @@ class TestSimulatedKeithleyDualInterface:
         assert meter.identify().startswith("SIMULATED")
 
         from keith_ivt.models import SweepConfig, SweepMode
+
         config = SweepConfig(
             mode=SweepMode.VOLTAGE_SOURCE,
-            start=-1.0, stop=1.0, step=0.1,
+            start=-1.0,
+            stop=1.0,
+            step=0.1,
             compliance=0.01,
             nplc=1.0,
         )

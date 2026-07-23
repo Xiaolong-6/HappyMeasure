@@ -3,12 +3,12 @@
 
 def test_preset_review_shows_all_relevant_settings():
     """Verify that the preset review dialog shows:
-    
+
     1. User-friendly labels instead of internal key names
     2. Sweep-type-specific settings (Step/Time/Adaptive)
     3. Range settings when autorange is off
     4. All critical parameters before confirming save
-    
+
     The fix improves _fast_preset_review to:
     - Map internal keys (default_mode) to friendly labels (Mode)
     - Show only relevant fields based on sweep type

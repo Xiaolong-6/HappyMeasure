@@ -4,6 +4,7 @@ This module provides consistent error handling patterns across the application,
 including user-friendly error messages, exception classification, and recovery
 strategies.
 """
+
 from __future__ import annotations
 
 import logging
@@ -15,14 +16,16 @@ from keith_ivt.logging_config import get_logger, handle_user_error
 
 class ErrorSeverity(Enum):
     """Classification of error severity levels."""
-    INFO = auto()           # Informational, no action needed
-    WARNING = auto()        # Potential issue, but operation can continue
-    ERROR = auto()          # Operation failed, user should retry
-    CRITICAL = auto()       # System instability, restart may be needed
+
+    INFO = auto()  # Informational, no action needed
+    WARNING = auto()  # Potential issue, but operation can continue
+    ERROR = auto()  # Operation failed, user should retry
+    CRITICAL = auto()  # System instability, restart may be needed
 
 
 class ErrorCategory(Enum):
     """Classification of error types for appropriate handling."""
+
     HARDWARE = "hardware"
     FILE_IO = "file_io"
     NETWORK = "network"
@@ -99,7 +102,7 @@ def classify_exception(exc: BaseException) -> tuple[ErrorCategory, ErrorSeverity
     # Connection errors first (before file/io check since "connection" might match io patterns)
     if "connection" in exc_name:
         return ErrorCategory.HARDWARE, ErrorSeverity.CRITICAL
-    
+
     # Hardware errors
     if any(kw in exc_name or kw in exc_str for kw in ["serial", "instrument", "keithley", "smu"]):
         if "timeout" in exc_str or "not found" in exc_str:
@@ -109,11 +112,11 @@ def classify_exception(exc: BaseException) -> tuple[ErrorCategory, ErrorSeverity
     # File I/O errors
     if any(kw in exc_name or kw in exc_str for kw in ["file", "permission", "denied"]):
         return ErrorCategory.FILE_IO, ErrorSeverity.ERROR
-    
+
     # Network errors
     if any(kw in exc_name or kw in exc_str for kw in ["network", "socket"]):
         return ErrorCategory.NETWORK, ErrorSeverity.ERROR
-    
+
     # Timeout errors
     if "timeout" in exc_name or "timeout" in exc_str:
         return ErrorCategory.HARDWARE, ErrorSeverity.ERROR
@@ -195,7 +198,7 @@ def create_error_recovery_handler(
     logger_name: str,
     max_retries: int = 3,
     retry_delay: float = 1.0,
-) -> Callable[[Callable[..., Any], dict[str, Any]], Any]:
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Create a retry-based error recovery handler.
 
     Args:
@@ -238,6 +241,8 @@ def create_error_recovery_handler(
                         )
 
             # All retries exhausted
+            if last_exception is None:
+                raise RuntimeError("Retry handler exhausted without an exception")
             raise last_exception
 
         return wrapper

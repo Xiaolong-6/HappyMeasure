@@ -19,27 +19,65 @@ def make_result() -> SweepResult:
         debug=True,
         debug_model="Linear resistor 10 kΩ",
     )
-    return SweepResult(config=cfg, points=[
-        SweepPoint(source_value=-1, measured_value=-1e-3, timestamp="2026-05-16T12:00:00", elapsed_s=0.0),
-        SweepPoint(source_value=0, measured_value=0.0, timestamp="2026-05-16T12:00:01", elapsed_s=1.0),
-    ])
+    return SweepResult(
+        config=cfg,
+        points=[
+            SweepPoint(
+                source_value=-1,
+                measured_value=-1e-3,
+                timestamp="2026-05-16T12:00:00",
+                elapsed_s=0.0,
+            ),
+            SweepPoint(
+                source_value=0, measured_value=0.0, timestamp="2026-05-16T12:00:01", elapsed_s=1.0
+            ),
+        ],
+    )
 
 
 def test_result_metadata_contains_trace_schema_contract_keys() -> None:
     metadata = result_metadata(make_result())
     required = {
-        "schema", "exported_at", "start_time", "device_name", "operator",
-        "mode", "sweep_kind", "start", "stop", "step", "compliance", "nplc",
-        "port", "baud_rate", "terminal", "sense_mode", "debug", "debug_model",
-        "output_off_after_run", "point_count", "constant_value", "duration_s",
-        "continuous_time", "interval_s", "autorange", "auto_source_range",
-        "auto_measure_range", "source_range", "measure_range", "adaptive_logic",
-        "data_fingerprint", "config_fingerprint", "trace_uid",
+        "schema",
+        "exported_at",
+        "start_time",
+        "device_name",
+        "operator",
+        "mode",
+        "sweep_kind",
+        "start",
+        "stop",
+        "step",
+        "compliance",
+        "nplc",
+        "port",
+        "baud_rate",
+        "terminal",
+        "sense_mode",
+        "debug",
+        "debug_model",
+        "output_off_after_run",
+        "point_count",
+        "constant_value",
+        "duration_s",
+        "continuous_time",
+        "interval_s",
+        "autorange",
+        "auto_source_range",
+        "auto_measure_range",
+        "source_range",
+        "measure_range",
+        "adaptive_logic",
+        "data_fingerprint",
+        "config_fingerprint",
+        "trace_uid",
     }
     assert required.issubset(metadata.keys())
     assert metadata["schema"] == "HappyMeasure CSV v2"
     assert metadata["point_count"] == 2
-    assert metadata["trace_uid"] == f"{metadata['config_fingerprint']}-{metadata['data_fingerprint']}"
+    assert (
+        metadata["trace_uid"] == f"{metadata['config_fingerprint']}-{metadata['data_fingerprint']}"
+    )
 
 
 def test_trace_schema_document_mentions_export_visibility_semantics() -> None:
