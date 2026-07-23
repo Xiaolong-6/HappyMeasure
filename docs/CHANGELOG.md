@@ -12,6 +12,9 @@
   number of entered segment lines.
 - Empty, non-numeric, or non-finite numeric fields now restore their current
   defaults on focus loss and again before a sweep configuration is created.
+- Presets now use a versioned Hardware + visible Sweep snapshot, restore both
+  range Auto states independently, preserve raw Adaptive text, and leave
+  settings from every other page untouched.
 
 ## 1.1b3 — Keithley front-panel current range control
 

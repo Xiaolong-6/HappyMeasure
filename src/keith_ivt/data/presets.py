@@ -8,6 +8,10 @@ from typing import Any
 from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
 
 PRESETS_PATH = Path("config") / "presets.json"
+PRESET_SCHEMA_VERSION = 2
+
+# Retained as a compatibility name for callers that still import it. New
+# presets use the nested v2 snapshot below, not these legacy flat keys.
 SWEEP_PRESET_KEYS = {
     "default_mode",
     "default_sweep_kind",
@@ -16,32 +20,175 @@ SWEEP_PRESET_KEYS = {
     "default_step",
     "default_constant_value",
     "default_duration_s",
+    "default_constant_until_stop",
     "default_interval_s",
     "default_compliance",
     "default_nplc",
+    "default_delay_s",
     "default_autorange",
+    "auto_source_range",
+    "auto_measure_range",
     "default_source_range",
     "default_measure_range",
     "default_adaptive_logic",
     "default_adaptive_segments",
     "default_adaptive_remove_duplicates",
+    "default_debug_model",
 }
+
+_VALID_SWEEP_KINDS = {"STEP", "TIME", "ADAPTIVE", "MANUAL_OUTPUT"}
+
+
+def _bool_value(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "y", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "n", "off", ""}:
+            return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
+
+
+def _snapshot_from_flat(data: dict[str, Any]) -> dict[str, Any]:
+    """Convert legacy flat settings/presets into a complete v2 snapshot."""
+    sanitized = sanitize_settings_dict(data)
+    raw_kind = str(data.get("default_sweep_kind", sanitized["default_sweep_kind"])).upper()
+    kind = raw_kind if raw_kind in _VALID_SWEEP_KINDS else sanitized["default_sweep_kind"]
+    legacy_auto = _bool_value(data.get("default_autorange"), bool(sanitized["default_autorange"]))
+    auto_source = _bool_value(data.get("auto_source_range"), legacy_auto)
+    auto_measure = _bool_value(data.get("auto_measure_range"), legacy_auto)
+
+    sweep: dict[str, Any] = {
+        "mode": sanitized["default_mode"],
+        "kind": kind,
+        "hysteresis": _bool_value(data.get("hysteresis", data.get("default_hysteresis")), False),
+        "compliance": sanitized["default_compliance"],
+        "nplc": sanitized["default_nplc"],
+        "delay_s": sanitized["default_delay_s"],
+        "auto_source_range": auto_source,
+        "source_range": sanitized["default_source_range"],
+        "auto_measure_range": auto_measure,
+        "measure_range": sanitized["default_measure_range"],
+    }
+    if (
+        "default_debug_model" in data
+        and str(data["default_debug_model"]).strip()
+        and ("default_debug" not in data or _bool_value(data.get("default_debug"), False))
+    ):
+        sweep["debug_model"] = sanitized["default_debug_model"]
+
+    if kind == "TIME":
+        parameters = {
+            "constant_value": sanitized["default_constant_value"],
+            "until_stop": sanitized["default_constant_until_stop"],
+            "duration_s": sanitized["default_duration_s"],
+            "interval_s": sanitized["default_interval_s"],
+        }
+    elif kind == "ADAPTIVE":
+        parameters = {
+            "segments": sanitized["default_adaptive_segments"],
+            "remove_duplicates": sanitized["default_adaptive_remove_duplicates"],
+        }
+    elif kind == "STEP":
+        parameters = {
+            "start": sanitized["default_start"],
+            "stop": sanitized["default_stop"],
+            "step": sanitized["default_step"],
+        }
+    else:
+        parameters = {}
+    sweep["parameters"] = parameters
+
+    return {
+        "schema_version": PRESET_SCHEMA_VERSION,
+        "hardware": {
+            "port": sanitized["default_port"],
+            "baud_rate": sanitized["default_baud_rate"],
+            "terminal": sanitized["default_terminal"],
+            "sense_mode": sanitized["default_sense_mode"],
+        },
+        "sweep": sweep,
+    }
+
+
+def _clean_v2(data: dict[str, Any]) -> dict[str, Any]:
+    raw_hardware = data.get("hardware")
+    hardware: dict[str, Any] = raw_hardware if isinstance(raw_hardware, dict) else {}
+    raw_sweep = data.get("sweep")
+    sweep: dict[str, Any] = raw_sweep if isinstance(raw_sweep, dict) else {}
+    raw_parameters = sweep.get("parameters")
+    parameters: dict[str, Any] = raw_parameters if isinstance(raw_parameters, dict) else {}
+    flat: dict[str, Any] = {
+        "default_port": hardware.get("port"),
+        "default_baud_rate": hardware.get("baud_rate"),
+        "default_terminal": hardware.get("terminal"),
+        "default_sense_mode": hardware.get("sense_mode"),
+        "default_mode": sweep.get("mode"),
+        "default_sweep_kind": sweep.get("kind"),
+        "default_compliance": sweep.get("compliance"),
+        "default_nplc": sweep.get("nplc"),
+        "default_delay_s": sweep.get("delay_s"),
+        "auto_source_range": sweep.get("auto_source_range"),
+        "auto_measure_range": sweep.get("auto_measure_range"),
+        "default_source_range": sweep.get("source_range"),
+        "default_measure_range": sweep.get("measure_range"),
+    }
+    kind = str(sweep.get("kind", "")).upper()
+    if kind == "STEP":
+        flat.update(
+            {
+                "default_start": parameters.get("start"),
+                "default_stop": parameters.get("stop"),
+                "default_step": parameters.get("step"),
+            }
+        )
+    elif kind == "TIME":
+        flat.update(
+            {
+                "default_constant_value": parameters.get("constant_value"),
+                "default_constant_until_stop": parameters.get("until_stop"),
+                "default_duration_s": parameters.get("duration_s"),
+                "default_interval_s": parameters.get("interval_s"),
+            }
+        )
+    elif kind == "ADAPTIVE":
+        flat.update(
+            {
+                "default_adaptive_segments": parameters.get("segments", ""),
+                "default_adaptive_remove_duplicates": parameters.get("remove_duplicates"),
+            }
+        )
+    if "debug_model" in sweep:
+        flat["default_debug_model"] = sweep["debug_model"]
+
+    flat = {key: value for key, value in flat.items() if value is not None}
+    cleaned = _snapshot_from_flat(flat)
+    cleaned["sweep"]["hysteresis"] = (
+        _bool_value(sweep.get("hysteresis"), False)
+        if cleaned["sweep"]["kind"] in {"STEP", "ADAPTIVE"}
+        else False
+    )
+    return cleaned
 
 
 def default_sweep_preset() -> dict[str, Any]:
-    settings = AppSettings()
-    data = asdict(settings)
-    return {k: data[k] for k in SWEEP_PRESET_KEYS}
+    """Return the built-in Hardware + Sweep preset snapshot."""
+    return _snapshot_from_flat(asdict(AppSettings()))
 
 
 def _clean(data: dict[str, Any]) -> dict[str, Any]:
-    defaults = default_sweep_preset()
-    sanitized = sanitize_settings_dict(data)
-    cleaned = defaults.copy()
-    for key in SWEEP_PRESET_KEYS:
-        if key in data:
-            cleaned[key] = sanitized[key]
-    return cleaned
+    if data.get("schema_version") == PRESET_SCHEMA_VERSION:
+        return _clean_v2(data)
+    return _snapshot_from_flat(data)
+
+
+def normalize_preset(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a validated v2 Hardware + Sweep snapshot."""
+    return _clean(data)
 
 
 def load_presets(path: str | Path = PRESETS_PATH) -> dict[str, dict[str, Any]]:
@@ -70,15 +217,12 @@ def save_preset(
         raise ValueError("Preset name cannot be empty.")
     if name == "Default":
         raise ValueError("Default preset is built in and cannot be overwritten.")
-    if isinstance(settings, AppSettings):
-        data = asdict(settings)
-    else:
-        data = dict(settings)
+    data = asdict(settings) if isinstance(settings, AppSettings) else dict(settings)
     path = Path(path)
     presets = load_presets(path)
     presets[name] = _clean(data)
     path.parent.mkdir(parents=True, exist_ok=True)
-    serializable = {k: v for k, v in presets.items() if k != "Default"}
+    serializable = {key: value for key, value in presets.items() if key != "Default"}
     path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
     return path
 
@@ -90,6 +234,6 @@ def delete_preset(name: str, path: str | Path = PRESETS_PATH) -> Path:
     presets = load_presets(path)
     presets.pop(name, None)
     path.parent.mkdir(parents=True, exist_ok=True)
-    serializable = {k: v for k, v in presets.items() if k != "Default"}
+    serializable = {key: value for key, value in presets.items() if key != "Default"}
     path.write_text(json.dumps(serializable, indent=2), encoding="utf-8")
     return path

@@ -171,7 +171,6 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
             0.0
             if key
             in {
-                "default_step",
                 "default_compliance",
                 "default_nplc",
                 "default_delay_s",

@@ -86,11 +86,15 @@ def test_load_presets_sanitizes_partial_legacy_presets(tmp_path: Path) -> None:
     assert "Legacy" in presets
     assert "Broken" not in presets
     assert "" not in presets
-    assert presets["Legacy"]["default_mode"] == "CURR"
-    assert presets["Legacy"]["default_start"] == -5.0
-    assert presets["Legacy"]["default_stop"] == AppSettings().default_stop
-    assert presets["Legacy"]["default_autorange"] is False
-    assert presets["Legacy"]["default_source_range"] == 1e-3
+    legacy = presets["Legacy"]
+    assert legacy["schema_version"] == 2
+    assert legacy["sweep"]["mode"] == "CURR"
+    assert legacy["sweep"]["parameters"]["start"] == -5.0
+    assert legacy["sweep"]["parameters"]["stop"] == AppSettings().default_stop
+    assert legacy["sweep"]["auto_source_range"] is False
+    assert legacy["sweep"]["auto_measure_range"] is False
+    assert legacy["sweep"]["source_range"] == 1e-3
+    assert "unknown" not in legacy
 
 
 def test_save_preset_rejects_empty_and_default_names(tmp_path: Path) -> None:

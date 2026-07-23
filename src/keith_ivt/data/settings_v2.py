@@ -133,8 +133,7 @@ class SweepSettings(BaseModel):
     )
     default_step: float = Field(
         default=0.1,
-        description="Default sweep step size",
-        gt=0,
+        description="Default sweep step size; negative values create descending sweeps",
     )
     default_compliance: float = Field(
         default=0.01,
@@ -213,6 +212,13 @@ class SweepSettings(BaseModel):
         default=True,
         description="Remove repeated Adaptive source values while preserving order",
     )
+
+    @field_validator("default_step")
+    @classmethod
+    def validate_nonzero_step(cls, value: float) -> float:
+        if value == 0:
+            raise ValueError("Sweep step cannot be zero")
+        return value
 
     @model_validator(mode="after")
     def validate_sweep_range(self) -> "SweepSettings":

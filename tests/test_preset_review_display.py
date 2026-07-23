@@ -1,31 +1,47 @@
-"""Test preset review dialog displays complete and clear information."""
+from pathlib import Path
 
 
-def test_preset_review_shows_all_relevant_settings():
-    """Verify that the preset review dialog shows:
+def test_preset_review_shows_hardware_common_and_active_parameters() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "keith_ivt"
+        / "ui"
+        / "settings_preset_actions.py"
+    ).read_text(encoding="utf-8")
+    review = source[source.index("def _fast_preset_review") : source.index("def save_named")]
 
-    1. User-friendly labels instead of internal key names
-    2. Sweep-type-specific settings (Step/Time/Adaptive)
-    3. Range settings when autorange is off
-    4. All critical parameters before confirming save
-
-    The fix improves _fast_preset_review to:
-    - Map internal keys (default_mode) to friendly labels (Mode)
-    - Show only relevant fields based on sweep type
-    - Include compliance, NPLC, and range settings
-    - Format booleans as Yes/No instead of True/False
-    """
-    pass  # UI dialog behavior - manual testing required
+    assert "[Hardware]" in review
+    assert "COM port:" in review
+    assert "Auto source range:" in review
+    assert "Auto measure range:" in review
+    assert "Hysteresis:" in review
+    assert "Adaptive segments" in review
+    assert "parameters.items()" in review
 
 
-if __name__ == "__main__":
-    print("OK - Preset review dialog improved")
-    print("Changes:")
-    print("1. Shows user-friendly labels (Mode, Start, Stop, etc.)")
-    print("2. Displays sweep-type-specific settings:")
-    print("   - Step: Start, Stop, Step")
-    print("   - Time: Constant Value, Duration, Until Stop, Interval")
-    print("   - Adaptive: Start, Stop, Adaptive Logic")
-    print("3. Shows Source/Measure Range when Auto Range is off")
-    print("4. Includes Compliance and NPLC for all sweep types")
-    print("5. Formats booleans as Yes/No for clarity")
+def test_snapshot_capture_does_not_parse_adaptive_or_include_other_pages() -> None:
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "keith_ivt"
+        / "ui"
+        / "settings_preset_actions.py"
+    ).read_text(encoding="utf-8")
+    capture = source[
+        source.index("def _current_preset_snapshot") : source.index(
+            "def _current_sweep_preset_dict"
+        )
+    ]
+
+    assert "_sync_adaptive_logic_text" not in capture
+    assert '"segments": self._adaptive_segment_text()' in capture
+    for unrelated in (
+        "ui_theme",
+        "log_max",
+        "cache_enabled",
+        "device_name",
+        "operator",
+        "arrangement",
+    ):
+        assert unrelated not in capture

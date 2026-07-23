@@ -52,13 +52,12 @@ class TestSweepSettings:
         assert settings.default_start == -1.0
         assert settings.default_step > 0
 
-    def test_invalid_step_size(self):
-        """Step size must be positive."""
+    def test_step_size_must_be_nonzero(self):
+        """Negative steps are valid for descending sweeps; zero is invalid."""
         with pytest.raises(Exception):
             SweepSettings(default_step=0)
 
-        with pytest.raises(Exception):
-            SweepSettings(default_step=-0.1)
+        assert SweepSettings(default_step=-0.1).default_step == -0.1
 
     def test_compliance_must_be_positive(self):
         """Compliance limit must be positive."""
@@ -246,7 +245,7 @@ class TestSettingsMigration:
         settings_file = tmp_path / "bad_legacy.json"
 
         legacy_data = {
-            "default_step": -1.0,  # Invalid: must be positive
+            "default_step": 0.0,  # Invalid: step cannot be zero
             "ui_font_size": 100,  # Invalid: too large
         }
         settings_file.write_text(json.dumps(legacy_data))

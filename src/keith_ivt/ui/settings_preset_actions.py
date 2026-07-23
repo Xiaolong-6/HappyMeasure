@@ -5,7 +5,13 @@ from pathlib import Path
 from tkinter import BooleanVar, StringVar, IntVar, END, messagebox, simpledialog
 from tkinter import ttk
 
-from keith_ivt.data.presets import delete_preset, load_presets, save_preset
+from keith_ivt.data.presets import (
+    PRESET_SCHEMA_VERSION,
+    delete_preset,
+    load_presets,
+    normalize_preset,
+    save_preset,
+)
 from keith_ivt.data.settings import AppSettings, load_settings, save_settings
 from keith_ivt.instrument.simulator import debug_model_names
 
@@ -441,73 +447,57 @@ class SettingsPresetMixin(UiMixinTyping):
             self.preset_list.insert("", END, values=(name,))
 
     def _fast_preset_review(self, name: str, data: dict) -> dict | None:
-        """Fast preset review path with clear, mode-aware preview."""
-        # Map internal keys to user-friendly labels
-        label_map = {
-            "default_mode": "Mode",
-            "default_sweep_kind": "Sweep Type",
-            "default_start": "Start",
-            "default_stop": "Stop",
-            "default_step": "Step",
-            "default_constant_value": "Constant Value",
-            "default_duration_s": "Duration (s)",
-            "default_constant_until_stop": "Until Stop",
-            "default_interval_s": "Interval (s)",
-            "default_compliance": "Compliance",
-            "default_nplc": "NPLC",
-            "default_autorange": "Auto Range",
-            "default_source_range": "Source Range",
-            "default_measure_range": "Measure Range",
-            "default_adaptive_segments": "Adaptive Segments",
-            "default_adaptive_remove_duplicates": "Remove Duplicate Values",
-            "default_debug_model": "Debug Model",
+        """Review the exact Hardware + visible Sweep snapshot before saving."""
+        hardware = data["hardware"]
+        sweep = data["sweep"]
+        parameters = sweep["parameters"]
+
+        def display(value) -> str:
+            return "Yes" if value is True else "No" if value is False else str(value)
+
+        lines = [
+            "[Hardware]",
+            f"COM port: {display(hardware['port'])}",
+            f"Baud: {display(hardware['baud_rate'])}",
+            f"Terminal: {display(hardware['terminal'])}",
+            f"Sense: {display(hardware['sense_mode'])}",
+            "",
+            "[Sweep]",
+            f"Mode: {display(sweep['mode'])}",
+            f"Sweep type: {display(sweep['kind'])}",
+            f"Hysteresis: {display(sweep['hysteresis'])}",
+            f"Compliance: {display(sweep['compliance'])}",
+            f"NPLC: {display(sweep['nplc'])}",
+            f"Delay (s): {display(sweep['delay_s'])}",
+            f"Auto source range: {display(sweep['auto_source_range'])}",
+            f"Source range: {display(sweep['source_range'])}",
+            f"Auto measure range: {display(sweep['auto_measure_range'])}",
+            f"Measure range: {display(sweep['measure_range'])}",
+        ]
+        if "debug_model" in sweep:
+            lines.append(f"Debug model: {display(sweep['debug_model'])}")
+
+        parameter_labels = {
+            "start": "Start",
+            "stop": "Stop",
+            "step": "Step",
+            "constant_value": "Constant value",
+            "until_stop": "Until Stop",
+            "duration_s": "Duration (s)",
+            "interval_s": "Interval (s)",
+            "segments": "Adaptive segments",
+            "remove_duplicates": "Remove duplicate values",
         }
+        if parameters:
+            lines.extend(["", f"[{sweep['kind']} parameters]"])
+            lines.extend(
+                f"{parameter_labels.get(key, key)}: {display(value)}"
+                for key, value in parameters.items()
+            )
 
-        # Determine which fields are relevant based on sweep type
-        sweep_kind = data.get("default_sweep_kind", "STEP")
-
-        # Always show these base fields
-        base_keys = ["default_mode", "default_sweep_kind", "default_compliance", "default_nplc"]
-
-        # Show sweep-type-specific fields
-        if sweep_kind == "STEP":
-            type_keys = ["default_start", "default_stop", "default_step"]
-        elif sweep_kind == "CONSTANT_TIME":
-            type_keys = [
-                "default_constant_value",
-                "default_duration_s",
-                "default_constant_until_stop",
-                "default_interval_s",
-            ]
-        elif sweep_kind == "ADAPTIVE":
-            type_keys = [
-                "default_adaptive_segments",
-                "default_adaptive_remove_duplicates",
-            ]
-        else:
-            type_keys = []
-
-        # Show range settings if autorange is off
-        range_keys = []
-        if not data.get("default_autorange", True):
-            range_keys = ["default_source_range", "default_measure_range"]
-
-        # Show debug model only in debug mode
-        extra_keys = ["default_debug_model"] if data.get("default_debug_model") else []
-
-        # Build the preview lines with friendly labels
-        all_keys = base_keys + type_keys + range_keys + extra_keys
-        lines = []
-        for key in all_keys:
-            if key in data:
-                label = label_map.get(key, key)
-                value = data[key]
-                # Format boolean values nicely
-                if isinstance(value, bool):
-                    value = "Yes" if value else "No"
-                lines.append(f"{label}: {value}")
-
-        message = f"Save preset '{name}' with these settings?\n\n" + "\n".join(lines)
+        message = f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(
+            lines
+        )
         if messagebox.askyesno("Review Sweep Preset", message):
             return data
         return None
@@ -516,12 +506,12 @@ class SettingsPresetMixin(UiMixinTyping):
         name = simpledialog.askstring("Save preset", "Preset name:")
         if not name:
             return
-        data = self._current_sweep_preset_dict()
+        data = self._current_preset_snapshot()
         chosen = self._fast_preset_review(name, data)
         if chosen is not None:
             save_preset(name, chosen)
             self.refresh_preset_list()
-            self.log_event(f"Sweep preset saved: {name}")
+            self.log_event(f"Hardware/Sweep preset saved: {name}")
 
     def load_selected_preset(self):
         sel = self.preset_list.selection() if hasattr(self, "preset_list") else []
@@ -531,8 +521,8 @@ class SettingsPresetMixin(UiMixinTyping):
         data = load_presets().get(name, {})
         if not data:
             return
-        self._apply_settings_dict(data)
-        self.log_event(f"Preset loaded: {name}")
+        if self._apply_preset_snapshot(data):
+            self.log_event(f"Hardware/Sweep preset loaded: {name}")
 
     def delete_selected_preset(self):
         sel = self.preset_list.selection() if hasattr(self, "preset_list") else []
@@ -547,33 +537,127 @@ class SettingsPresetMixin(UiMixinTyping):
             self.refresh_preset_list()
             self.log_event(f"Preset deleted: {name}")
 
-    def _current_sweep_preset_dict(self) -> dict:
+    def _current_preset_snapshot(self) -> dict:
+        """Capture only the editable Hardware page and visible Sweep state."""
         self._restore_all_numeric_entry_defaults()
-        self._sync_adaptive_logic_text()
-        return {
-            "default_mode": self.mode.get(),
-            "default_sweep_kind": self.sweep_kind.get(),
-            "default_start": float(self.start.get()),
-            "default_stop": float(self.stop.get()),
-            "default_step": float(self.step.get()),
-            "default_constant_value": float(self.constant_value.get()),
-            "default_duration_s": float(self.duration_s.get()),
-            "default_constant_until_stop": bool(self.constant_until_stop.get()),
-            "default_interval_s": float(self.interval_s.get()),
-            "default_compliance": float(self.compliance.get()),
-            "default_nplc": float(self.nplc.get()),
-            "default_delay_s": float(self.delay_s.get()),
-            "default_autorange": bool(
-                self.auto_source_range.get() and self.auto_measure_range.get()
-            ),
-            "default_source_range": float(self.source_range.get()),
-            "default_measure_range": float(self.measure_range.get()),
-            "default_adaptive_logic": self.adaptive_logic.get()
-            or self._adaptive_logic_from_table(),
-            "default_adaptive_segments": self._adaptive_segment_text(),
-            "default_adaptive_remove_duplicates": bool(self.adaptive_remove_duplicates.get()),
-            "default_debug_model": self.debug_model.get(),
+        kind = self._sweep_kind_from_ui().value
+        sweep = {
+            "mode": self._mode_from_ui().value,
+            "kind": kind,
+            "hysteresis": bool(self.hysteresis.get()),
+            "compliance": float(self.compliance.get()),
+            "nplc": float(self.nplc.get()),
+            "delay_s": float(self.delay_s.get()),
+            "auto_source_range": bool(self.auto_source_range.get()),
+            "source_range": float(self.source_range.get()),
+            "auto_measure_range": bool(self.auto_measure_range.get()),
+            "measure_range": float(self.measure_range.get()),
         }
+        if bool(self.debug.get()):
+            sweep["debug_model"] = self.debug_model.get()
+
+        if kind == "STEP":
+            parameters = {
+                "start": float(self.start.get()),
+                "stop": float(self.stop.get()),
+                "step": float(self.step.get()),
+            }
+        elif kind == "TIME":
+            parameters = {
+                "constant_value": float(self.constant_value.get()),
+                "until_stop": bool(self.constant_until_stop.get()),
+                "duration_s": float(self.duration_s.get()),
+                "interval_s": float(self.interval_s.get()),
+            }
+        elif kind == "ADAPTIVE":
+            parameters = {
+                "segments": self._adaptive_segment_text(),
+                "remove_duplicates": bool(self.adaptive_remove_duplicates.get()),
+            }
+        else:
+            parameters = {}
+        sweep["parameters"] = parameters
+
+        return {
+            "schema_version": PRESET_SCHEMA_VERSION,
+            "hardware": {
+                "port": self.port.get(),
+                "baud_rate": int(self.baud_rate.get()),
+                "terminal": self._terminal_scpi(self.terminal.get()),
+                "sense_mode": self._sense_scpi(self.sense_mode.get()),
+            },
+            "sweep": sweep,
+        }
+
+    def _current_sweep_preset_dict(self) -> dict:
+        """Compatibility alias for the former flat Sweep-only snapshot."""
+        return self._current_preset_snapshot()
+
+    def _apply_preset_snapshot(self, data: dict) -> bool:
+        """Apply a validated v2 preset atomically without mode-default side effects."""
+        data = normalize_preset(data)
+        hardware = data["hardware"]
+        sweep = data["sweep"]
+        parameters = sweep["parameters"]
+        current = self._current_preset_snapshot()
+
+        if getattr(self, "_connected", False) and current["hardware"] != hardware:
+            messagebox.showwarning(
+                "Disconnect required",
+                "This preset changes Hardware settings. Disconnect the active instrument, then load the preset again.",
+            )
+            return False
+        if current["sweep"] != sweep and self._datasets.all():
+            if not self._confirm_clear_existing_data("loading a Hardware/Sweep preset"):
+                return False
+
+        self._applying_preset = True
+        try:
+            self.port.set(hardware["port"])
+            self.baud_rate.set(hardware["baud_rate"])
+            self.terminal.set(self._display_terminal(hardware["terminal"]))
+            self.sense_mode.set(self._display_sense(hardware["sense_mode"]))
+
+            self.mode.set(sweep["mode"])
+            self.sweep_kind.set(sweep["kind"])
+            self.hysteresis.set(bool(sweep["hysteresis"]))
+            self.compliance.set(sweep["compliance"])
+            self.nplc.set(sweep["nplc"])
+            self.delay_s.set(sweep["delay_s"])
+            self.auto_source_range.set(bool(sweep["auto_source_range"]))
+            self.source_range.set(sweep["source_range"])
+            self.auto_measure_range.set(bool(sweep["auto_measure_range"]))
+            self.measure_range.set(sweep["measure_range"])
+            self.autorange.set(bool(sweep["auto_source_range"] and sweep["auto_measure_range"]))
+            if "debug_model" in sweep:
+                self.debug_model.set(sweep["debug_model"])
+
+            kind = sweep["kind"]
+            if kind == "STEP":
+                self.start.set(parameters["start"])
+                self.stop.set(parameters["stop"])
+                self.step.set(parameters["step"])
+            elif kind == "TIME":
+                self.constant_value.set(parameters["constant_value"])
+                self.constant_until_stop.set(bool(parameters["until_stop"]))
+                self.duration_s.set(parameters["duration_s"])
+                self.interval_s.set(parameters["interval_s"])
+            elif kind == "ADAPTIVE":
+                self.adaptive_segments.set(parameters["segments"])
+                self.adaptive_remove_duplicates.set(bool(parameters["remove_duplicates"]))
+        finally:
+            self._applying_preset = False
+
+        self._last_mode_value = self.mode.get()
+        self._last_sweep_kind_value = self.sweep_kind.get()
+        self._capture_numeric_entry_defaults()
+        self._update_units_for_mode()
+        self._update_dynamic_sweep_fields()
+        self._update_range_state()
+        self._update_hysteresis_state()
+        self._update_point_count()
+        self._refresh_instrument_indicator()
+        return True
 
     def _apply_settings_dict(self, data: dict):
         mapping = {

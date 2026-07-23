@@ -85,6 +85,9 @@ class SweepConfigMixin(UiMixinTyping):
 
     def _on_mode_changed(self, *_):
         new_value = self.mode.get()
+        if getattr(self, "_applying_preset", False):
+            self._last_mode_value = new_value
+            return
         if new_value == self._last_mode_value:
             return
         if not self._confirm_clear_existing_data("changing source mode"):
@@ -98,6 +101,9 @@ class SweepConfigMixin(UiMixinTyping):
 
     def _on_sweep_kind_changed(self, *_):
         new_value = self.sweep_kind.get()
+        if getattr(self, "_applying_preset", False):
+            self._last_sweep_kind_value = new_value
+            return
         if new_value == self._last_sweep_kind_value:
             return
         if not self._confirm_clear_existing_data("changing sweep type"):

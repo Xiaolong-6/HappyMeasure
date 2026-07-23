@@ -83,13 +83,23 @@ def test_old_settings_leave_new_adaptive_editor_empty(tmp_path) -> None:
 
 
 def test_old_presets_leave_new_adaptive_editor_empty() -> None:
-    migrated = _clean({"default_adaptive_logic": "values = [0, 0.5, 1]"})
-    assert migrated["default_adaptive_segments"] == ""
+    migrated = _clean(
+        {
+            "default_sweep_kind": "ADAPTIVE",
+            "default_adaptive_logic": "values = [0, 0.5, 1]",
+        }
+    )
+    assert migrated["sweep"]["parameters"]["segments"] == ""
 
 
 def test_invalid_old_preset_logic_does_not_fill_the_new_editor() -> None:
-    migrated = _clean({"default_adaptive_logic": "not valid"})
-    assert migrated["default_adaptive_segments"] == ""
+    migrated = _clean(
+        {
+            "default_sweep_kind": "ADAPTIVE",
+            "default_adaptive_logic": "not valid",
+        }
+    )
+    assert migrated["sweep"]["parameters"]["segments"] == ""
 
 
 def test_config_preserves_duplicate_values_when_option_is_disabled() -> None:
