@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Adaptive multiline segment editor
+
+- Replaced the fixed Adaptive row table with a multiline `start, stop, step` editor.
+- Added explicit ascending and descending syntax guidance plus line-numbered validation.
+- Added an option to preserve repeated scan values or remove them globally while keeping order.
+- Preserved editable segment text and the duplicate option in settings, presets, CSV metadata, and persistent storage.
+- Added migration from legacy `values = [...]` Adaptive settings.
+
 ## 1.1b3 — Keithley front-panel current range control
 
 - Polished the front-panel current-range popup layout so labels/buttons no longer clip, range state is shown as compact Mode / Actual range / Last change summary cells, and range controls are grouped into one readable row.

@@ -16,6 +16,7 @@ from keith_ivt.data.dataset_store import DatasetStore
 from keith_ivt.data.logging_utils import AppLog
 from keith_ivt.data.settings import load_settings
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepPoint, SweepResult, Terminal
+from keith_ivt.sweeps.table_sweep import DEFAULT_SEGMENT_TEXT
 from keith_ivt.ui.plot_views import PlotView
 from keith_ivt.ui.app_mixins import AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin
 from keith_ivt.ui.menu_utils import make_touch_menu, popup_menu
@@ -30,18 +31,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
     The historical internal package remains ``keith_ivt`` for import stability,
     but the user-facing product name is HappyMeasure.
     """
-
-    DEFAULT_ADAPTIVE_ROWS = [
-        (-10.0, -1.0, 1.0),
-        (-1.0, -0.1, 0.1),
-        (-0.1, -0.01, 0.01),
-        (-0.01, -0.001, 0.001),
-        (0.0, 0.0, 1.0),
-        (0.001, 0.01, 0.001),
-        (0.01, 0.1, 0.01),
-        (0.1, 1.0, 0.1),
-        (1.0, 10.0, 1.0),
-    ]
 
     def __init__(self) -> None:
         self.root = Tk()
@@ -100,6 +89,13 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.adaptive_logic = StringVar(
             value=getattr(self.settings, "default_adaptive_logic", DEFAULT_ADAPTIVE_LOGIC)
         )
+        self.adaptive_segments = StringVar(
+            value=getattr(self.settings, "default_adaptive_segments", DEFAULT_SEGMENT_TEXT)
+        )
+        self.adaptive_remove_duplicates = BooleanVar(
+            value=getattr(self.settings, "default_adaptive_remove_duplicates", True)
+        )
+        self.adaptive_validation_text = StringVar(value="")
         self.compliance = DoubleVar(value=self.settings.default_compliance)
         self.nplc = DoubleVar(value=self.settings.default_nplc)
         self.delay_s = DoubleVar(value=getattr(self.settings, "default_delay_s", 0.0))
@@ -131,14 +127,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             value=getattr(self.settings, "show_front_panel_on_start", True)
         )
         self.ui_scale_choice = StringVar(value=f"{int(self.ui_font_size.get())} pt")
-        self.adaptive_start = DoubleVar(value=0.001)
-        self.adaptive_stop = DoubleVar(value=1.0)
-        self.adaptive_step = DoubleVar(value=0.001)
-        # Adaptive sweep is now a simple segment table: start / stop / step.
-        # Each row is converted to standard step values and concatenated.
-        self.adaptive_rows: list[dict[str, DoubleVar]] = []
-        self._adaptive_advanced_active = False
-
         # Settings and plot variables
         self.log_max_kb = IntVar(value=max(10, int((self.settings.log_max_bytes + 1023) // 1024)))
         self.log_max_bytes = IntVar(value=self.settings.log_max_bytes)  # legacy/internal mirror
@@ -256,7 +244,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
     def _make_config(self) -> SweepConfig:
         sweep_kind = self._sweep_kind_from_ui()
         if sweep_kind is SweepKind.ADAPTIVE:
-            self.adaptive_logic.set(self._adaptive_logic_from_table())
+            self._sync_adaptive_logic_text()
         return SweepConfig(
             mode=self._mode_from_ui(),
             start=float(self.start.get()),
@@ -290,6 +278,8 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             range_settle_delay_ms=int(self.range_settle_delay_ms.get()),
             discard_after_range_change=int(self.discard_after_range_change.get()),
             adaptive_logic=self.adaptive_logic.get() or DEFAULT_ADAPTIVE_LOGIC,
+            adaptive_segments=self.adaptive_segments.get(),
+            adaptive_remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
             debug_model=self.debug_model.get(),
         )
 

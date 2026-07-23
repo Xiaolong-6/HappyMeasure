@@ -52,7 +52,8 @@ Worker threads may produce points faster than the UI can redraw. The UI must pro
 
 ## Historical UI/simulator refinement note
 
-- Adaptive sweep rows are compact table rows, not tall per-segment cards.
+- Adaptive sweeps use one multiline editor with a `start, stop, step` segment
+  on each line. The core parser, not Tk widgets, owns validation and value generation.
 - Sweep and Settings boolean controls are colored toggle buttons rather than native checkbox widgets.
 - Source/measure range rows use `label + entry + Auto` in one row; Auto disables the entry and remains clickable only when the sweep panel is editable.
 - Current-source diode debug simulation now inverts the voltage-source diode I(V) curve, so the named debug model behaves consistently across source modes.
@@ -63,7 +64,7 @@ Worker threads may produce points faster than the UI can redraw. The UI must pro
 ## Historical theme/adaptive polish note
 
 - Theme names are now `Light`, `Dark`, and `Debug`. `Light` is the default clean theme; `Debug` is the renamed high-border layout-inspection theme. Existing saved `High contrast` migrates to `Debug`.
-- Common sweep safety controls are intentionally above dynamic sweep controls. Do not move Compliance/NPLC/Source range/Measure range below the Adaptive table, because that hides range settings in narrow panes.
+- Common sweep safety controls are intentionally above dynamic sweep controls. Do not move Compliance/NPLC/Source range/Measure range below the Adaptive editor, because that hides range settings in narrow panes.
 - Splitters use the same soft themed paned-window background for the main left/right pane and the plot/trace pane.
 
 

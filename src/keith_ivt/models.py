@@ -57,6 +57,8 @@ class SweepConfig:
     range_settle_delay_ms: int = 300
     discard_after_range_change: int = 2
     adaptive_logic: str = "values = logspace(1e-3, 1, 31)"
+    adaptive_segments: str = ""
+    adaptive_remove_duplicates: bool = True
     debug_model: str = "Linear resistor 10 kΩ"
 
     @property
@@ -142,9 +144,20 @@ def source_values_for_config(config: SweepConfig) -> list[float]:
             config.constant_value, config.duration_s, config.interval_s
         )
     if config.sweep_kind is SweepKind.ADAPTIVE:
-        from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
+        if config.adaptive_segments.strip():
+            from keith_ivt.sweeps.table_sweep import parse_segment_text
 
-        values = adaptive_values_from_logic(config.adaptive_logic)
+            values = parse_segment_text(
+                config.adaptive_segments,
+                remove_duplicates=config.adaptive_remove_duplicates,
+            )
+        else:
+            from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
+
+            values = adaptive_values_from_logic(
+                config.adaptive_logic,
+                remove_duplicates=config.adaptive_remove_duplicates,
+            )
         return make_hysteresis_values(values) if config.hysteresis else values
     values = make_source_values(config.start, config.stop, config.step)
     return make_hysteresis_values(values) if config.hysteresis else values

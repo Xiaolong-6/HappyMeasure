@@ -109,7 +109,7 @@ def _parse_values_expression(logic: str) -> ast.AST:
     return assignment.value
 
 
-def adaptive_values_from_logic(logic: str) -> list[float]:
+def adaptive_values_from_logic(logic: str, *, remove_duplicates: bool = True) -> list[float]:
     """Parse a small, non-executable adaptive sweep expression.
 
     The accepted forms are ``values = [number, ...]``,
@@ -123,7 +123,8 @@ def adaptive_values_from_logic(logic: str) -> list[float]:
     if len(code) > MAX_LOGIC_LENGTH:
         raise ValueError("Adaptive logic is too long.")
     values = _evaluate_values_expression(_parse_values_expression(code))
-    values = dedupe_adjacent_values(values)
+    if remove_duplicates:
+        values = dedupe_adjacent_values(values)
     if not values:
         raise ValueError("Adaptive logic produced no values.")
     if len(values) > MAX_ADAPTIVE_POINTS:

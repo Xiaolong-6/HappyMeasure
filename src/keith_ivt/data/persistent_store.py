@@ -572,6 +572,8 @@ class PersistentDatasetStore(DatasetStore):
             "range_settle_delay_ms": config.range_settle_delay_ms,
             "discard_after_range_change": config.discard_after_range_change,
             "adaptive_logic": config.adaptive_logic,
+            "adaptive_segments": config.adaptive_segments,
+            "adaptive_remove_duplicates": config.adaptive_remove_duplicates,
             "debug_model": config.debug_model,
         }
 
@@ -605,6 +607,8 @@ class PersistentDatasetStore(DatasetStore):
             range_settle_delay_ms=data.get("range_settle_delay_ms", 300),
             discard_after_range_change=data.get("discard_after_range_change", 2),
             adaptive_logic=data.get("adaptive_logic", ""),
+            adaptive_segments=data.get("adaptive_segments", ""),
+            adaptive_remove_duplicates=data.get("adaptive_remove_duplicates", True),
             debug_model=data.get("debug_model", ""),
         )
 

@@ -48,6 +48,8 @@ auto_measure_range
 source_range
 measure_range
 adaptive_logic
+adaptive_segments
+adaptive_remove_duplicates
 data_fingerprint
 config_fingerprint
 trace_uid

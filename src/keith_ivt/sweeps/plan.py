@@ -84,7 +84,22 @@ def plan_from_config(config: SweepConfig) -> SweepPlan:
         )
         kind = SweepExecutionKind.CONSTANT_TIME
     elif config.sweep_kind is SweepKind.ADAPTIVE:
-        values = tuple(adaptive_values_from_logic(config.adaptive_logic))
+        if config.adaptive_segments.strip():
+            from keith_ivt.sweeps.table_sweep import parse_segment_text
+
+            values = tuple(
+                parse_segment_text(
+                    config.adaptive_segments,
+                    remove_duplicates=config.adaptive_remove_duplicates,
+                )
+            )
+        else:
+            values = tuple(
+                adaptive_values_from_logic(
+                    config.adaptive_logic,
+                    remove_duplicates=config.adaptive_remove_duplicates,
+                )
+            )
         kind = SweepExecutionKind.ADAPTIVE
     else:
         values = tuple(make_source_values(config.start, config.stop, config.step))

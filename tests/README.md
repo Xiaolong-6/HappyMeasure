@@ -40,6 +40,7 @@ test_visual_responsive_layout.py     responsive layout contracts
 test_navigation_theme_polish.py      navigation and theme polish contracts
 test_theme_trace_menu.py             theme + trace context menu contracts
 test_adaptive_log_settings.py        adaptive editor and log settings contracts
+test_adaptive_segment_text.py        multiline segment syntax, migration, dedupe, and round trips
 test_export_log_ui.py                export/log UI contracts
 test_pause_adaptive_sweep.py         pause and adaptive sweep contracts
 test_handoff_trace_log_font.py       latest trace/log/font handoff contracts

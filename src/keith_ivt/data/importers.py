@@ -114,6 +114,10 @@ def _config_from_metadata(
         range_settle_delay_ms=_int_or_default(metadata.get("range_settle_delay_ms"), 300),
         discard_after_range_change=_int_or_default(metadata.get("discard_after_range_change"), 2),
         adaptive_logic=str(metadata.get("adaptive_logic") or "values = logspace(1e-3, 1, 31)"),
+        adaptive_segments=str(metadata.get("adaptive_segments") or ""),
+        adaptive_remove_duplicates=_bool_or_default(
+            metadata.get("adaptive_remove_duplicates"), True
+        ),
         debug_model=str(metadata.get("debug_model") or "Linear resistor 10 kΩ"),
     )
 

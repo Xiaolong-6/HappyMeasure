@@ -19,6 +19,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from keith_ivt.sweeps.table_sweep import (
+    DEFAULT_SEGMENT_TEXT,
+    segment_text_from_legacy_logic,
+)
+
 logger = logging.getLogger("keith_ivt.settings")
 
 
@@ -205,6 +210,29 @@ class SweepSettings(BaseModel):
         description="Adaptive sweep logic expression",
         min_length=5,
     )
+    default_adaptive_segments: str = Field(
+        default=DEFAULT_SEGMENT_TEXT,
+        description="One start, stop, step Adaptive segment per line",
+        min_length=1,
+    )
+    default_adaptive_remove_duplicates: bool = Field(
+        default=True,
+        description="Remove repeated Adaptive source values while preserving order",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_adaptive_segments(cls, data: Any) -> Any:
+        if not isinstance(data, dict) or str(data.get("default_adaptive_segments", "")).strip():
+            return data
+        migrated = dict(data)
+        try:
+            migrated["default_adaptive_segments"] = segment_text_from_legacy_logic(
+                str(data.get("default_adaptive_logic", ""))
+            )
+        except ValueError:
+            migrated["default_adaptive_segments"] = DEFAULT_SEGMENT_TEXT
+        return migrated
 
     @model_validator(mode="after")
     def validate_sweep_range(self) -> "SweepSettings":
@@ -368,6 +396,8 @@ class AppSettings(BaseModel):
             "default_constant_until_stop": self.sweep.default_constant_until_stop,
             "default_interval_s": self.sweep.default_interval_s,
             "default_adaptive_logic": self.sweep.default_adaptive_logic,
+            "default_adaptive_segments": self.sweep.default_adaptive_segments,
+            "default_adaptive_remove_duplicates": self.sweep.default_adaptive_remove_duplicates,
             "ui_font_family": self.ui.ui_font_family,
             "ui_font_size": self.ui.ui_font_size,
             "ui_theme": self.ui.ui_theme.value,
@@ -473,6 +503,8 @@ def _migrate_legacy(data: dict[str, Any]) -> AppSettings:
         "default_constant_until_stop",
         "default_interval_s",
         "default_adaptive_logic",
+        "default_adaptive_segments",
+        "default_adaptive_remove_duplicates",
     }
     ui_keys = {
         "ui_font_family",

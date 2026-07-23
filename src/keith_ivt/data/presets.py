@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
+from keith_ivt.sweeps.table_sweep import segment_text_from_legacy_logic
 
 PRESETS_PATH = Path("config") / "presets.json"
 SWEEP_PRESET_KEYS = {
@@ -23,6 +24,8 @@ SWEEP_PRESET_KEYS = {
     "default_source_range",
     "default_measure_range",
     "default_adaptive_logic",
+    "default_adaptive_segments",
+    "default_adaptive_remove_duplicates",
 }
 
 
@@ -39,6 +42,13 @@ def _clean(data: dict[str, Any]) -> dict[str, Any]:
     for key in SWEEP_PRESET_KEYS:
         if key in data:
             cleaned[key] = sanitized[key]
+    if "default_adaptive_segments" not in data and "default_adaptive_logic" in data:
+        try:
+            cleaned["default_adaptive_segments"] = segment_text_from_legacy_logic(
+                str(cleaned["default_adaptive_logic"])
+            )
+        except ValueError:
+            pass
     return cleaned
 
 

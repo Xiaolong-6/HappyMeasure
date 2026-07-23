@@ -22,13 +22,15 @@ def test_alpha7_queue_drain_is_bounded_for_pause_stop_responsiveness():
     assert "_redraw_all_plots" not in point_branch
 
 
-def test_alpha7_adaptive_table_is_responsive_segment_rows():
+def test_adaptive_editor_is_a_responsive_multiline_text_box():
     src = read("src/keith_ivt/ui/sweep_config.py")
-    table = src[src.index("def _build_adaptive_segment_table") : src.index("def _add_adaptive_row")]
-    assert 'uniform="adaptive_compact"' in table
-    assert "minsize=72" in table
-    assert "＋ Row" in table and "－ Row" in table and "Reset" in table
-    assert "Duplicate boundaries are removed automatically" in table
+    editor = src[
+        src.index("def _build_adaptive_segment_table") : src.index("def _adaptive_segment_text")
+    ]
+    assert "tk.Text(" in editor
+    assert 'wrap="none"' in editor
+    assert "Remove duplicate scan values" in editor
+    assert "Segments run from top to bottom" in editor
 
 
 def test_alpha7_docs_mention_pause_stop_and_adaptive_table_hotfix():

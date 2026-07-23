@@ -45,6 +45,8 @@ class SettingsPresetMixin(UiMixinTyping):
             default_constant_until_stop=bool(self.constant_until_stop.get()),
             default_interval_s=float(self.interval_s.get()),
             default_adaptive_logic=self._adaptive_logic_from_table(),
+            default_adaptive_segments=self._adaptive_segment_text(),
+            default_adaptive_remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
             ui_font_family=self.ui_font_family.get(),
             ui_font_size=int(self.ui_font_size.get()),
             ui_theme=self.ui_theme.get(),
@@ -321,7 +323,8 @@ class SettingsPresetMixin(UiMixinTyping):
             "auto_measure_range": "Auto Measure Range",
             "default_source_range": "Source Range",
             "default_measure_range": "Measure Range",
-            "default_adaptive_logic": "Adaptive Logic",
+            "default_adaptive_segments": "Adaptive Segments",
+            "default_adaptive_remove_duplicates": "Remove Duplicate Values",
         }
         return label_map.get(key, key.replace("_", " ").title())
 
@@ -429,7 +432,8 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_autorange": "Auto Range",
             "default_source_range": "Source Range",
             "default_measure_range": "Measure Range",
-            "default_adaptive_logic": "Adaptive Logic",
+            "default_adaptive_segments": "Adaptive Segments",
+            "default_adaptive_remove_duplicates": "Remove Duplicate Values",
             "default_debug_model": "Debug Model",
         }
 
@@ -450,7 +454,10 @@ class SettingsPresetMixin(UiMixinTyping):
                 "default_interval_s",
             ]
         elif sweep_kind == "ADAPTIVE":
-            type_keys = ["default_start", "default_stop", "default_adaptive_logic"]
+            type_keys = [
+                "default_adaptive_segments",
+                "default_adaptive_remove_duplicates",
+            ]
         else:
             type_keys = []
 
@@ -536,6 +543,8 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_measure_range": float(self.measure_range.get()),
             "default_adaptive_logic": self.adaptive_logic.get()
             or self._adaptive_logic_from_table(),
+            "default_adaptive_segments": self._adaptive_segment_text(),
+            "default_adaptive_remove_duplicates": bool(self.adaptive_remove_duplicates.get()),
             "default_debug_model": self.debug_model.get(),
         }
 
@@ -570,6 +579,8 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_source_range": self.source_range,
             "default_measure_range": self.measure_range,
             "default_adaptive_logic": self.adaptive_logic,
+            "default_adaptive_segments": self.adaptive_segments,
+            "default_adaptive_remove_duplicates": self.adaptive_remove_duplicates,
             "log_max_bytes": self.log_max_bytes,
             "log_max_kb": self.log_max_kb,
             "ui_font_family": self.ui_font_family,
@@ -599,7 +610,7 @@ class SettingsPresetMixin(UiMixinTyping):
         try:
             if hasattr(self, "adaptive_text") and self.adaptive_text.winfo_exists():
                 self.adaptive_text.delete("1.0", END)
-                self.adaptive_text.insert("1.0", self.adaptive_logic.get())
+                self.adaptive_text.insert("1.0", self.adaptive_segments.get())
         except Exception:
             pass
         self._update_units_for_mode()

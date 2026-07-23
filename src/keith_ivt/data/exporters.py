@@ -64,6 +64,8 @@ def result_metadata(result: SweepResult) -> dict:
                 "measure_range": cfg.measure_range,
                 "range_settle_delay_ms": cfg.range_settle_delay_ms,
                 "discard_after_range_change": cfg.discard_after_range_change,
+                "adaptive_segments": cfg.adaptive_segments,
+                "adaptive_remove_duplicates": cfg.adaptive_remove_duplicates,
             },
             sort_keys=True,
         ).encode("utf-8")
@@ -102,6 +104,8 @@ def result_metadata(result: SweepResult) -> dict:
         "range_settle_delay_ms": cfg.range_settle_delay_ms,
         "discard_after_range_change": cfg.discard_after_range_change,
         "adaptive_logic": cfg.adaptive_logic,
+        "adaptive_segments": cfg.adaptive_segments,
+        "adaptive_remove_duplicates": cfg.adaptive_remove_duplicates,
         "debug_model": cfg.debug_model,
         "data_fingerprint": data_fingerprint,
         "config_fingerprint": config_fingerprint,

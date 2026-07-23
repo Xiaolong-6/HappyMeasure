@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from tkinter import DoubleVar, messagebox
+import tkinter as tk
+from tkinter import messagebox
 from tkinter import ttk
 
 from keith_ivt.ui.widgets import add_tip
 
-from keith_ivt.core.adaptive_logic import adaptive_values_from_logic
+from keith_ivt.core.adaptive_logic import MAX_ADAPTIVE_POINTS
 from keith_ivt.models import (
     SweepKind,
     SweepMode,
@@ -14,6 +15,7 @@ from keith_ivt.models import (
     make_hysteresis_values,
     make_source_values,
 )
+from keith_ivt.sweeps.table_sweep import parse_segment_text
 
 
 from keith_ivt.ui.mixin_typing import UiMixinTyping
@@ -71,14 +73,13 @@ class SweepConfigMixin(UiMixinTyping):
             self.interval_s,
             self.nplc,
             self.delay_s,
-            self.adaptive_logic,
-            self.adaptive_start,
-            self.adaptive_stop,
-            self.adaptive_step,
             self.debug_model,
         ]:
             var.trace_add("write", lambda *_: self._update_point_count())
         self.hysteresis.trace_add("write", lambda *_: self._update_point_count())
+        self.adaptive_remove_duplicates.trace_add(
+            "write", lambda *_: self._adaptive_input_changed()
+        )
         self.constant_until_stop.trace_add("write", self._refresh_time_config)
         self.debug.trace_add("write", self._on_debug_changed)
 
@@ -272,92 +273,76 @@ class SweepConfigMixin(UiMixinTyping):
         except Exception:
             self.duration_row = None
 
-    def _adaptive_values_from_rows(self) -> list[float]:
-        values: list[float] = []
-        rows = self.adaptive_rows or [
-            {"start": self.adaptive_start, "stop": self.adaptive_stop, "step": self.adaptive_step}
-        ]
-        for row in rows:
-            start = float(row["start"].get())
-            stop = float(row["stop"].get())
-            step = float(row["step"].get())
-            segment = make_source_values(start, stop, step)
-            if values and segment and abs(values[-1] - segment[0]) < 1e-15:
-                segment = segment[1:]
-            values.extend(segment)
-        if not values:
-            raise ValueError("Adaptive table produced no source values.")
-        return values
-
-    def _make_adaptive_row(
-        self, start: float = 0.0, stop: float = 1.0, step: float = 0.1
-    ) -> dict[str, DoubleVar]:
-        row = {
-            "start": DoubleVar(value=start),
-            "stop": DoubleVar(value=stop),
-            "step": DoubleVar(value=step),
-        }
-        for var in row.values():
-            var.trace_add("write", lambda *_: self._update_point_count())
-        return row
-
-    def _ensure_adaptive_rows(self) -> None:
-        if not self.adaptive_rows:
-            for start, stop, step in self.DEFAULT_ADAPTIVE_ROWS:
-                self.adaptive_rows.append(self._make_adaptive_row(start, stop, step))
-
     def _build_adaptive_segment_table(self, parent) -> None:
-        """Build a full adaptive segment table using the page scrollbar only."""
-        self._ensure_adaptive_rows()
+        """Build the multiline start/stop/step Adaptive editor."""
         parent.columnconfigure(0, weight=1)
 
         holder = ttk.Frame(parent, style="Card.TFrame")
-        holder.grid(row=0, column=0, sticky="ew", padx=0, pady=(0, 4))
-        holder.columnconfigure(0, weight=0, minsize=32)
-        for c in range(1, 4):
-            holder.columnconfigure(c, weight=1, uniform="adaptive_compact", minsize=72)
+        holder.grid(row=0, column=0, sticky="nsew", padx=0, pady=(0, 4))
+        holder.columnconfigure(0, weight=1)
 
-        ttk.Label(holder, text="#", style="Muted.TLabel").grid(
-            row=0, column=0, sticky="w", padx=(8, 6), pady=(6, 3)
+        ttk.Label(
+            holder,
+            text="Adaptive segments (one start, stop, step range per line)",
+            style="Card.TLabel",
+        ).grid(row=0, column=0, sticky="w", padx=6, pady=(5, 3))
+
+        editor = tk.Text(
+            holder,
+            height=9,
+            wrap="none",
+            undo=True,
+            font=("Consolas", 10),
+            padx=8,
+            pady=6,
         )
-        for c, title in enumerate(["Start", "Stop", "Step"], start=1):
-            ttk.Label(holder, text=title, style="Muted.TLabel").grid(
-                row=0, column=c, sticky="w", padx=3, pady=(6, 3)
-            )
-
-        for r, row in enumerate(self.adaptive_rows, start=1):
-            ttk.Label(holder, text=str(r), style="Muted.TLabel").grid(
-                row=r, column=0, sticky="w", padx=(8, 6), pady=2
-            )
-            for c, key in enumerate(["start", "stop", "step"], start=1):
-                ent = ttk.Entry(holder, textvariable=row[key], width=8)
-                ent.grid(row=r, column=c, sticky="ew", padx=3, pady=2)
-                add_tip(ent, f"Adaptive segment {r}: {key} value.")
-
-        btns = ttk.Frame(parent, style="ToolbarInner.TFrame")
-        btns.grid(row=1, column=0, sticky="ew", padx=1, pady=(6, 0))
-        for c in range(3):
-            btns.columnconfigure(c, weight=1, uniform="adaptive_buttons")
-        ttk.Button(btns, text="＋ Row", style="Soft.TButton", command=self._add_adaptive_row).grid(
-            row=0, column=0, sticky="ew", padx=(0, 3)
+        editor.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
+        palette = getattr(self, "_palette", {})
+        editor.configure(
+            background=palette.get("card", "#FFFFFF"),
+            foreground=palette.get("fg", "#0F172A"),
+            insertbackground=palette.get("fg", "#0F172A"),
+            selectbackground=palette.get("accent", "#165FA7"),
         )
-        ttk.Button(
-            btns, text="－ Row", style="Soft.TButton", command=self._remove_adaptive_row
-        ).grid(row=0, column=1, sticky="ew", padx=3)
-        ttk.Button(
-            btns, text="Reset", style="Soft.TButton", command=self._reset_adaptive_rows
-        ).grid(row=0, column=2, sticky="ew", padx=(3, 0))
+        segment_scroll = ttk.Scrollbar(holder, orient="vertical", command=editor.yview)
+        segment_scroll.grid(row=1, column=1, sticky="ns", padx=(0, 5), pady=(0, 5))
+        editor.configure(yscrollcommand=segment_scroll.set)
+        editor.insert("1.0", self.adaptive_segments.get())
+        editor.bind("<KeyRelease>", self._adaptive_input_changed, add="+")
+        editor.bind("<<Paste>>", self._adaptive_input_changed, add="+")
+        editor.bind("<<Cut>>", self._adaptive_input_changed, add="+")
+        self.adaptive_text = editor
+        add_tip(editor, "Enter one comma-separated start, stop, step segment per line.")
+
+        ttk.Checkbutton(
+            holder,
+            text="Remove duplicate scan values",
+            variable=self.adaptive_remove_duplicates,
+        ).grid(row=2, column=0, sticky="w", padx=6, pady=(1, 3))
 
         note = ttk.Label(
             parent,
-            text="Duplicate boundaries are removed automatically. Use negative step for decreasing ranges.",
+            text=(
+                "Syntax: start, stop, step\n"
+                "Ascending: 1, 20, 1    Descending: 20, 1, -1\n"
+                "Blank lines and # comments are ignored. Step cannot be 0. "
+                "Segments run from top to bottom."
+            ),
             style="Muted.TLabel",
             wraplength=420,
             justify="left",
         )
-        note.grid(row=2, column=0, sticky="ew", padx=3, pady=(6, 2))
+        note.grid(row=1, column=0, sticky="ew", padx=3, pady=(6, 2))
 
-        # Force geometry and canvas scrollregion to catch up after a mode switch.
+        ttk.Label(
+            parent,
+            textvariable=self.adaptive_validation_text,
+            style="Muted.TLabel",
+            wraplength=420,
+            justify="left",
+        ).grid(row=2, column=0, sticky="ew", padx=3, pady=(2, 2))
+
+        self._adaptive_input_changed()
         try:
             holder.update_idletasks()
             parent.update_idletasks()
@@ -365,51 +350,69 @@ class SweepConfigMixin(UiMixinTyping):
         except Exception:
             pass
 
-    def _add_adaptive_row(self) -> None:
-        self._ensure_adaptive_rows()
-        last = self.adaptive_rows[-1]
-        start = float(last["stop"].get())
-        step = float(last["step"].get())
-        self._adaptive_advanced_active = False
-        self.adaptive_rows.append(self._make_adaptive_row(start, start + step * 10, step))
-        self._update_dynamic_sweep_fields()
+    def _adaptive_segment_text(self) -> str:
+        editor = getattr(self, "adaptive_text", None)
+        if editor is not None and editor.winfo_exists():
+            return editor.get("1.0", "end-1c")
+        return self.adaptive_segments.get()
 
-    def _remove_adaptive_row(self) -> None:
-        self._ensure_adaptive_rows()
-        if len(self.adaptive_rows) > 1:
-            self._adaptive_advanced_active = False
-            self.adaptive_rows.pop()
-        self._update_dynamic_sweep_fields()
-
-    def _reset_adaptive_rows(self) -> None:
-        self.adaptive_rows.clear()
-        self._adaptive_advanced_active = False
-        self._ensure_adaptive_rows()
-        self._update_dynamic_sweep_fields()
+    def _adaptive_values_from_rows(self) -> list[float]:
+        """Backward-compatible name for generated Adaptive values."""
+        return parse_segment_text(
+            self._adaptive_segment_text(),
+            remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
+        )
 
     def _adaptive_logic_from_table(self) -> str:
         values = self._adaptive_values_from_rows()
         return "values = " + repr([float(v) for v in values])
 
     def _sync_adaptive_logic_text(self) -> None:
-        if hasattr(self, "adaptive_text") and self.adaptive_text.winfo_exists():
-            self.adaptive_logic.set(self.adaptive_text.get("1.0", "end").strip())
-            self._adaptive_advanced_active = True
-        elif not getattr(self, "_adaptive_advanced_active", False):
-            self.adaptive_logic.set(self._adaptive_logic_from_table())
+        text = self._adaptive_segment_text()
+        self.adaptive_segments.set(text)
+        self.adaptive_logic.set(self._adaptive_logic_from_table())
+
+    def _adaptive_input_changed(self, _event=None) -> None:
+        def refresh() -> None:
+            text = self._adaptive_segment_text()
+            self.adaptive_segments.set(text)
+            try:
+                values = parse_segment_text(
+                    text,
+                    remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
+                )
+            except ValueError as exc:
+                self.adaptive_validation_text.set(f"Invalid: {exc}")
+            else:
+                self.adaptive_validation_text.set(
+                    f"Valid: {len(values)} points · First {values[0]:.6g} · Last {values[-1]:.6g}"
+                )
+                self.adaptive_logic.set("values = " + repr([float(v) for v in values]))
+            self._update_point_count()
+
+        root = getattr(self, "root", None)
+        if root is not None:
+            root.after_idle(refresh)
+        else:
+            refresh()
 
     def _open_adaptive_logic_dialog(self):
         messagebox.showinfo(
-            "Adaptive table",
-            "Advanced text mode was removed. Use the start / stop / step table so rows and generated values stay synchronized.",
+            "Adaptive segment syntax",
+            "Enter one start, stop, step segment per line.\n\n"
+            "Ascending: 1, 20, 1\n"
+            "Descending: 20, 1, -1",
         )
 
     def validate_adaptive_logic(self, use_existing_logic: bool = False) -> bool:
-        if not use_existing_logic:
-            self.adaptive_logic.set(self._adaptive_logic_from_table())
         try:
-            values = adaptive_values_from_logic(self.adaptive_logic.get())
-        except Exception as exc:
+            values = parse_segment_text(
+                self._adaptive_segment_text(),
+                remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
+                max_points=MAX_ADAPTIVE_POINTS,
+            )
+            self._sync_adaptive_logic_text()
+        except ValueError as exc:
             messagebox.showerror("Adaptive sweep error", str(exc))
             self.log_event(f"Adaptive sweep validation failed: {exc}")
             return False
@@ -473,12 +476,10 @@ class SweepConfigMixin(UiMixinTyping):
                     int(self.baud_rate.get()),
                 )
             elif kind == SweepKind.ADAPTIVE.value:
-                logic = (
-                    self.adaptive_logic.get()
-                    if getattr(self, "_adaptive_advanced_active", False)
-                    else self._adaptive_logic_from_table()
+                values = parse_segment_text(
+                    self._adaptive_segment_text(),
+                    remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
                 )
-                values = adaptive_values_from_logic(logic)
                 if self.hysteresis.get():
                     values = make_hysteresis_values(values)
                 per_point = estimate_point_seconds(

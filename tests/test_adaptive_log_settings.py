@@ -13,15 +13,16 @@ def source(name: str) -> str:
     return (SRC / "keith_ivt" / name).read_text(encoding="utf-8")
 
 
-def test_adaptive_editor_uses_compact_grid_table_contract():
+def test_adaptive_editor_uses_multiline_segment_text_contract():
     text = source("ui/sweep_config.py")
     block = text[
-        text.index("def _build_adaptive_segment_table") : text.index("def _add_adaptive_row")
+        text.index("def _build_adaptive_segment_table") : text.index("def _adaptive_segment_text")
     ]
-    assert 'uniform="adaptive_compact"' in block
-    assert "minsize=72" in block
-    assert "＋ Row" in block and "－ Row" in block and "Reset" in block
-    assert "Duplicate boundaries are removed automatically" in block
+    assert "tk.Text(" in block
+    assert "Remove duplicate scan values" in block
+    assert "Ascending: 1, 20, 1" in block
+    assert "Descending: 20, 1, -1" in block
+    assert "＋ Row" not in block and "－ Row" not in block
 
 
 def test_log_max_bytes_rotates_before_crossing_limit(tmp_path: Path):

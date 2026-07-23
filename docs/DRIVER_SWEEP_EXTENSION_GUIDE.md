@@ -97,13 +97,18 @@ New code should eventually build `SweepPlan` directly.
 For the user-facing adaptive sweep, keep the normal path simple:
 
 ```text
-Start | Stop | Step
+0.1, 1, 0.1
+1, 20, 1
 ```
 
-Each enabled row generates one segment. Adjacent duplicate boundary points are removed. This is implemented in:
+Each non-comment line generates one `start, stop, step` segment in order.
+Ascending ranges require a positive step and descending ranges require a
+negative step. The UI lets the operator either preserve repeated values or
+remove them globally while retaining first-occurrence order. This is
+implemented in:
 
 ```python
-keith_ivt.sweeps.table_sweep.values_from_segment_rows
+keith_ivt.sweeps.table_sweep.parse_segment_text
 ```
 
 Advanced scripted adaptive logic can remain as a developer/debug feature, but it should not be the default UI path.
