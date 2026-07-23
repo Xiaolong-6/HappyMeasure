@@ -180,6 +180,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._front_panel_window: Toplevel | None = None
         self._front_panel_auto_opened = False
 
+        self._capture_numeric_entry_defaults()
         self._build_layout()
         self._bind_variables()
         self._show_nav("Hardware")
@@ -241,6 +242,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
     # Config factory
     # ------------------------------------------------------------------
     def _make_config(self) -> SweepConfig:
+        self._restore_all_numeric_entry_defaults()
         sweep_kind = self._sweep_kind_from_ui()
         if sweep_kind is SweepKind.ADAPTIVE:
             self._sync_adaptive_logic_text()

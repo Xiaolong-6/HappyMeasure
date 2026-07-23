@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from tkinter import ttk
 from keith_ivt.ui.widgets import add_tip
 
@@ -8,6 +9,24 @@ from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 
 class WidgetHelperMixin(UiMixinTyping):
+    _NUMERIC_INPUT_NAMES = (
+        "start",
+        "stop",
+        "step",
+        "constant_value",
+        "duration_s",
+        "interval_s",
+        "compliance",
+        "nplc",
+        "delay_s",
+        "source_range",
+        "measure_range",
+        "range_settle_delay_ms",
+        "discard_after_range_change",
+        "log_max_kb",
+        "cache_interval_points",
+    )
+
     @staticmethod
     def _display_terminal(value: str) -> str:
         return "FRONT" if str(value).upper() in {"FRON", "FRONT"} else "REAR"
@@ -49,6 +68,47 @@ class WidgetHelperMixin(UiMixinTyping):
             except Exception:
                 pass
 
+    def _capture_numeric_entry_defaults(self, variables=None) -> None:
+        if not hasattr(self, "_numeric_entry_defaults"):
+            self._numeric_entry_defaults = {}
+        if variables is None:
+            variables = (
+                getattr(self, name) for name in self._NUMERIC_INPUT_NAMES if hasattr(self, name)
+            )
+        for var in variables:
+            try:
+                value = var.get()
+                if math.isfinite(float(value)):
+                    self._numeric_entry_defaults[str(var)] = value
+            except Exception:
+                continue
+
+    def _restore_numeric_entry_default(self, var) -> bool:
+        fallback = getattr(self, "_numeric_entry_defaults", {}).get(str(var))
+        if fallback is None:
+            return False
+        try:
+            value = var.get()
+            if not math.isfinite(float(value)):
+                raise ValueError("numeric value must be finite")
+        except Exception:
+            var.set(fallback)
+            return True
+        return False
+
+    def _restore_all_numeric_entry_defaults(self) -> None:
+        for name in self._NUMERIC_INPUT_NAMES:
+            var = getattr(self, name, None)
+            if var is not None:
+                self._restore_numeric_entry_default(var)
+
+    def _bind_numeric_entry_fallback(self, entry, var) -> None:
+        entry.bind(
+            "<FocusOut>",
+            lambda _event, var=var: self._restore_numeric_entry_default(var),
+            add="+",
+        )
+
     def _entry(self, parent, label, var, row: int, tip: str = ""):
         lab_text = label.get() if hasattr(label, "get") else str(label)
         lab = ttk.Label(parent, text=lab_text, style="Card.TLabel")
@@ -61,6 +121,7 @@ class WidgetHelperMixin(UiMixinTyping):
             )
         ent = ttk.Entry(parent, textvariable=var)
         ent.grid(row=row, column=1, sticky="ew", pady=3)
+        self._bind_numeric_entry_fallback(ent, var)
         add_tip(ent, tip)
         return (lab, ent)
 
@@ -134,6 +195,7 @@ class WidgetHelperMixin(UiMixinTyping):
         lab.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
         ent = ttk.Entry(parent, textvariable=value_var)
         ent.grid(row=row, column=1, sticky="ew", pady=3)
+        self._bind_numeric_entry_fallback(ent, value_var)
 
         def on_auto() -> None:
             auto_var.set(not bool(auto_var.get()))

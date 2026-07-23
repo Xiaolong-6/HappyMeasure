@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from tkinter import BooleanVar, StringVar, IntVar, END, messagebox, simpledialog
 from tkinter import ttk
@@ -14,6 +15,7 @@ from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 class SettingsPresetMixin(UiMixinTyping):
     def _current_settings(self) -> AppSettings:
+        self._restore_all_numeric_entry_defaults()
         return AppSettings(
             log_max_bytes=int(self.log_max_kb.get()) * 1024,
             default_mode=self.mode.get(),
@@ -99,6 +101,20 @@ class SettingsPresetMixin(UiMixinTyping):
             if typ is float:
                 return float(raw)
             return raw
+
+        def restore_numeric_dialog_value(var, typ, fallback: str) -> None:
+            try:
+                value = convert(var.get(), typ)
+                if not math.isfinite(float(value)):
+                    raise ValueError("numeric value must be finite")
+            except Exception:
+                var.set(fallback)
+
+        def numeric_focusout_handler(var, typ, fallback: str):
+            def restore(_event) -> None:
+                restore_numeric_dialog_value(var, typ, fallback)
+
+            return restore
 
         def save():
             data = {}
@@ -234,6 +250,12 @@ class SettingsPresetMixin(UiMixinTyping):
                     widget = ttk.Entry(scroll_frame, textvariable=var, width=30)
 
                 widget.grid(row=row_offset, column=2, sticky="ew", padx=(4, 8), pady=2)
+                if type(value) in {int, float} and isinstance(widget, ttk.Entry):
+                    widget.bind(
+                        "<FocusOut>",
+                        numeric_focusout_handler(var, type(value), str(value)),
+                        add="+",
+                    )
                 _bind_dialog_mousewheel(widget)
                 vars_by_key[key] = (var, type(value))
                 row_offset += 1
@@ -526,6 +548,7 @@ class SettingsPresetMixin(UiMixinTyping):
             self.log_event(f"Preset deleted: {name}")
 
     def _current_sweep_preset_dict(self) -> dict:
+        self._restore_all_numeric_entry_defaults()
         self._sync_adaptive_logic_text()
         return {
             "default_mode": self.mode.get(),
@@ -611,6 +634,7 @@ class SettingsPresetMixin(UiMixinTyping):
 
                     logger = logging.getLogger("keith_ivt.ui.settings")
                     logger.warning(f"Failed to restore setting '{k}': {e}")
+        self._capture_numeric_entry_defaults()
         try:
             if hasattr(self, "adaptive_text") and self.adaptive_text.winfo_exists():
                 self.adaptive_text.delete("1.0", END)

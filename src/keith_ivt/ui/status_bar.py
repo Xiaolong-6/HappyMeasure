@@ -458,18 +458,18 @@ class StatusBarMixin(UiMixinTyping):
         tk.Label(
             settle, text="Range settle delay", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)
         ).grid(row=0, column=1, sticky="w")
-        ttk.Entry(settle, textvariable=self.range_settle_delay_ms, width=7).grid(
-            row=0, column=2, sticky="w", padx=(6, 4)
-        )
+        settle_delay_entry = ttk.Entry(settle, textvariable=self.range_settle_delay_ms, width=7)
+        settle_delay_entry.grid(row=0, column=2, sticky="w", padx=(6, 4))
+        self._bind_numeric_entry_fallback(settle_delay_entry, self.range_settle_delay_ms)
         tk.Label(settle, text="ms", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
             row=0, column=3, sticky="w", padx=(0, 18)
         )
         tk.Label(settle, text="Discard", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
             row=0, column=4, sticky="w"
         )
-        ttk.Entry(settle, textvariable=self.discard_after_range_change, width=7).grid(
-            row=0, column=5, sticky="w", padx=(6, 4)
-        )
+        discard_entry = ttk.Entry(settle, textvariable=self.discard_after_range_change, width=7)
+        discard_entry.grid(row=0, column=5, sticky="w", padx=(6, 4))
+        self._bind_numeric_entry_fallback(discard_entry, self.discard_after_range_change)
         tk.Label(settle, text="readings", bg="#F8FAFC", fg="#0F172A", font=("Segoe UI", 9)).grid(
             row=0, column=6, sticky="w"
         )

@@ -158,6 +158,17 @@ class SweepConfigMixin(UiMixinTyping):
                     self.measure_range.set(max(float(self.measure_range.get()), 0.01))
         except Exception:
             pass
+        self._capture_numeric_entry_defaults(
+            (
+                self.start,
+                self.stop,
+                self.step,
+                self.constant_value,
+                self.compliance,
+                self.source_range,
+                self.measure_range,
+            )
+        )
 
     def _update_units_for_mode(self) -> None:
         if self.mode.get() == SweepMode.VOLTAGE_SOURCE.value:

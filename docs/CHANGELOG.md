@@ -10,6 +10,8 @@
   no new-format segment text exists, the editor starts empty.
 - Removed the nested Adaptive editor scrollbar and made its height follow the
   number of entered segment lines.
+- Empty, non-numeric, or non-finite numeric fields now restore their current
+  defaults on focus loss and again before a sweep configuration is created.
 
 ## 1.1b3 — Keithley front-panel current range control
 
