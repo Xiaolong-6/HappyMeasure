@@ -64,7 +64,7 @@ def test_thread_safe_xy_buffer_is_populated_by_live_points() -> None:
 
 
 def test_documentation_tracks_current_architecture() -> None:
-    assert "1.1b4" in (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "1.1b5" in (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "State migration strategy" in (ROOT / "docs" / "ARCHITECTURE_CURRENT.md").read_text(
         encoding="utf-8"
     )

@@ -1,4 +1,19 @@
 
+## 2026-09-07 sweep direction and recovery release prep
+
+- `1.1b5` changes Step and Adaptive segment step semantics to magnitude-only;
+  Start and Stop are the sole direction inputs.
+- `SweepControllerMixin.start_sweep()` now calls canonical `validate_config()`
+  before entering Preparing/Running or creating a worker.
+- Runtime sweep errors transition through visible/logged `ERROR`, clear live
+  points, worker events, current-range state/actions, and the auto-opened front
+  panel, then dispatch `FORCE_IDLE` so connected sessions can retry.
+- Canonical model validation rejects non-finite active source, compliance,
+  timing, range, and manual-output values before hardware execution.
+- Existing `SweepRunner` and `MeasurementService` output-off `finally` paths are
+  unchanged. Real-hardware verification for the `1.1b5` package remains a short
+  post-build gate; the final `1.1b4` package previously passed that gate.
+
 ## Keithley front-panel range popup visual polish note
 
 The Keithley-style front-panel popup is in `src/keith_ivt/ui/status_bar.py`. The current-range area now intentionally uses custom `tk.Frame`/`tk.Label` card blocks instead of a native `ttk.LabelFrame`, because the native layout clipped controls under Windows scaling. Keep the mock-style hierarchy: large black instrument readout, left metadata column, right current-range card with summary cells and one aligned control row.

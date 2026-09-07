@@ -22,9 +22,9 @@ def ui_text() -> str:
 def test_version_and_release_contract():
     from keith_ivt import version
 
-    assert version.VERSION == "1.1b4"
-    assert "1.1b4" in version.BUILD_NOTE.lower()
-    assert 'version = "1.1b4"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert version.VERSION == "1.1b5"
+    assert "1.1b5" in version.BUILD_NOTE.lower()
+    assert 'version = "1.1b5"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_single_bottom_operator_bar_replaces_content_local_controls():

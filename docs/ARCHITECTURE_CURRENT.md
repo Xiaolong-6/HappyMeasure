@@ -1,4 +1,4 @@
-# Current architecture — HappyMeasure 1.1b4
+# Current architecture — HappyMeasure 1.1b5
 
 HappyMeasure is a simulator-first beta, with the application shell split into focused UI modules for external review.
 
