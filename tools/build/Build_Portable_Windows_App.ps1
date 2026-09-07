@@ -102,7 +102,7 @@ $env:PIP_CACHE_DIR = Join-Path $ProjectRoot ".pip-cache"
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
 python -m pip install --upgrade pip
 Assert-LastCommand "pip upgrade"
-python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff black mypy types-pyserial
+python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
 Assert-LastCommand "project dependency install"
 python -m pip install --upgrade pyinstaller
 Assert-LastCommand "PyInstaller install"
