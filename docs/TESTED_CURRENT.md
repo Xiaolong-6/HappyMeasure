@@ -26,8 +26,8 @@ Current candidate artifact:
 
 ```text
 HappyMeasure-1.1b5-windows-portable.zip
-44,701,070 bytes
-SHA-256 247006dd5ba05ff421fadee7e4652ea91ab5a6cd909256f48dfc489e202431ce
+45,249,186 bytes
+SHA-256 a4e51d1fc3871ed5f567cc1d1597526d3b58cd21aec6a7667e4dc307ee15df5e
 ```
 
 The final `1.1b4` package passed the short real-hardware release gate. Repeat
