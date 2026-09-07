@@ -1,5 +1,6 @@
 pytest>=7.0
 pytest-cov>=4.0
+numpy==2.3.5
 ruff==0.15.22
 black>=23.0
 mypy>=1.0
