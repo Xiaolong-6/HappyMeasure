@@ -158,9 +158,7 @@ def test_preflight_validation_edges_never_construct_worker(monkeypatch, changes)
             nonlocal worker_constructed
             worker_constructed = True
 
-    monkeypatch.setattr(
-        "keith_ivt.ui.sweep_controller.messagebox.showerror", lambda *_args: None
-    )
+    monkeypatch.setattr("keith_ivt.ui.sweep_controller.messagebox.showerror", lambda *_args: None)
     monkeypatch.setattr("keith_ivt.ui.sweep_controller.threading.Thread", _UnexpectedThread)
 
     app.start_sweep()
