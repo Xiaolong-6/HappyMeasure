@@ -132,6 +132,8 @@ def test_invalid_config_is_rejected_before_worker_and_valid_retry_starts(
     "changes",
     [
         {"step": 0.0},
+        {"start": float("inf")},
+        {"compliance": float("nan")},
         {"compliance": 0.0},
         {"auto_source_range": False, "source_range": 0.0},
         {"auto_measure_range": False, "measure_range": 0.0},
