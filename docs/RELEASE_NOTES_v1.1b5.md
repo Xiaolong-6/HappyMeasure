@@ -45,6 +45,9 @@ negative step and improves validation and recovery before another measurement.
 - Ruff, compileall, and source mypy checks: passed in the available Python 3.12
   environment.
 - Automated desktop simulator user-flow smoke test: passed.
+- Windows portable package: built with Python 3.12; required files and ZIP
+  contents verified; packaged executable remained running during the startup
+  smoke check and closed cleanly afterward.
 - The final `1.1b4` package passed the short real-hardware release gate. The
   `1.1b5` package still requires the short Keithley smoke test before it is
   described as hardware-verified.
@@ -52,7 +55,8 @@ negative step and improves validation and recovery before another measurement.
 ## Release artifact
 
 - File: `HappyMeasure-1.1b5-windows-portable.zip`
-- Size and SHA-256: recorded after the final portable build.
+- Size: 44,701,070 bytes
+- SHA-256: `247006dd5ba05ff421fadee7e4652ea91ab5a6cd909256f48dfc489e202431ce`
 
 ## Upgrade notes
 

@@ -13,6 +13,12 @@
 - Existing `SweepRunner` and `MeasurementService` output-off `finally` paths are
   unchanged. Real-hardware verification for the `1.1b5` package remains a short
   post-build gate; the final `1.1b4` package previously passed that gate.
+- Release validation passed with 501 tests and 1 conditional skip at 95.14%
+  coverage. The Python 3.12 portable ZIP contains all required files, and the
+  packaged executable passed a five-second startup/clean-close check.
+- Candidate artifact: `HappyMeasure-1.1b5-windows-portable.zip`, 44,701,070
+  bytes, SHA-256
+  `247006dd5ba05ff421fadee7e4652ea91ab5a6cd909256f48dfc489e202431ce`.
 
 ## Keithley front-panel range popup visual polish note
 

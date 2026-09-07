@@ -1,5 +1,40 @@
 # Current Test Status
 
+## 2026-09-07 - HappyMeasure 1.1b5 release candidate
+
+The repository release-validation script passed using Python 3.12.10:
+
+```powershell
+.\.venv\Scripts\python.exe tests\run_full_validation.py
+```
+
+Results:
+
+- compileall and legacy UI contracts passed
+- full suite: 501 passed, 1 expected conditional skip
+- core/hardware coverage: 95.14% (required minimum 95%)
+- automated desktop simulator user-flow smoke test passed
+- Ruff and source mypy checks passed in the available Python 3.12 environment
+
+The standard PowerShell portable build completed with PyInstaller 6.22.2. The
+required executable, `_internal`, first-run guide, hardware guides, config, and
+example files were verified in both the folder and ZIP. `HappyMeasure.exe`
+remained running during a five-second packaged startup smoke and was then
+closed cleanly by the test process.
+
+Current candidate artifact:
+
+```text
+HappyMeasure-1.1b5-windows-portable.zip
+44,701,070 bytes
+SHA-256 247006dd5ba05ff421fadee7e4652ea91ab5a6cd909256f48dfc489e202431ce
+```
+
+The final `1.1b4` package passed the short real-hardware release gate. Repeat
+that gate for `1.1b5` before describing this candidate as hardware-verified.
+
+## Previous 1.1b4 validation
+
 ## 2026-07-23 - current desktop validation
 
 ```powershell

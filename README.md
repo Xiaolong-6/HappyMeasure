@@ -69,9 +69,10 @@ Settings page with simulator, cache, font, scale, and theme controls:
 - Adds focused regression coverage and a root `AGENTS.md` development entry
   point for the project's architecture and safety contracts.
 
-The final packaged `1.1b4` executable passed the short real-hardware release
-gate. The `1.1b5` source and simulator paths are validated; repeat the short
-Keithley smoke test before treating this build as hardware-verified.
+The `1.1b5` source, simulator flow, portable package contents, and packaged
+startup are validated. The final packaged `1.1b4` executable passed the short
+real-hardware release gate; repeat that Keithley smoke test before treating the
+`1.1b5` build as hardware-verified.
 
 ## Safe validation path
 
