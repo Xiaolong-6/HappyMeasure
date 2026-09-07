@@ -16,7 +16,8 @@ def source_text(rel: str) -> str:
 def test_adaptive_table_imports_tooltip_helper_regression():
     src = source_text("ui/sweep_config.py")
     assert "from keith_ivt.ui.widgets import add_tip" in src
-    assert "add_tip(editor" in src
+    assert "add_tip(" in src
+    assert "Enter one comma-separated start, stop, step segment per line." in src
 
 
 def test_simple_app_uses_appstate_backed_compatibility_properties():

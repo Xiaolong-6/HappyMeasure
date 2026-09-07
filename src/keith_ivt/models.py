@@ -99,25 +99,30 @@ class SweepResult:
 
 
 def make_source_values(start: float, stop: float, step: float) -> list[float]:
-    """MATLAB-like start:step:stop generation with validation."""
+    """Generate source values using ``step`` as a positive magnitude.
+
+    Sweep direction is derived exclusively from ``start`` and ``stop``.  A
+    negative user-entered step is therefore accepted and normalized to its
+    magnitude before the direction is applied.
+    """
     if step == 0:
         raise ValueError("Step cannot be zero.")
-    if start < stop and step < 0:
-        raise ValueError("Step must be positive when start < stop.")
-    if start > stop and step > 0:
-        raise ValueError("Step must be negative when start > stop.")
+    if start == stop:
+        return [float(start)]
 
     values: list[float] = []
     x = start
-    eps = abs(step) * 1e-9 + 1e-15
-    if step > 0:
+    step_magnitude = abs(step)
+    directed_step = step_magnitude if start < stop else -step_magnitude
+    eps = step_magnitude * 1e-9 + 1e-15
+    if directed_step > 0:
         while x <= stop + eps:
             values.append(float(x))
-            x += step
+            x += directed_step
     else:
         while x >= stop - eps:
             values.append(float(x))
-            x += step
+            x += directed_step
     return values
 
 

@@ -52,7 +52,7 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ## What changed in 1.1b4
 
-- Replaces the fixed Adaptive row table with a multiline `start, stop, step` editor. Ascending ranges use a positive step; descending ranges use a negative step.
+- Replaces the fixed Adaptive row table with a multiline `start, stop, step` editor. Step is treated as a magnitude; Start and Stop determine direction.
 - Adds an option to remove repeated scan values while preserving their first occurrence and scan order.
 - Fixes missing requested setpoints during current-range changes by retrying transient readbacks at the same source value.
 - Restores empty, invalid, or non-finite numeric inputs to their field defaults on focus loss and before starting a sweep.

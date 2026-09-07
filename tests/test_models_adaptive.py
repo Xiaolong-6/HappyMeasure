@@ -13,13 +13,25 @@ from keith_ivt.models import (
 )
 
 
-def test_make_source_values_forward_reverse_and_invalid() -> None:
-    assert make_source_values(0, 2, 1) == [0.0, 1.0, 2.0]
-    assert make_source_values(2, 0, -1) == [2.0, 1.0, 0.0]
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize(
+    ("start", "stop", "step", "expected"),
+    [
+        (-1, 1, 1, [-1.0, 0.0, 1.0]),
+        (-1, 1, -1, [-1.0, 0.0, 1.0]),
+        (1, -1, 1, [1.0, 0.0, -1.0]),
+        (1, -1, -1, [1.0, 0.0, -1.0]),
+        (1, 1, 1, [1.0]),
+    ],
+)
+def test_make_source_values_uses_step_as_magnitude(
+    start: float, stop: float, step: float, expected: list[float]
+) -> None:
+    assert make_source_values(start, stop, step) == expected
+
+
+def test_make_source_values_rejects_zero_step() -> None:
+    with pytest.raises(ValueError, match="Step cannot be zero"):
         make_source_values(0, 1, 0)
-    with pytest.raises(ValueError):
-        make_source_values(0, 1, -1)
 
 
 def test_constant_time_values_and_validation() -> None:

@@ -102,10 +102,10 @@ For the user-facing adaptive sweep, keep the normal path simple:
 ```
 
 Each non-comment line generates one `start, stop, step` segment in order.
-Ascending ranges require a positive step and descending ranges require a
-negative step. The UI lets the operator either preserve repeated values or
-remove them globally while retaining first-occurrence order. This is
-implemented in:
+Step is treated as a magnitude, and each segment's Start and Stop values
+determine its direction; either step sign is accepted. The UI lets the operator
+either preserve repeated values or remove them globally while retaining
+first-occurrence order. This is implemented in:
 
 ```python
 keith_ivt.sweeps.table_sweep.parse_segment_text

@@ -24,12 +24,10 @@ from keith_ivt.utils.thread_safe import ThreadSafeXYBuffer
 def test_source_value_generation_and_validation_errors() -> None:
     assert make_source_values(0, 1, 0.5) == [0.0, 0.5, 1.0]
     assert make_source_values(1, 0, -0.5) == [1.0, 0.5, 0.0]
+    assert make_source_values(0, 1, -0.5) == [0.0, 0.5, 1.0]
+    assert make_source_values(1, 0, 0.5) == [1.0, 0.5, 0.0]
     with pytest.raises(ValueError):
         make_source_values(0, 1, 0)
-    with pytest.raises(ValueError):
-        make_source_values(0, 1, -1)
-    with pytest.raises(ValueError):
-        make_source_values(1, 0, 1)
 
 
 def test_timing_helpers_and_constant_time_validation() -> None:
