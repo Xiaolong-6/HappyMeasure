@@ -9,7 +9,13 @@ from tkinter import messagebox, simpledialog
 
 from keith_ivt.core.current_range import CurrentRangeState
 from keith_ivt.data.backup import autosave_result
-from keith_ivt.models import SweepConfig, SweepKind, SweepResult, minimum_interval_seconds
+from keith_ivt.models import (
+    SweepConfig,
+    SweepKind,
+    SweepResult,
+    minimum_interval_seconds,
+    validate_config,
+)
 from keith_ivt.services.measurement_service import MeasurementService
 from keith_ivt.ui.app_state import AppAction
 
@@ -35,6 +41,7 @@ class SweepControllerMixin(UiMixinTyping):
             return
         try:
             config = self._make_config()
+            validate_config(config)
             if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
                 self._manual_output_interlock(config)
                 return
@@ -52,6 +59,8 @@ class SweepControllerMixin(UiMixinTyping):
                     return
         except Exception as exc:
             messagebox.showerror("Invalid sweep configuration", str(exc))
+            self._refresh_run_status_from_state()
+            self._update_run_button_states()
             return
         self._set_run_state("preparing")
         try:
@@ -269,10 +278,37 @@ class SweepControllerMixin(UiMixinTyping):
         self._close_auto_front_panel_popup()
 
     def _handle_error(self, exc: Exception) -> None:
-        self.app_state.dispatch(AppAction.SWEEP_ERROR, error=str(exc))
-        self._refresh_run_status_from_state()
-        self._update_run_button_states()
-        self._reset_live_measurement_status()
-        self._close_auto_front_panel_popup()
-        self.log_event(f"Error: {exc}")
-        messagebox.showerror("Sweep error", str(exc))
+        error_text = str(exc)
+        self.app_state.dispatch(AppAction.SWEEP_ERROR, error=error_text)
+        try:
+            self._refresh_run_status_from_state()
+            self._update_run_button_states()
+            self.log_event(f"Error: {error_text}")
+
+            self._live_points.clear()
+            self._x_data.clear()
+            self._y_data.clear()
+            self._live_config = None
+            try:
+                self._measurement_xy.clear()
+            except Exception:
+                pass
+            try:
+                self._stop_event.clear()
+                self._pause_event.clear()
+            except Exception:
+                pass
+            try:
+                self._current_range_control.drain_actions()
+                self._current_range_control.update_state(CurrentRangeState())
+            except Exception:
+                pass
+            self._reset_live_measurement_status()
+            self._close_auto_front_panel_popup()
+            self._redraw_all_plots()
+
+            messagebox.showerror("Sweep error", error_text)
+        finally:
+            self.app_state.dispatch(AppAction.FORCE_IDLE)
+            self._refresh_run_status_from_state()
+            self._update_run_button_states()

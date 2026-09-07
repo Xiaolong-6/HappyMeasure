@@ -51,5 +51,5 @@ def test_log_rotation_applies_when_limit_is_lowered(tmp_path):
 def test_readme_contains_human_developer_handoff():
     readme = read("README.md")
     assert "Human developer handoff" in readme
-    assert "1.1b4" in readme
+    assert "1.1b5" in readme
     assert "Real hardware preflight" in readme

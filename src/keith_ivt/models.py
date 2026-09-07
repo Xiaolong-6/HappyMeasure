@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 
 
 class SweepMode(str, Enum):
@@ -99,25 +100,32 @@ class SweepResult:
 
 
 def make_source_values(start: float, stop: float, step: float) -> list[float]:
-    """MATLAB-like start:step:stop generation with validation."""
+    """Generate source values using ``step`` as a positive magnitude.
+
+    Sweep direction is derived exclusively from ``start`` and ``stop``.  A
+    negative user-entered step is therefore accepted and normalized to its
+    magnitude before the direction is applied.
+    """
+    if not all(math.isfinite(float(value)) for value in (start, stop, step)):
+        raise ValueError("Start, stop, and step must be finite.")
     if step == 0:
         raise ValueError("Step cannot be zero.")
-    if start < stop and step < 0:
-        raise ValueError("Step must be positive when start < stop.")
-    if start > stop and step > 0:
-        raise ValueError("Step must be negative when start > stop.")
+    if start == stop:
+        return [float(start)]
 
     values: list[float] = []
     x = start
-    eps = abs(step) * 1e-9 + 1e-15
-    if step > 0:
+    step_magnitude = abs(step)
+    directed_step = step_magnitude if start < stop else -step_magnitude
+    eps = step_magnitude * 1e-9 + 1e-15
+    if directed_step > 0:
         while x <= stop + eps:
             values.append(float(x))
-            x += step
+            x += directed_step
     else:
         while x >= stop - eps:
             values.append(float(x))
-            x += step
+            x += directed_step
     return values
 
 
@@ -223,6 +231,8 @@ def estimate_point_seconds(
 
 
 def make_constant_time_values(value: float, duration_s: float, interval_s: float) -> list[float]:
+    if not all(math.isfinite(float(item)) for item in (value, duration_s, interval_s)):
+        raise ValueError("Constant value, duration, and interval must be finite.")
     if duration_s <= 0:
         raise ValueError("Duration must be positive.")
     if interval_s <= 0:
@@ -232,10 +242,32 @@ def make_constant_time_values(value: float, duration_s: float, interval_s: float
 
 
 def validate_config(config: SweepConfig) -> None:
+    common_values = (
+        (config.compliance, "Compliance"),
+        (config.nplc, "NPLC"),
+        (config.delay_s, "Delay"),
+        (config.range_settle_delay_ms, "Range settle delay"),
+        (config.discard_after_range_change, "Discard readings after range change"),
+    )
+    for value, label in common_values:
+        if not math.isfinite(float(value)):
+            raise ValueError(f"{label} must be finite.")
+    if not config.auto_source_range and not math.isfinite(float(config.source_range)):
+        raise ValueError("Fixed source range must be finite when Auto source range is off.")
+    if not config.auto_measure_range and not math.isfinite(float(config.measure_range)):
+        raise ValueError("Fixed measure range must be finite when Auto measure range is off.")
+
     if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
         # Manual output is handled by the UI safety interlock path, not by SweepRunner.
-        pass
+        if not math.isfinite(float(config.constant_value)):
+            raise ValueError("Manual output value must be finite.")
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
+        if not math.isfinite(float(config.constant_value)):
+            raise ValueError("Constant value must be finite.")
+        if not math.isfinite(float(config.interval_s)):
+            raise ValueError("Interval must be finite.")
+        if not config.continuous_time and not math.isfinite(float(config.duration_s)):
+            raise ValueError("Duration must be finite.")
         if not config.continuous_time:
             source_values_for_config(config)
         min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, overhead_s=0.0)

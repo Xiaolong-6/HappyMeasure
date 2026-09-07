@@ -240,7 +240,7 @@ class SweepConfigMixin(UiMixinTyping):
                 self.step_label,
                 self.step,
                 2,
-                "Sweep step. Use negative step for decreasing sweep.",
+                "Step size. Sweep direction is determined by Start and Stop.",
             )
         elif kind == SweepKind.CONSTANT_TIME.value:
             self._entry(
@@ -326,7 +326,11 @@ class SweepConfigMixin(UiMixinTyping):
         editor.bind("<<Paste>>", self._adaptive_input_changed, add="+")
         editor.bind("<<Cut>>", self._adaptive_input_changed, add="+")
         self.adaptive_text = editor
-        add_tip(editor, "Enter one comma-separated start, stop, step segment per line.")
+        add_tip(
+            editor,
+            "Enter one comma-separated start, stop, step segment per line. "
+            "Step is a magnitude; Start and Stop determine direction.",
+        )
 
         ttk.Checkbutton(
             holder,
@@ -338,7 +342,8 @@ class SweepConfigMixin(UiMixinTyping):
             parent,
             text=(
                 "Syntax: start, stop, step\n"
-                "Ascending: 1, 20, 1    Descending: 20, 1, -1\n"
+                "Ascending: 1, 20, 1    Descending: 20, 1, 1\n"
+                "Direction follows Start and Stop; either step sign is accepted.\n"
                 "Blank lines and # comments are ignored. Step cannot be 0. "
                 "Segments run from top to bottom."
             ),
@@ -424,8 +429,9 @@ class SweepConfigMixin(UiMixinTyping):
         messagebox.showinfo(
             "Adaptive segment syntax",
             "Enter one start, stop, step segment per line.\n\n"
+            "Step is a magnitude; Start and Stop determine direction.\n"
             "Ascending: 1, 20, 1\n"
-            "Descending: 20, 1, -1",
+            "Descending: 20, 1, 1 (or 20, 1, -1)",
         )
 
     def validate_adaptive_logic(self, use_existing_logic: bool = False) -> bool:

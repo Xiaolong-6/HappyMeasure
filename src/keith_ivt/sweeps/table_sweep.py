@@ -45,13 +45,9 @@ def _display_number(value: float) -> str:
 def _segment_point_count(start: float, stop: float, step: float) -> int:
     if step == 0:
         raise ValueError("step cannot be 0")
-    if start < stop and step < 0:
-        raise ValueError("ascending ranges require a positive step")
-    if start > stop and step > 0:
-        raise ValueError("descending ranges require a negative step")
     if start == stop:
         return 1
-    span = (stop - start) / step
+    span = abs(stop - start) / abs(step)
     if not math.isfinite(span):
         raise ValueError("range creates too many points")
     return int(math.floor(span + 1e-9)) + 1

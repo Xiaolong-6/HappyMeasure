@@ -2,7 +2,7 @@
 
 HappyMeasure is a lightweight Windows-friendly Tkinter + Matplotlib measurement UI for Keithley 2400/2450-style IV workflows.
 
-Current version: `1.1b4` (1.1 beta 4).
+Current version: `1.1b5` (1.1 beta 5).
 
 This Python project is inspired by the MIT-licensed MATLAB project
 [Keith-IVt](https://github.com/Xiaolong-6/Keith-IVt). See `NOTICE.md`.
@@ -50,21 +50,29 @@ Settings page with simulator, cache, font, scale, and theme controls:
 
 ![HappyMeasure settings page](docs/screenshots/happymeasure-settings.png)
 
-## What changed in 1.1b4
+## What changed in 1.1b5
 
-- Replaces the fixed Adaptive row table with a multiline `start, stop, step` editor. Ascending ranges use a positive step; descending ranges use a negative step.
-- Adds an option to remove repeated scan values while preserving their first occurrence and scan order.
-- Fixes missing requested setpoints during current-range changes by retrying transient readbacks at the same source value.
-- Restores empty, invalid, or non-finite numeric inputs to their field defaults on focus loss and before starting a sweep.
-- Makes each preset an exact snapshot of every visible Hardware and Sweep setting while leaving other pages unchanged.
-- Preserves raw Adaptive segment text, duplicate handling, range Auto states, and the rest of the visible sweep configuration across settings, presets, and CSV metadata.
-- Routes update-check results through the UI queue so closing the app while an update check is finishing cannot call a destroyed Tk interpreter.
-- Adds a desktop user-flow smoke runner covering navigation, themes, simulator sweeps, Pause/Resume/STOP, expected validation failures, file output, and preset round trips.
-- Keeps the 1.1b2 hysteresis sweep feature: optional forward/reverse hysteresis for finite Step and Adaptive sweeps, default OFF.
-- Keeps the 1.1b1 startup updater path: Settings-controlled update checking, external updater handoff, preserved user settings/presets/logs/exports/backups/data, and active-sweep install blocking.
-- Keeps the public launch namespace as `happymeasure` while retaining `keith_ivt` compatibility for existing scripts/imports.
-- The operator has confirmed successful real-device measurement and the short
-  hardware release gate with the final packaged `1.1b4` executable.
+- Treats Step as a magnitude for Step and Adaptive sweeps; Start and Stop now
+  determine direction, so either step sign is accepted for ascending or
+  descending scans.
+- Validates the complete sweep configuration before entering Preparing/Running
+  or starting a worker, so invalid input cannot enable instrument output.
+- Rejects NaN and infinite active sweep values in canonical model validation,
+  including source bounds, compliance, NPLC, delays, fixed ranges, and finite
+  Time sweep parameters.
+- Recovers from runtime sweep failures through the canonical transient
+  `ERROR -> IDLE` state path after clearing live points, range actions, worker
+  events, and the auto-opened front panel.
+- Preserves existing Stop/failure `output_off()` safety behavior and allows a
+  connected operator to correct a configuration or runtime fault and Start
+  again without restarting HappyMeasure.
+- Adds focused regression coverage and a root `AGENTS.md` development entry
+  point for the project's architecture and safety contracts.
+
+The `1.1b5` source, simulator flow, portable package contents, and packaged
+startup are validated. The final packaged `1.1b4` executable passed the short
+real-hardware release gate; repeat that Keithley smoke test before treating the
+`1.1b5` build as hardware-verified.
 
 ## Safe validation path
 

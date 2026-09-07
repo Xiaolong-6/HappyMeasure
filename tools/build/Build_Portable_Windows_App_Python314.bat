@@ -51,7 +51,7 @@ if errorlevel 1 (
 python -m pip install --upgrade pip
 if errorlevel 1 goto :fail
 set "PYTHONPATH=%PROJECT_ROOT%\src"
-python -m pip install matplotlib pyserial pydantic pytest pytest-cov ruff black mypy types-pyserial
+python -m pip install matplotlib numpy==2.3.5 pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
 if errorlevel 1 goto :fail
 python -m pip install --upgrade pyinstaller
 if errorlevel 1 goto :fail

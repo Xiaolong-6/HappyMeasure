@@ -25,5 +25,5 @@ MAJOR.MINOR.PATCH[-alpha.N|-beta.N|-rc.N][.postN]
 
 ## Current baseline
 
-`1.1b4` is the current beta release candidate. The project remains in beta
+`1.1b5` is the current beta release candidate. The project remains in beta
 until the final packaged executable passes the short real-hardware release gate.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1b5 — Sweep direction and recovery hardening
+
+- Changed Step and Adaptive segment step semantics to magnitude-only; Start and
+  Stop determine ascending or descending direction while either step sign
+  remains accepted.
+- Added canonical UI-thread preflight validation before worker creation so
+  invalid configurations do not enter Preparing/Running or touch instrument
+  output.
+- Added explicit rejection of NaN and infinite active sweep values across Step,
+  finite Time, manual output, compliance, NPLC, delays, and fixed ranges.
+- Made runtime sweep errors transient: HappyMeasure records and displays the
+  error, clears live sweep/range state, closes the auto-opened front panel, and
+  returns through `AppAction.FORCE_IDLE` so a connected operator can retry.
+- Preserved existing runner/service `output_off()` safety paths and added
+  focused direction, hysteresis, preflight, retry, recovery, and fault tests.
+- Added root `AGENTS.md` as the stable machine-facing development entry point.
+
 ## 1.1b4 — Adaptive editor and exact presets
 
 - Replaced the fixed Adaptive row table with a multiline `start, stop, step` editor.

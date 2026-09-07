@@ -27,6 +27,24 @@ def test_step_sweep_hysteresis_extends_source_sequence() -> None:
     assert source_values_for_config(cfg) == [0.0, 1.0, 2.0, 1.0, 0.0]
 
 
+def test_descending_step_hysteresis_uses_positive_magnitude_without_duplicate_turnpoint() -> None:
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=2.0,
+        stop=0.0,
+        step=1.0,
+        compliance=0.01,
+        sweep_kind=SweepKind.STEP,
+        hysteresis=True,
+    )
+
+    values = source_values_for_config(cfg)
+
+    assert values == [2.0, 1.0, 0.0, 1.0, 2.0]
+    assert values.count(0.0) == 1
+    assert values[-1] == cfg.start
+
+
 def test_adaptive_sweep_hysteresis_extends_generated_values() -> None:
     cfg = SweepConfig(
         mode=SweepMode.VOLTAGE_SOURCE,

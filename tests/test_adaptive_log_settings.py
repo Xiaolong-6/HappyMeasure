@@ -21,7 +21,8 @@ def test_adaptive_editor_uses_multiline_segment_text_contract():
     assert "tk.Text(" in block
     assert "Remove duplicate scan values" in block
     assert "Ascending: 1, 20, 1" in block
-    assert "Descending: 20, 1, -1" in block
+    assert "Descending: 20, 1, 1" in block
+    assert "either step sign is accepted" in block
     assert "＋ Row" not in block and "－ Row" not in block
 
 

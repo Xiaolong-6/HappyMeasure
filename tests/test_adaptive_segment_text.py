@@ -31,8 +31,13 @@ def test_segment_text_runs_ascending_ranges_in_line_order() -> None:
     assert values[-1] == pytest.approx(20)
 
 
-def test_segment_text_supports_descending_ranges() -> None:
-    assert parse_segment_text("20, 1, -1") == pytest.approx(list(range(20, 0, -1)))
+@pytest.mark.parametrize("step", [1, -1])
+def test_segment_text_supports_descending_ranges_with_step_magnitude(step: int) -> None:
+    assert parse_segment_text(f"20, 1, {step}") == pytest.approx(list(range(20, 0, -1)))
+
+
+def test_segment_text_supports_ascending_ranges_with_negative_step() -> None:
+    assert parse_segment_text("1, 3, -1") == pytest.approx([1, 2, 3])
 
 
 def test_duplicate_option_is_global_and_preserves_first_occurrence() -> None:
@@ -53,8 +58,6 @@ def test_segment_text_ignores_blank_lines_and_comments() -> None:
         ("1, 20", "Line 1"),
         ("a, 20, 1", "Line 1"),
         ("1, 20, 0", "step cannot be 0"),
-        ("1, 20, -1", "positive step"),
-        ("20, 1, 1", "negative step"),
         ("1, inf, 1", "infinite"),
         ("# nothing", "at least one"),
     ],

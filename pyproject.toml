@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "HappyMeasure"
-version = "1.1b4"
-description = "HappyMeasure 1.1b4 beta for Keithley-style IV workflows"
+version = "1.1b5"
+description = "HappyMeasure 1.1b5 beta for Keithley-style IV workflows"
 requires-python = ">=3.11"
 dependencies = [
   "matplotlib>=3.8,<4",
@@ -25,7 +25,8 @@ where = ["src"]
 dev = [
   "pytest>=7.0",
   "pytest-cov>=4.0",
-  "ruff>=0.1.0",
+  "numpy==2.3.5",
+  "ruff==0.15.22",
   "black>=23.0",
   "mypy>=1.0",
   "types-pyserial>=3.5.0",
