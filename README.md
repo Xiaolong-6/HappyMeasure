@@ -119,6 +119,9 @@ python -m pip install -e ".[map]"
 python -m map_reconstruction
 ```
 
+On Windows, `Run_Map_Reconstruction.bat` starts the GUI with the repository's
+`.venv` and forwards an optional CSV path argument.
+
 It currently imports HappyMeasure `single-v2` CSV files and reconstructs a map
 with the dual-offset method. The headless importer and numerical core are
 tested without Qt; combined exports, live HappyMeasure integration, and other
