@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 from importlib import import_module
 from typing import Any, Optional
@@ -75,6 +76,23 @@ class Keithley2400Serial(SourceMeter):
 
     def identify(self) -> str:
         return self.query("*IDN?")
+
+    def beep(self, frequency_hz: float = 1000.0, duration_s: float = 0.1) -> None:
+        """Request a short instrument-side confirmation beep.
+
+        This is a connection UX action, not part of sweep configuration.  Keep
+        the request bounded so a caller cannot accidentally ask for a very long
+        audible signal.
+        """
+        frequency = float(frequency_hz)
+        duration = float(duration_s)
+        if not math.isfinite(frequency) or frequency <= 0:
+            raise ValueError("Beep frequency must be finite and positive.")
+        if not math.isfinite(duration) or duration <= 0:
+            raise ValueError("Beep duration must be finite and positive.")
+        frequency = min(max(frequency, 100.0), 10_000.0)
+        duration = min(max(duration, 0.01), 1.0)
+        self.write(f":SYST:BEEP {frequency:.12g},{duration:.12g}")
 
     def reset(self) -> None:
         self.write("*RST")

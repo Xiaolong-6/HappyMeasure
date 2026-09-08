@@ -310,8 +310,19 @@ class HardwareControllerMixin(UiMixinTyping):
             self._refresh_connection_status_from_state()
             with self._make_instrument() as inst:
                 idn = inst.identify()
+                capabilities = self._detect_capabilities_from_idn(idn)
+                if capabilities.model_family == "2400-series-smu" and not self.debug.get():
+                    beep = getattr(inst, "beep", None)
+                    try:
+                        if not callable(beep):
+                            raise AttributeError("driver does not expose instrument beep")
+                        beep()
+                    except Exception as beep_exc:
+                        self.log_event(
+                            f"Connection confirmed; instrument beep unavailable: {beep_exc}"
+                        )
             self._connected_idn = idn
-            self._active_capabilities = self._detect_capabilities_from_idn(idn)
+            self._active_capabilities = capabilities
             action = AppAction.CONNECT_SIMULATED if self.debug.get() else AppAction.CONNECT_SUCCESS
             self.app_state.dispatch(
                 action, device_id=idn, device_model=self._active_capabilities.name

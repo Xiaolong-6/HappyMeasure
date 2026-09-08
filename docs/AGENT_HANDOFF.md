@@ -22,6 +22,16 @@
 
 ## 2026-09-08 Continuous Time timing audit
 
+- Real Keithley 2400-series connection probes attempt a short best-effort
+  `:SYST:BEEP` after successful `*IDN?`; beep errors are logged without changing
+  connection success. The simulator path never emits a beep.
+- `ui/sweep_controller.py` wraps the worker's complete instrument lifecycle in
+  `services.power_guard.prevent_system_sleep()`. On Windows it requests only
+  `ES_CONTINUOUS | ES_SYSTEM_REQUIRED`, leaves display sleep allowed, keeps the
+  request active during Pause, and releases it after output-off/close on every
+  completion, stop, abort, and exception path. Non-Windows and API failures are
+  degraded no-ops; user-initiated lock, sleep, and lid-close actions remain
+  outside the application's control.
 - Constant Time `interval_s` is a target start-to-start cadence in both finite
   and continuous modes. The runner uses one monotonic deadline scheduler, skips
   extra sleep when a read overruns, and rebases after an overrun or Pause so it

@@ -2,6 +2,15 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Successful real Keithley 2400-series detection now attempts one short
+  instrument-side confirmation beep; beep failure is logged as degraded UX and
+  does not invalidate an otherwise successful connection. Debug simulator
+  connections remain silent.
+- Active measurement workers now best-effort request Windows
+  `ES_SYSTEM_REQUIRED` through `SetThreadExecutionState`. The display may still
+  turn off, the request lasts only for the worker lifecycle (including Pause),
+  and completion, Stop, Abort, or error releases it. Non-Windows platforms are
+  safe no-ops, and user-initiated lock/sleep/lid-close actions are not blocked.
 - Constant Time `Interval (s)` now uses one start-to-start deadline scheduler in
   both finite and continuous modes. Acquisition elapsed time starts after reset,
   configuration, output enable, and the initial source command complete.
