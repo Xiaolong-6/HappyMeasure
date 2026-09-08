@@ -38,6 +38,24 @@
   the AC-unplug step and remains an operator follow-up. The generated
   `hardware_smoke_results/` artifacts are local and ignored by Git.
 
+## 2026-09-08 Map Reconstruction v1
+
+- A dedicated `feat/map-reconstruction-v1` branch adds the standalone
+  `src/map_reconstruction/` package. It does not modify HappyMeasure's
+  instrument, sweep, serial, power-guard, or Tk UI paths.
+- The headless core includes a CSV-aware `single-v2` importer, generic
+  `TimeSeriesData`, dual-offset timing/reconstruction, same-direction and
+  serpentine orientation, sample-window/nearest fallback extraction, and
+  reconstruction QC warnings. The optional PySide6/PyQtGraph UI is lazy-loaded
+  by `python -m map_reconstruction` and `map-reconstruction`.
+- The supplied private sample CSV was opened read-only for importer validation:
+  4,464 samples, `Voltage_V` and `Current_A` signals, and a 1,231.703 s time
+  span. Raw values and metadata contents were not copied into the repository or
+  reported.
+- Headless map tests pass without Qt. The v1 UI has not been manually exercised
+  until the optional `[map]` dependencies are installed; combined CSVs, live
+  integration, and non-dual-offset registration remain known limitations.
+
 ## 2026-09-08 Continuous Time timing audit
 
 - Real Keithley 2400-series connection probes attempt a short best-effort

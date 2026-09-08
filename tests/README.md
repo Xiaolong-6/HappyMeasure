@@ -26,7 +26,9 @@ python -m pytest tests/test_ui_smoke.py -q
 
 ## Coverage note
 
-The coverage configuration now includes `services/` and `drivers/` rather than omitting all of them. Hardware-only branches still need mock/fake serial coverage. Coverage gate: `python -m pytest --cov=keith_ivt -q` must pass >=95% for the unit-testable core/hardware subset; Tk widgets and real hardware entrypoints are excluded and covered by smoke/bench protocols.
+The coverage configuration now includes `services/`, `drivers/`, and the
+headless `map_reconstruction` importer/core. Hardware-only branches still need
+mock/fake serial coverage. Coverage gate: `python -m pytest --cov=keith_ivt --cov=map_reconstruction -q` must pass >=95% for the unit-testable core/hardware/map subset; Tk/Qt widgets and real hardware entrypoints are excluded and covered by smoke/bench protocols.
 
 ## Behavior-oriented files
 
@@ -55,4 +57,4 @@ Core module tests keep direct names, for example `test_app_state.py`, `test_plot
 - `test_pre_hardware_safety.py`: verifies output-off behavior on key software failure/stop paths.
 - `test_mock_visa_command_sequence.py`: records fake serial commands and compares intended Keithley 2400 source/measure setup.
 - `test_trace_multi_delete.py`: verifies multi-select delete behavior without requiring a Tk desktop.
-- Coverage gate: `python -m pytest --cov=keith_ivt -q` must pass >=95% for the unit-testable core/hardware subset; Tk widgets and real hardware entrypoints are excluded and covered by smoke/bench protocols.
+- Coverage gate: `python -m pytest --cov=keith_ivt --cov=map_reconstruction -q` must pass >=95% for the unit-testable core/hardware/map subset; Tk/Qt widgets and real hardware entrypoints are excluded and covered by smoke/bench protocols.

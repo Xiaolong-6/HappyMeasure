@@ -1,5 +1,24 @@
 # Current Test Status
 
+## 2026-09-08 - Map Reconstruction v1 branch
+
+The headless Map Reconstruction importer/core tests and the existing
+HappyMeasure suite passed through the full validation script:
+
+```powershell
+.\.venv\Scripts\python.exe tests\run_full_validation.py
+```
+
+Results:
+
+- 566 tests collected; 565 passed and 1 expected conditional skip
+- combined `keith_ivt` + `map_reconstruction` coverage: 95.48%
+- compileall, legacy UI contracts, and the repository coverage gate passed
+- the supplied private CSV importer smoke check loaded 4,464 samples with
+  `Voltage_V` and `Current_A` without copying raw data into the repository
+- Qt/PyQtGraph UI was not manually exercised because the optional `[map]`
+  dependencies were not installed in this environment
+
 ## 2026-09-07 - HappyMeasure 1.1b5 release candidate
 
 The repository release-validation script passed using Python 3.12.10:

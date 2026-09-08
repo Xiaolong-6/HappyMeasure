@@ -37,6 +37,7 @@ Use in this order before real DUT measurement:
 - `SETTINGS_MIGRATION.md` — settings-schema migration notes.
 - `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding drivers and sweep paths.
 - `HARDWARE_DRIVER_MIGRATION.md` — driver-layer migration notes.
+- `../src/map_reconstruction/` — standalone optional-Qt map reconstruction package.
 - `RESTART_MECHANISM.md` — UI restart behavior.
 - `UI_STYLE_GUIDE.md` and `UI_VISUAL_CHECKLIST.md` — UI styling and visual checks.
 - `NAMING.md` — naming conventions.

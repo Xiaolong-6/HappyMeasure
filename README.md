@@ -108,6 +108,22 @@ Run release-hardening compatibility checks:
 python -m pytest tests/test_config_compatibility.py tests/test_trace_schema_contract.py tests/test_hardware_preflight_cli.py -q
 ```
 
+## Standalone Map Reconstruction
+
+Map Reconstruction is a separate optional desktop application; it does not
+change HappyMeasure's Tk UI or instrument packages. Install its GUI extras and
+run it with:
+
+```powershell
+python -m pip install -e ".[map]"
+python -m map_reconstruction
+```
+
+It currently imports HappyMeasure `single-v2` CSV files and reconstructs a map
+with the dual-offset method. The headless importer and numerical core are
+tested without Qt; combined exports, live HappyMeasure integration, and other
+registration methods remain out of scope for v1.
+
 Manual smoke checks are listed in `docs/MANUAL_SMOKE_TESTS.md`. Trace/export behavior is documented in `docs/TRACE_SCHEMA.md`; hardware preflight behavior is documented in `docs/HARDWARE_PREFLIGHT.md`.
 
 

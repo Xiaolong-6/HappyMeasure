@@ -2,6 +2,11 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Added the standalone optional `map_reconstruction` package and
+  `map-reconstruction` console entry point. It imports HappyMeasure `single-v2`
+  CSV files with CSV-aware metadata parsing and reconstructs 2-D maps using the
+  dual-offset timing method without coupling to HappyMeasure's instrument/UI
+  runtime. Install GUI dependencies with `pip install -e ".[map]"`.
 - Successful real Keithley 2400-series detection now attempts one short
   instrument-side confirmation beep; beep failure is logged as degraded UX and
   does not invalidate an otherwise successful connection. Debug simulator
