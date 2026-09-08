@@ -19,6 +19,7 @@ from map_reconstruction.models import (
     ScanPattern,
     TimeSeriesData,
 )
+from map_reconstruction.ui.distribution import make_histogram_data
 from map_reconstruction.ui.style import (
     BORDER,
     GRID_MAJOR,
@@ -243,8 +244,20 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 "Samples",
             )
         )
+        self.qc_tabs = QtWidgets.QTabWidget()
+        self.qc_tabs.setDocumentMode(True)
+        self.qc_tabs.addTab(self.count_stack, "Samples / pixel")
+        (
+            self.distribution_stack,
+            self.distribution_plot,
+            self.distribution_bars,
+            self.mean_line,
+            self.median_line,
+            self.distribution_stats,
+        ) = self._make_distribution_panel()
+        self.qc_tabs.addTab(self.distribution_stack, "Distribution")
         map_splitter.addWidget(self.map_stack)
-        map_splitter.addWidget(self.count_stack)
+        map_splitter.addWidget(self.qc_tabs)
         right_splitter.addWidget(map_splitter)
 
         self.raw_stack, self.raw_plot = self._make_trace_panel()
@@ -448,10 +461,74 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         stack.addWidget(plot)
         return stack, plot
 
+    def _make_distribution_panel(
+        self,
+    ) -> tuple[
+        QtWidgets.QStackedWidget,
+        pg.PlotWidget,
+        pg.BarGraphItem,
+        pg.InfiniteLine,
+        pg.InfiniteLine,
+        QtWidgets.QLabel,
+    ]:
+        """Create the read-only reconstructed-value distribution QC view."""
+
+        stack = QtWidgets.QStackedWidget()
+        stack.addWidget(
+            self._make_empty_panel(
+                "Value distribution",
+                "A histogram of finite reconstructed values appears here.",
+                action=False,
+            )
+        )
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        plot = pg.PlotWidget()
+        self._configure_plot(plot, "Value distribution")
+        plot.setLabel("bottom", "Signal", color=SECONDARY_TEXT)
+        plot.setLabel("left", "Pixels", color=SECONDARY_TEXT)
+        bars = pg.BarGraphItem(
+            x0=np.array([], dtype=float),
+            x1=np.array([], dtype=float),
+            height=np.array([], dtype=float),
+            brush="#60A5FA",
+            pen=pg.mkPen("#2563EB", width=0.5),
+        )
+        plot.addItem(bars)
+        mean_line = pg.InfiniteLine(
+            angle=90,
+            movable=False,
+            pen=pg.mkPen("#D97706", width=1.5),
+            label="mean",
+            labelOpts={"color": "#9A6700", "position": 0.92},
+        )
+        median_line = pg.InfiniteLine(
+            angle=90,
+            movable=False,
+            pen=pg.mkPen("#7C3AED", width=1.5),
+            label="median",
+            labelOpts={"color": "#6941C6", "position": 0.08},
+        )
+        plot.addItem(mean_line)
+        plot.addItem(median_line)
+        mean_line.hide()
+        median_line.hide()
+        stats = QtWidgets.QLabel()
+        stats.setObjectName("distributionStats")
+        stats.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(plot, 1)
+        layout.addWidget(stats)
+        stack.addWidget(panel)
+        return stack, plot, bars, mean_line, median_line, stats
+
     def _set_loaded_view(self, loaded: bool) -> None:
         index = 1 if loaded else 0
         for stack in (self.map_stack, self.count_stack, self.raw_stack):
             stack.setCurrentIndex(index)
+        if not loaded:
+            self.distribution_stack.setCurrentIndex(0)
         self.export_button.setEnabled(loaded)
 
     def _choose_file(self) -> None:
@@ -628,10 +705,46 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.qc_values["Median samples/pixel"].setText(f"{median_samples:.3g}")
         self.qc_label.setText(" | ".join(result.warnings))
         self.qc_label.setVisible(bool(result.warnings))
+        self._update_value_axis_labels()
         self._set_image(self.map_plot, self.map_image, result.values)
         self._set_image(self.count_plot, self.count_image, result.sample_counts)
+        self._update_distribution(result)
         self._update_guides(result)
         self.statusBar().showMessage("Map reconstructed.")
+
+    def _update_value_axis_labels(self) -> None:
+        """Keep primary-map and distribution value axes in the same native units."""
+
+        label = self.signal_combo.currentText() or "Signal"
+        self.map_color_bar.setLabel("right", label)
+        self.distribution_plot.setLabel("bottom", label, color=SECONDARY_TEXT)
+
+    def _update_distribution(self, result: ReconstructionResult) -> None:
+        """Render finite scientific map values without display-orientation transforms."""
+
+        histogram = make_histogram_data(result.values)
+        if histogram is None:
+            self.distribution_stack.setCurrentIndex(0)
+            self.mean_line.hide()
+            self.median_line.hide()
+            return
+
+        self.distribution_bars.setOpts(
+            x0=histogram.edges[:-1],
+            x1=histogram.edges[1:],
+            height=histogram.counts,
+        )
+        self.mean_line.setValue(histogram.mean)
+        self.median_line.setValue(histogram.median)
+        self.mean_line.show()
+        self.median_line.show()
+        self.distribution_stats.setText(
+            "Finite pixels "
+            f"{histogram.finite_count} / {histogram.total_count}    "
+            f"Mean {histogram.mean:.6g}    Median {histogram.median:.6g}"
+        )
+        self.distribution_stack.setCurrentIndex(1)
+        self.distribution_plot.enableAutoRange()
 
     def _set_image(self, plot: pg.PlotWidget, image: pg.ImageItem, values: np.ndarray) -> None:
         display = np.asarray(values, dtype=float)
@@ -675,6 +788,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.raw_plot.enableAutoRange()
         self.map_plot.enableAutoRange()
         self.count_plot.enableAutoRange()
+        self.distribution_plot.enableAutoRange()
 
     def _export_map(self) -> None:
         if self.result is None or self.data is None:

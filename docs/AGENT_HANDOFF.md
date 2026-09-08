@@ -56,6 +56,10 @@
   visually observed desktop rendering remain operator follow-ups because this
   session did not expose a targetable desktop window. Combined CSVs, live
   integration, and non-dual-offset registration remain known limitations.
+- The right-hand Map Reconstruction QC area now uses tabs for `Samples /
+  pixel` and a read-only `Distribution` view. The distribution takes finite
+  values directly from `ReconstructionResult.values`, so display-only Flip Y
+  never changes its bars, summary statistics, or mean/median reference lines.
 
 ## 2026-09-08 Continuous Time timing audit
 

@@ -79,6 +79,13 @@ QLabel#warningLabel {{
     border-radius: 4px;
     padding: 5px 7px;
 }}
+QLabel#distributionStats {{
+    color: {SECONDARY_TEXT};
+    background: {PANEL};
+    border: 1px solid {BORDER};
+    border-radius: 4px;
+    padding: 4px 7px;
+}}
 QScrollArea {{
     background: transparent;
     border: none;
@@ -157,6 +164,26 @@ QSplitter::handle {{
 }}
 QSplitter::handle:hover {{
     background: #DCE6F8;
+}}
+QTabWidget::pane {{
+    border: 1px solid {BORDER};
+    background: {PANEL};
+}}
+QTabBar::tab {{
+    color: {SECONDARY_TEXT};
+    background: #EEF2F7;
+    border: 1px solid {BORDER};
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    min-height: 25px;
+    padding: 2px 10px;
+    margin-right: 2px;
+}}
+QTabBar::tab:selected {{
+    color: {PRIMARY_TEXT};
+    background: {PANEL};
+    font-weight: 600;
 }}
 """
 
