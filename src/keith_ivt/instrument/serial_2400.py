@@ -82,7 +82,9 @@ class Keithley2400Serial(SourceMeter):
 
         This is a connection UX action, not part of sweep configuration.  Keep
         the request bounded so a caller cannot accidentally ask for a very long
-        audible signal.
+        audible signal.  The 2400 only emits the tone when its beeper is
+        enabled, so an initially disabled beeper is enabled temporarily and
+        restored after the confirmation tone.
         """
         frequency = float(frequency_hz)
         duration = float(duration_s)
@@ -92,7 +94,21 @@ class Keithley2400Serial(SourceMeter):
             raise ValueError("Beep duration must be finite and positive.")
         frequency = min(max(frequency, 100.0), 10_000.0)
         duration = min(max(duration, 0.01), 1.0)
-        self.write(f":SYST:BEEP {frequency:.12g},{duration:.12g}")
+
+        status = self.query(":SYST:BEEP:STAT?").strip().upper()
+        if status in {"1", "+1", "ON", "TRUE"}:
+            restore_disabled = False
+        elif status in {"0", "OFF", "FALSE"}:
+            self.write(":SYST:BEEP:STAT ON")
+            restore_disabled = True
+        else:
+            raise ValueError(f"Unexpected beeper status: {status!r}")
+
+        try:
+            self.write(f":SYST:BEEP {frequency:.12g},{duration:.12g}")
+        finally:
+            if restore_disabled:
+                self.write(":SYST:BEEP:STAT OFF")
 
     def reset(self) -> None:
         self.write("*RST")
