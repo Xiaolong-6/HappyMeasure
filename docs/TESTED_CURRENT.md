@@ -12,12 +12,16 @@ HappyMeasure suite passed through the full validation script:
 Results:
 
 - 566 tests collected; 565 passed and 1 expected conditional skip
-- combined `keith_ivt` + `map_reconstruction` coverage: 95.48%
+- combined `keith_ivt` + `map_reconstruction` coverage: 95.28%
 - compileall, legacy UI contracts, and the repository coverage gate passed
-- the supplied private CSV importer smoke check loaded 4,464 samples with
-  `Voltage_V` and `Current_A` without copying raw data into the repository
-- Qt/PyQtGraph UI was not manually exercised because the optional `[map]`
-  dependencies were not installed in this environment
+- a private single-v2 CSV was opened read-only for importer validation; no
+  source data, path, metadata values, or sample-specific observations were
+  committed
+- with `[map]` installed, Qt interaction smoke covered empty launch, a
+  read-only private import, controls, cursors, map/count rendering, reset,
+  export, and timing error/warning feedback; native file-dialog selection and
+  visually observed desktop rendering remain operator follow-ups because the
+  desktop automation service did not expose a targetable window
 
 ## 2026-09-07 - HappyMeasure 1.1b5 release candidate
 

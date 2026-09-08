@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    import pyqtgraph as pg  # type: ignore[import-not-found]
+    import pyqtgraph as pg  # type: ignore[import-not-found, import-untyped]
     from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
 except ImportError as exc:  # pragma: no cover - optional GUI dependency
     raise ImportError("PySide6 and pyqtgraph are required for the Map Reconstruction UI") from exc

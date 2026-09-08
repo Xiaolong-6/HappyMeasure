@@ -48,12 +48,13 @@
   serpentine orientation, sample-window/nearest fallback extraction, and
   reconstruction QC warnings. The optional PySide6/PyQtGraph UI is lazy-loaded
   by `python -m map_reconstruction` and `map-reconstruction`.
-- The supplied private sample CSV was opened read-only for importer validation:
-  4,464 samples, `Voltage_V` and `Current_A` signals, and a 1,231.703 s time
-  span. Raw values and metadata contents were not copied into the repository or
-  reported.
-- Headless map tests pass without Qt. The v1 UI has not been manually exercised
-  until the optional `[map]` dependencies are installed; combined CSVs, live
+- A private single-v2 CSV was opened read-only for importer validation. No
+  source data, path, metadata values, or sample-specific observations were
+  copied into the repository or reported.
+- With `[map]` installed, the v1 UI passed a local Qt interaction smoke using a
+  private read-only single-v2 import. The native file-selection dialog and
+  visually observed desktop rendering remain operator follow-ups because this
+  session did not expose a targetable desktop window. Combined CSVs, live
   integration, and non-dual-offset registration remain known limitations.
 
 ## 2026-09-08 Continuous Time timing audit
