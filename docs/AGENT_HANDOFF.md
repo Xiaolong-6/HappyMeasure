@@ -20,6 +20,27 @@
   bytes, SHA-256
   `a4e51d1fc3871ed5f567cc1d1597526d3b58cd21aec6a7667e4dc307ee15df5e`.
 
+## 2026-09-08 Continuous Time timing audit
+
+- Continuous Time `interval_s` is a target start-to-start cadence. The runner
+  uses monotonic deadlines, skips extra sleep when a read overruns, and rebases
+  after Pause so it never tries to catch up on paused deadlines.
+- `SweepPoint.elapsed_s` remains measured from the runner's monotonic start and
+  is recorded after readback completes; the wall-clock `timestamp` is recorded
+  at the same post-readback point.
+- `minimum_allowed_interval_seconds()` is the canonical physical/configuration
+  bound (NPLC aperture plus configured delay). `minimum_interval_seconds()` and
+  `estimate_point_seconds()` retain serial/readback estimates for ETA and user
+  information only; UI Start validation no longer applies that estimate.
+- Fixed `auto_measure_range=False` runs seed their known range from config and
+  avoid per-point `:SENS:CURR:RANG:AUTO?` / `:SENS:CURR:RANG?` queries. Explicit
+  range actions still perform the required refresh and settle/discard path.
+- The 2400 serial driver now sends `:SOUR:DEL:AUTO OFF` and `:SOUR:DEL 0`.
+  `SweepRunner` remains the single owner of `SweepConfig.delay_s`, preventing
+  the device source delay and software delay from being applied twice.
+- Real Keithley throughput and instrument-side behavior remain a hardware gate;
+  no specific RS-232 sample rate is promised by the simulator tests.
+
 ## Keithley front-panel range popup visual polish note
 
 The Keithley-style front-panel popup is in `src/keith_ivt/ui/status_bar.py`. The current-range area now intentionally uses custom `tk.Frame`/`tk.Label` card blocks instead of a native `ttk.LabelFrame`, because the native layout clipped controls under Windows scaling. Keep the mock-style hierarchy: large black instrument readout, left metadata column, right current-range card with summary cells and one aligned control row.
@@ -177,12 +198,13 @@ Regression command: `set PYTHONPATH=src && python -m pytest tests\test_front_pan
 The Sweep panel now has a common `Delay (s)` field immediately after `NPLC`. It is stored as `SweepConfig.delay_s` and persisted as `default_delay_s`. Default is `0.0` so existing workflows do not slow down unless the user explicitly sets a delay.
 
 Timing estimate owner functions are in `src/keith_ivt/models.py`:
-- `minimum_interval_seconds(nplc, line_frequency_hz=50.0, overhead_s=0.03, delay_s=0.0)`
+- `minimum_allowed_interval_seconds(nplc, line_frequency_hz=50.0, delay_s=0.0)`
+- `minimum_interval_seconds(nplc, line_frequency_hz=50.0, overhead_s=None, delay_s=0.0, baud_rate=9600)`
 - `estimate_point_seconds(nplc, mode="STEP", interval_s=None, delay_s=0.0)`
 
-The estimate intentionally models the Keithley 2400-class aperture as `NPLC / line_frequency`, then adds user delay and serial/readback overhead. If hardware validation shows a consistent offset for a specific connection mode, tune `overhead_s` or add an instrument-profile-specific timing constant rather than hiding it in UI code.
+The estimate intentionally models the Keithley 2400-class aperture as `NPLC / line_frequency`, then adds user delay and serial/readback overhead for ETA/user information. Validation uses `minimum_allowed_interval_seconds()` instead and never rejects a cadence solely because of estimated PC/serial transfer time.
 
-Hardware command intent is covered by `drivers/command_plan.py` and `instrument/serial_2400.py`, both sending `:SOUR:DEL <delay_s>`. `SweepRunner` also sleeps `delay_s` after setting the source and before `:READ?` so debug/simulator and legacy serial behavior remain aligned.
+Hardware command intent is covered by `drivers/command_plan.py` and `instrument/serial_2400.py`. Both disable the 2400 automatic/programmed source delay (`:SOUR:DEL:AUTO OFF`, `:SOUR:DEL 0`); `SweepRunner` sleeps `delay_s` after setting the source and before `:READ?` so debug/simulator and serial behavior apply the configured delay once.
 
 Regression command:
 `set PYTHONPATH=src && python -m pytest tests\test_delay_timing_regression.py tests\test_core_coverage_gaps.py tests\test_settings_v2.py tests\test_data_import_export_store.py tests\test_mock_visa_command_sequence.py tests\test_pre_hardware_safety.py tests\test_services_drivers_more.py -q`

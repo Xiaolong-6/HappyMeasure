@@ -92,7 +92,11 @@ class Keithley2400Serial(SourceMeter):
         self.write(f":SENS:FUNC '{meas}'")
         self.write(f":SENS:{meas}:PROT {config.compliance:.12g}")
         self.write(f":SENS:{meas}:NPLC {config.nplc:.12g}")
-        self.write(f":SOUR:DEL {config.delay_s:.12g}")
+        # SweepRunner applies SweepConfig.delay_s once between set_source and
+        # readback.  The 2400 source delay is a second device-action delay, so
+        # disable both its automatic and programmed delay here.
+        self.write(":SOUR:DEL:AUTO OFF")
+        self.write(":SOUR:DEL 0")
         if config.auto_source_range:
             self.write(f":SOUR:{src}:RANG:AUTO ON")
         else:

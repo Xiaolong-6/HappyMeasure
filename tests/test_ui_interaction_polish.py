@@ -42,7 +42,7 @@ def test_alpha3_hardware_log_stop_contracts():
     assert "self.port_combo = self._combo" in panels
     assert "_detect_serial_ports" in hardware and "list_ports.comports" in hardware
     assert "_interruptible_sleep" in runner
-    assert "_interruptible_sleep(max(0.0, config.interval_s), _should_stop)" in runner
+    assert "_wait_until_deadline(next_deadline, _should_stop, should_pause)" in runner
     assert "def _should_stop" in runner
     log = panels[panels.index("def _build_log_panel") : panels.index("def _build_about_panel")]
     assert 'box.grid(row=0, column=0, sticky="nsew"' in log

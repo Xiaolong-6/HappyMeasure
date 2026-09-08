@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — Continuous Time timing and RS-232 throughput
+
+- Continuous Time `Interval (s)` now targets start-to-start sample cadence with
+  monotonic deadline scheduling, without cumulative drift or catch-up bursts
+  after a pause.
+- Constant Time validation now uses only the NPLC aperture and configured delay;
+  serial transfer estimates remain ETA/throughput information rather than a
+  hard rejection of short requested intervals.
+- Fixed current measurement ranges skip redundant per-point `RANG:AUTO?` and
+  `RANG?` queries while explicit runtime range actions still refresh state and
+  preserve settle/discard handling.
+- The Keithley 2400 driver disables automatic/programmed source delay so the
+  runner's configured delay is applied exactly once for simulator and serial
+  runs.
+
 ## 1.1b5 — Sweep direction and recovery hardening
 
 - Changed Step and Adaptive segment step semantics to magnitude-only; Start and

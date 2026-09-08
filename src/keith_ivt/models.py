@@ -203,7 +203,7 @@ def minimum_interval_seconds(
     delay_s: float = 0.0,
     baud_rate: int = 9600,
 ) -> float:
-    """Keithley-2400-style per-point timing estimate.
+    """Estimated real-world per-point duration for ETA/user information.
 
     The 2400 integration aperture is approximately ``NPLC / line_frequency``.
     The estimate also includes the user-requested source settling delay and a
@@ -215,6 +215,23 @@ def minimum_interval_seconds(
     serial_s = serial_round_trip_seconds(baud_rate=baud_rate)
     extra_overhead = serial_s if overhead_s is None else max(0.0, float(overhead_s))
     return aperture_s + max(0.0, float(delay_s)) + extra_overhead
+
+
+def minimum_allowed_interval_seconds(
+    nplc: float,
+    line_frequency_hz: float = 50.0,
+    delay_s: float = 0.0,
+) -> float:
+    """Return the physical/configured lower bound used by validation.
+
+    This is intentionally limited to the instrument integration aperture and
+    the user-requested settling delay.  Serial transfer time and software
+    turnaround are throughput estimates, not configuration constraints: a
+    requested interval may be shorter than the PC/instrument round trip and
+    the runner will then acquire as fast as the instrument permits.
+    """
+    aperture_s = max(0.0, float(nplc)) / float(line_frequency_hz)
+    return aperture_s + max(0.0, float(delay_s))
 
 
 def estimate_point_seconds(
@@ -266,11 +283,13 @@ def validate_config(config: SweepConfig) -> None:
             raise ValueError("Constant value must be finite.")
         if not math.isfinite(float(config.interval_s)):
             raise ValueError("Interval must be finite.")
+        if config.interval_s <= 0:
+            raise ValueError("Interval must be positive.")
         if not config.continuous_time and not math.isfinite(float(config.duration_s)):
             raise ValueError("Duration must be finite.")
         if not config.continuous_time:
             source_values_for_config(config)
-        min_interval = minimum_interval_seconds(config.nplc, delay_s=config.delay_s, overhead_s=0.0)
+        min_interval = minimum_allowed_interval_seconds(config.nplc, delay_s=config.delay_s)
         if config.interval_s < min_interval:
             raise ValueError(
                 f"Interval is too short for NPLC={config.nplc}. Use at least about {min_interval:.3f} s."

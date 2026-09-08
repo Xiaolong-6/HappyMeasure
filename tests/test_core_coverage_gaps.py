@@ -13,6 +13,7 @@ from keith_ivt.models import (
     estimate_point_seconds,
     make_constant_time_values,
     make_source_values,
+    minimum_allowed_interval_seconds,
     minimum_interval_seconds,
     validate_config,
 )
@@ -31,6 +32,7 @@ def test_source_value_generation_and_validation_errors() -> None:
 
 
 def test_timing_helpers_and_constant_time_validation() -> None:
+    assert minimum_allowed_interval_seconds(0.1, line_frequency_hz=50) == pytest.approx(0.002)
     assert minimum_interval_seconds(1.0, line_frequency_hz=50, overhead_s=0.03) == pytest.approx(
         0.05
     )

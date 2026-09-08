@@ -135,8 +135,9 @@ def main() -> None:
         app.duration_s.set(0.45)
         app.interval_s.set(0.01)
         app.start_sweep()
-        assert app._run_state == "completed"
-        assert shown_errors[-1][0] == "Interval too short"
+        assert app._run_state == "running"
+        assert not shown_errors or shown_errors[-1][0] != "Interval too short"
+        _run_to_completion(app)
         app.interval_s.set(0.2)
         _run_to_completion(app)
 

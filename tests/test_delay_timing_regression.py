@@ -52,7 +52,8 @@ def test_delay_is_in_command_plan_and_estimate() -> None:
     )
     commands = build_keithley2400_sweep_command_plan(cfg, include_output=False)
     assert ":SENS:CURR:NPLC 1" in commands
-    assert ":SOUR:DEL 0.25" in commands
+    assert ":SOUR:DEL:AUTO OFF" in commands
+    assert ":SOUR:DEL 0" in commands
     expected = 0.02 + 0.25 + serial_round_trip_seconds(9600)
     assert minimum_interval_seconds(1.0, delay_s=0.25, baud_rate=9600) == pytest.approx(expected)
     assert estimate_point_seconds(1.0, delay_s=0.25, baud_rate=9600) == pytest.approx(expected)

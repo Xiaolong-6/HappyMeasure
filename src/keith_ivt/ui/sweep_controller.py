@@ -13,7 +13,6 @@ from keith_ivt.models import (
     SweepConfig,
     SweepKind,
     SweepResult,
-    minimum_interval_seconds,
     validate_config,
 )
 from keith_ivt.services.measurement_service import MeasurementService
@@ -47,16 +46,6 @@ class SweepControllerMixin(UiMixinTyping):
                 return
             # Adaptive table/logic is parsed by SweepRunner; it no longer requires
             # a separate validate click before a debug or real run.
-            if config.sweep_kind is SweepKind.CONSTANT_TIME:
-                min_interval = minimum_interval_seconds(
-                    config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate
-                )
-                if config.interval_s < min_interval:
-                    messagebox.showerror(
-                        "Interval too short",
-                        f"NPLC={config.nplc} needs interval >= {min_interval:.3f} s.",
-                    )
-                    return
         except Exception as exc:
             messagebox.showerror("Invalid sweep configuration", str(exc))
             self._refresh_run_status_from_state()
