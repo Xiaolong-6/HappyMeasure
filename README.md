@@ -134,6 +134,13 @@ tools\hardware\Real_Hardware_Preflight.bat
 
 The preflight opens the serial port, queries `*IDN?`, sends `:OUTP OFF`, and closes the port. It must not source voltage or current.
 
+For a disconnected open-circuit Keithley 2400/2401 timing and lifecycle smoke
+run, use `tools\hardware\Run_Keithley2400_Smoke.bat` and follow the staged
+prompts. It sources only 0 V in voltage-source/current-measure, 2-wire mode;
+the runner records artifacts under `hardware_smoke_results\` (which is kept
+out of Git). See `docs\HARDWARE_VALIDATION_PROTOCOL.md` for the scope and the
+latest bench record.
+
 ## Human developer handoff
 
 This README is the human-facing handoff. Public documentation is in `docs/`.

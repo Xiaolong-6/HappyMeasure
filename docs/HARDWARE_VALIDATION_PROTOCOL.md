@@ -14,6 +14,53 @@ This is a human bench protocol. Do not treat simulator, mock serial, or coverage
 6. Run the simulator first, then a low-risk open-circuit hardware check.
 7. If anything looks wrong, turn output off from the instrument front panel.
 
+## No-DUT Keithley 2400/2401 smoke runner
+
+For a safe open-circuit timing and lifecycle check after the simulator gates,
+copy or use the repository-provided runner:
+
+```bat
+tools\hardware\Run_Keithley2400_Smoke.bat
+```
+
+Before starting, edit `PORT`, `BAUD`, and `TERMINAL` in the batch file if the
+instrument is not on `COM3`, `9600`, and `rear`. The runner accepts Keithley
+2400/2401-family IDs and deliberately uses only:
+
+- voltage source at `0 V`;
+- current measurement with a `100 µA` compliance;
+- 2-wire sense;
+- disconnected analog terminals / no DUT;
+- output-off after every case.
+
+Mode 1 QUICK covers IDN, confirmation beep, source-delay ownership, finite
+0 V readback, four timing intervals, pause/resume rebase, and stop/restart.
+Mode 2 FULL adds NPLC 1, more intervals, and fixed-versus-auto range-query
+checks. Mode 3 adds the optional battery idle/sleep-prevention observation and
+should only be run when an operator is ready to unplug AC and observe the
+machine.
+
+Each run writes `summary.txt`, `summary.json`, `timing_stats.csv`,
+`runtime.log`, and raw point CSVs under `hardware_smoke_results\<timestamp>\`.
+These local artifacts are intentionally ignored by Git.
+
+### 2026-09-08 no-DUT bench record
+
+- Instrument: `KEITHLEY INSTRUMENTS INC., MODEL 2401`, firmware `B02 Jan 20 2021`.
+- Mode 1 QUICK: PASS, including one physical confirmation beep and output-off
+  after every case.
+- Mode 2 FULL: PASS; fixed-range path made `0` range queries while auto-range
+  made `66` queries.
+- At NPLC 0.1, the observed readback floor was about `47 ms`; at NPLC 1 it
+  was about `94–109 ms`. Requested `10–20 ms` intervals were classified as
+  hardware/RS-232 throughput-limited, not as scheduler failures.
+- Pause/resume rebase and immediate stop/restart both passed.
+- Mode 3 battery sleep-prevention testing was intentionally not completed;
+  it remains a separate operator-run check.
+
+This record covers only the disconnected no-DUT smoke scope. It is not dummy
+resistor, diode, real-DUT, or packaged-release validation.
+
 ## Required order
 
 ### Level 0 — No DUT connected

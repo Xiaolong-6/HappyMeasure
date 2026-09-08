@@ -22,6 +22,9 @@ logs/*
 !logs/.gitkeep
 backups/
 
+# Local real-instrument smoke-test artifacts
+/hardware_smoke_results/
+
 .pycache_tmp/
 .tmp-build/
 .build-deps/

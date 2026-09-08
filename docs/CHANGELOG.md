@@ -30,6 +30,15 @@
 - The Keithley 2400 driver disables automatic/programmed source delay so the
   runner's configured delay is applied exactly once for simulator and serial
   runs.
+- Added `tools/hardware/keithley2400_smoke.py` and its Windows launcher for
+  disconnected, 0 V, voltage-source/current-measure, 2-wire Keithley
+  2400/2401 smoke testing. The runner records timing statistics, range-query
+  behavior, pause/resume rebase, stop/restart, output-off, and optional power
+  guard observations without requiring a DUT.
+- The 2026-09-08 no-DUT bench run on a Keithley 2401 passed Mode 1 QUICK and
+  Mode 2 FULL, including fixed-range `0` queries versus auto-range `66`
+  queries. The optional battery sleep-prevention Mode 3 remains a separate
+  operator-run check and was not completed in that session.
 
 ## 1.1b5 — Sweep direction and recovery hardening
 

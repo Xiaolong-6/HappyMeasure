@@ -20,6 +20,24 @@
   bytes, SHA-256
   `a4e51d1fc3871ed5f567cc1d1597526d3b58cd21aec6a7667e4dc307ee15df5e`.
 
+## 2026-09-08 no-DUT Keithley 2401 smoke validation
+
+- Added the repository-local `tools/hardware/keithley2400_smoke.py` runner and
+  `Run_Keithley2400_Smoke.bat` launcher. The runner accepts Keithley 2400/2401
+  IDs and is intentionally limited to 0 V, voltage-source/current-measure,
+  2-wire, disconnected-terminal checks.
+- The connected Keithley 2401 (`MODEL 2401`, firmware `B02 Jan 20 2021`) passed
+  Mode 1 QUICK and Mode 2 FULL on 2026-09-08. The physical confirmation beep,
+  source-delay ownership, output-off, pause/resume rebase, stop/restart, and
+  fixed-versus-auto range-query checks all passed. Fixed range made 0 range
+  queries; auto range made 66.
+- Observed RS-232/readback floors were approximately 47 ms at NPLC 0.1 and
+  94–109 ms at NPLC 1. The 10–20 ms requests were correctly classified as
+  hardware-limited. This is an observation, not a new software timing limit.
+- Mode 3 battery idle/sleep-prevention testing was intentionally stopped before
+  the AC-unplug step and remains an operator follow-up. The generated
+  `hardware_smoke_results/` artifacts are local and ignored by Git.
+
 ## 2026-09-08 Continuous Time timing audit
 
 - Real Keithley 2400-series connection probes attempt a short best-effort
