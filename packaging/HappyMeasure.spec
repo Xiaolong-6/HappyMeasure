@@ -9,8 +9,11 @@ The output folder will be:
 """
 
 from PyInstaller.utils.hooks import collect_all
+from pathlib import Path
 
 matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all("matplotlib")
+PROJECT_ROOT = Path(SPECPATH).parent
+HAPPYMEASURE_ICON = PROJECT_ROOT / "src" / "keith_ivt" / "assets" / "happymeasure.ico"
 
 block_cipher = None
 
@@ -19,7 +22,7 @@ a = Analysis(
     ["happymeasure_entry.py"],
     pathex=["src"],
     binaries=matplotlib_binaries,
-    datas=matplotlib_datas,
+    datas=matplotlib_datas + [(str(HAPPYMEASURE_ICON.with_suffix(".png")), "keith_ivt/assets")],
     hiddenimports=matplotlib_hiddenimports
     + [
         "serial",
@@ -55,6 +58,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=str(HAPPYMEASURE_ICON),
 )
 coll = COLLECT(
     exe,

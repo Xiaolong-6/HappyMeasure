@@ -60,6 +60,10 @@
   pixel` and a read-only `Distribution` view. The distribution takes finite
   values directly from `ReconstructionResult.values`, so display-only Flip Y
   never changes its bars, summary statistics, or mean/median reference lines.
+- `src/keith_ivt/assets/happymeasure.png` and
+  `src/map_reconstruction/assets/map_reconstruction.png` are the source window
+  icons. Matching multi-resolution ICO files support Windows packaging; keep
+  the two marks distinct.
 
 ## 2026-09-08 Continuous Time timing audit
 

@@ -48,6 +48,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.guide_items: list[pg.InfiniteLine] = []
         self._syncing = False
         self.setWindowTitle("Map Reconstruction")
+        icon_path = Path(__file__).resolve().parents[1] / "assets" / "map_reconstruction.png"
+        self.setWindowIcon(QtGui.QIcon(str(icon_path)))
         self.resize(1280, 820)
         self._build_ui()
         if initial_path is not None:

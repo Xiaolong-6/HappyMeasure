@@ -22,6 +22,10 @@ map-reconstruction = "map_reconstruction.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+keith_ivt = ["assets/*.png", "assets/*.ico"]
+map_reconstruction = ["assets/*.png", "assets/*.ico"]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=7.0",

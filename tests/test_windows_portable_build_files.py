@@ -20,3 +20,12 @@ def test_windows_build_scripts_are_space_path_safe():
 def test_portable_build_docs_exist():
     assert Path("docs/WINDOWS_PORTABLE_BUILD.md").exists()
     assert Path("packaging/README_FIRST_PORTABLE.txt").exists()
+
+
+def test_application_icon_assets_and_portable_icon_are_declared():
+    assert Path("src/keith_ivt/assets/happymeasure.png").is_file()
+    assert Path("src/keith_ivt/assets/happymeasure.ico").is_file()
+    assert Path("src/map_reconstruction/assets/map_reconstruction.png").is_file()
+    assert Path("src/map_reconstruction/assets/map_reconstruction.ico").is_file()
+    spec = Path("packaging/HappyMeasure.spec").read_text(encoding="utf-8")
+    assert "icon=str(HAPPYMEASURE_ICON)" in spec

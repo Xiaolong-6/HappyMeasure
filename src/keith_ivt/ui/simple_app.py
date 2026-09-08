@@ -5,7 +5,17 @@ import logging
 import queue
 import threading
 from pathlib import Path
-from tkinter import BooleanVar, DoubleVar, IntVar, StringVar, Tk, Toplevel, END
+from tkinter import (
+    BooleanVar,
+    DoubleVar,
+    IntVar,
+    PhotoImage,
+    StringVar,
+    TclError,
+    Tk,
+    Toplevel,
+    END,
+)
 from tkinter import font as tkfont, ttk
 
 
@@ -33,6 +43,13 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
 
     def __init__(self) -> None:
         self.root = Tk()
+        icon_path = Path(__file__).resolve().parents[1] / "assets" / "happymeasure.png"
+        try:
+            self._window_icon = PhotoImage(file=str(icon_path))
+        except TclError:
+            pass
+        else:
+            self.root.iconphoto(True, self._window_icon)
         install_tk_exception_logging(self.root)
         self.root.title(f"{APP_NAME} {__version__}")
         self.root.geometry("1360x820")

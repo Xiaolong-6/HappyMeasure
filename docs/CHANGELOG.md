@@ -7,6 +7,8 @@
   rows, light PyQtGraph plots, and map/sample-count color scales. The importer,
   dual-offset reconstruction, orientation, and exported array semantics are
   unchanged.
+- Added distinct HappyMeasure and Map Reconstruction application icons. The
+  HappyMeasure mark is also embedded in the Windows portable executable.
 - Added a read-only Map Reconstruction Distribution QC tab beside Samples /
   pixel. It histograms only finite scientific map values with mean and median
   references; display orientation, sample counts, and exported values remain
