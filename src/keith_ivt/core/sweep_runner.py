@@ -38,7 +38,7 @@ def _wait_until_deadline(
     should_stop: StopCallback | None = None,
     should_pause: PauseCallback | None = None,
 ) -> bool:
-    """Wait for a continuous-sampling deadline and report a pause request.
+    """Wait for a Constant Time sampling deadline and report a pause request.
 
     The wait is bounded in small slices so Stop and Pause remain responsive even
     when the requested interval is long.  A pause return lets the caller rebase
@@ -75,7 +75,10 @@ class SweepRunner:
             )
         values = source_values_for_config(config)
         points: list[SweepPoint] = []
-        t0 = time.monotonic()
+        # The acquisition clock starts only after instrument preparation.  Reset,
+        # SCPI configuration, output enable, and the initial source command are
+        # setup work rather than elapsed measurement time.
+        t0: float | None = None
         stopped_by_operator = False
         discard_remaining = 0
         last_actual_range_A: float | None = None
@@ -95,11 +98,16 @@ class SweepRunner:
                 last_actual_range_A = state.actual_range_A
             self.instrument.output_on()
 
-            if config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time:
+            is_continuous_time = (
+                config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time
+            )
+            if config.sweep_kind is SweepKind.CONSTANT_TIME:
                 index = 0
                 self.instrument.set_source(config.source_scpi, config.constant_value)
-                next_deadline = time.monotonic()
-                while not _should_stop():
+                t0 = time.monotonic()
+                next_deadline = t0
+                total = 0 if is_continuous_time else len(values)
+                while not _should_stop() and (is_continuous_time or index < total):
                     was_paused = False
                     while should_pause is not None and should_pause():
                         was_paused = True
@@ -128,6 +136,7 @@ class SweepRunner:
                         break
                     reported_source, measured = stable_read
                     index += 1
+                    assert t0 is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
@@ -136,13 +145,22 @@ class SweepRunner:
                     )
                     points.append(point)
                     if on_point is not None:
-                        on_point(point, index, 0)
+                        on_point(point, index, total)
+                    if not is_continuous_time and index >= total:
+                        break
                     next_deadline += max(0.0, config.interval_s)
+                    # A slow read may cross more than one deadline.  Continue
+                    # immediately, but discard the missed schedule grid so a
+                    # transient timeout cannot create a catch-up burst.
+                    now = time.monotonic()
+                    if next_deadline < now:
+                        next_deadline = now
                     if _wait_until_deadline(next_deadline, _should_stop, should_pause):
                         # The next loop observes the pause and rebases the
                         # deadline after resume.
                         continue
             else:
+                t0 = time.monotonic()
                 total = len(values)
                 for index, source_value in enumerate(values, start=1):
                     if _should_stop():
@@ -169,6 +187,7 @@ class SweepRunner:
                     if stable_read is None:
                         break
                     reported_source, measured = stable_read
+                    assert t0 is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
@@ -178,8 +197,6 @@ class SweepRunner:
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, total)
-                    if config.sweep_kind is SweepKind.CONSTANT_TIME and index < total:
-                        _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
         finally:
             run_failed = sys.exc_info()[1] is not None
             if config.output_off_after_run or stopped_by_operator or run_failed:
@@ -335,7 +352,7 @@ class SweepRunner:
         if control is None:
             return discard_remaining, last_actual_range_A, False
         state = control.snapshot()
-        if not config.auto_measure_range and state.autorange is False:
+        if state.autorange is False:
             if discard_remaining > 0:
                 return discard_remaining - 1, last_actual_range_A, True
             return discard_remaining, last_actual_range_A, False

@@ -2,15 +2,18 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
-- Continuous Time `Interval (s)` now targets start-to-start sample cadence with
-  monotonic deadline scheduling, without cumulative drift or catch-up bursts
-  after a pause.
+- Constant Time `Interval (s)` now uses one start-to-start deadline scheduler in
+  both finite and continuous modes. Acquisition elapsed time starts after reset,
+  configuration, output enable, and the initial source command complete.
+- A read overrun rebases the next deadline immediately, preserving fast recovery
+  without a transient catch-up burst; Pause/Resume also rebases instead of
+  replaying missed deadlines.
 - Constant Time validation now uses only the NPLC aperture and configured delay;
   serial transfer estimates remain ETA/throughput information rather than a
   hard rejection of short requested intervals.
 - Fixed current measurement ranges skip redundant per-point `RANG:AUTO?` and
-  `RANG?` queries while explicit runtime range actions still refresh state and
-  preserve settle/discard handling.
+  `RANG?` queries, including after a runtime Auto → Fixed action, while explicit
+  range actions still refresh state and preserve settle/discard handling.
 - The Keithley 2400 driver disables automatic/programmed source delay so the
   runner's configured delay is applied exactly once for simulator and serial
   runs.

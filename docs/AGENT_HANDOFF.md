@@ -22,19 +22,22 @@
 
 ## 2026-09-08 Continuous Time timing audit
 
-- Continuous Time `interval_s` is a target start-to-start cadence. The runner
-  uses monotonic deadlines, skips extra sleep when a read overruns, and rebases
-  after Pause so it never tries to catch up on paused deadlines.
-- `SweepPoint.elapsed_s` remains measured from the runner's monotonic start and
-  is recorded after readback completes; the wall-clock `timestamp` is recorded
-  at the same post-readback point.
+- Constant Time `interval_s` is a target start-to-start cadence in both finite
+  and continuous modes. The runner uses one monotonic deadline scheduler, skips
+  extra sleep when a read overruns, and rebases after an overrun or Pause so it
+  never emits a catch-up burst for missed deadlines.
+- `SweepPoint.elapsed_s` is measured from acquisition start, after reset,
+  configuration, output enable, and the initial constant source command. It is
+  recorded after readback completes; the wall-clock `timestamp` is recorded at
+  the same post-readback point.
 - `minimum_allowed_interval_seconds()` is the canonical physical/configuration
   bound (NPLC aperture plus configured delay). `minimum_interval_seconds()` and
   `estimate_point_seconds()` retain serial/readback estimates for ETA and user
   information only; UI Start validation no longer applies that estimate.
-- Fixed `auto_measure_range=False` runs seed their known range from config and
-  avoid per-point `:SENS:CURR:RANG:AUTO?` / `:SENS:CURR:RANG?` queries. Explicit
-  range actions still perform the required refresh and settle/discard path.
+- Fixed-range runtime state avoids per-point `:SENS:CURR:RANG:AUTO?` /
+  `:SENS:CURR:RANG?` queries, including when an operator changes Auto to Fixed
+  during a run. Explicit range actions still perform the required refresh and
+  settle/discard path.
 - The 2400 serial driver now sends `:SOUR:DEL:AUTO OFF` and `:SOUR:DEL 0`.
   `SweepRunner` remains the single owner of `SweepConfig.delay_s`, preventing
   the device source delay and software delay from being applied twice.
