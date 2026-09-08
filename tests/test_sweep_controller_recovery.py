@@ -128,6 +128,40 @@ def test_invalid_config_is_rejected_before_worker_and_valid_retry_starts(
     assert app.app_state.run_state is RunState.SWEEPING
 
 
+def test_short_continuous_interval_is_not_rejected_by_serial_estimate(monkeypatch) -> None:
+    app = _ControllerHarness(
+        _config(
+            sweep_kind=SweepKind.CONSTANT_TIME,
+            continuous_time=True,
+            constant_value=0.1,
+            interval_s=0.01,
+            nplc=0.1,
+            baud_rate=9600,
+        )
+    )
+    dialogs: list[tuple[str, str]] = []
+    started_threads: list[object] = []
+
+    class _FakeThread:
+        def __init__(self, *args, **kwargs) -> None:
+            started_threads.append(self)
+
+        def start(self) -> None:
+            started_threads.append("started")
+
+    monkeypatch.setattr(
+        "keith_ivt.ui.sweep_controller.messagebox.showerror",
+        lambda title, message: dialogs.append((title, message)),
+    )
+    monkeypatch.setattr("keith_ivt.ui.sweep_controller.threading.Thread", _FakeThread)
+
+    app.start_sweep()
+
+    assert dialogs == []
+    assert started_threads[-1] == "started"
+    assert app.app_state.run_state is RunState.SWEEPING
+
+
 @pytest.mark.parametrize(
     "changes",
     [

@@ -114,3 +114,23 @@ def test_current_range_scpi_api_uses_keithley_2400_commands() -> None:
         ":SENS:CURR:RANG?",
         ":SENS:CURR:RANG 1e-08",
     ]
+
+
+def test_connection_beep_uses_bounded_instrument_scpi_command() -> None:
+    meter = Keithley2400Serial("COM_FAKE", retry_policy=None)
+    meter.connect()
+    serial = FakeSerial.instances[-1]
+    serial.responses = [b"0\n", b"1\n"]
+    meter.beep()
+    meter.beep(frequency_hz=100_000, duration_s=10)
+
+    assert serial.commands == [
+        ":SYST:BEEP:STAT?",
+        ":SYST:BEEP:STAT ON",
+        ":SYST:BEEP 1000,0.1",
+        ":SYST:BEEP:STAT OFF",
+        ":SYST:BEEP:STAT?",
+        ":SYST:BEEP 10000,1",
+    ]
+    with pytest.raises(ValueError):
+        meter.beep(duration_s=float("nan"))

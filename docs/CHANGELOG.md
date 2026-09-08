@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased — Continuous Time timing and RS-232 throughput
+
+- Successful real Keithley 2400-series detection now attempts one short
+  instrument-side confirmation beep; beep failure is logged as degraded UX and
+  does not invalidate an otherwise successful connection. Debug simulator
+  connections remain silent.
+- Active measurement workers now best-effort request Windows
+  `ES_SYSTEM_REQUIRED` through `SetThreadExecutionState`. The display may still
+  turn off, the request lasts only for the worker lifecycle (including Pause),
+  and completion, Stop, Abort, or error releases it. Non-Windows platforms are
+  safe no-ops, and user-initiated lock/sleep/lid-close actions are not blocked.
+- Constant Time `Interval (s)` now uses one start-to-start deadline scheduler in
+  both finite and continuous modes. Acquisition elapsed time starts after reset,
+  configuration, output enable, and the initial source command complete.
+- A read overrun rebases the next deadline immediately, preserving fast recovery
+  without a transient catch-up burst; Pause/Resume also rebases instead of
+  replaying missed deadlines.
+- Finite Constant Time point generation now keeps an exact duration endpoint
+  when binary floating-point division lands just below an integer ratio.
+- Native `MeasurementService.run_plan()` now uses the same deadline/rebase
+  cadence for finite Constant Time plans as the current UI runner.
+- Constant Time validation now uses only the NPLC aperture and configured delay;
+  serial transfer estimates remain ETA/throughput information rather than a
+  hard rejection of short requested intervals.
+- Fixed current measurement ranges skip redundant per-point `RANG:AUTO?` and
+  `RANG?` queries, including after a runtime Auto → Fixed action, while explicit
+  range actions still refresh state and preserve settle/discard handling.
+- The Keithley 2400 driver disables automatic/programmed source delay so the
+  runner's configured delay is applied exactly once for simulator and serial
+  runs.
+- Added `tools/hardware/keithley2400_smoke.py` and its Windows launcher for
+  disconnected, 0 V, voltage-source/current-measure, 2-wire Keithley
+  2400/2401 smoke testing. The runner records timing statistics, range-query
+  behavior, pause/resume rebase, stop/restart, output-off, and optional power
+  guard observations without requiring a DUT.
+- The 2026-09-08 no-DUT bench run on a Keithley 2401 passed Mode 1 QUICK and
+  Mode 2 FULL, including fixed-range `0` queries versus auto-range `66`
+  queries. The optional battery sleep-prevention Mode 3 remains a separate
+  operator-run check and was not completed in that session.
+
 ## 1.1b5 — Sweep direction and recovery hardening
 
 - Changed Step and Adaptive segment step semantics to magnitude-only; Start and

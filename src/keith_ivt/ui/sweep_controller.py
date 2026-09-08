@@ -13,10 +13,10 @@ from keith_ivt.models import (
     SweepConfig,
     SweepKind,
     SweepResult,
-    minimum_interval_seconds,
     validate_config,
 )
 from keith_ivt.services.measurement_service import MeasurementService
+from keith_ivt.services.power_guard import prevent_system_sleep
 from keith_ivt.ui.app_state import AppAction
 
 
@@ -47,16 +47,6 @@ class SweepControllerMixin(UiMixinTyping):
                 return
             # Adaptive table/logic is parsed by SweepRunner; it no longer requires
             # a separate validate click before a debug or real run.
-            if config.sweep_kind is SweepKind.CONSTANT_TIME:
-                min_interval = minimum_interval_seconds(
-                    config.nplc, delay_s=config.delay_s, baud_rate=config.baud_rate
-                )
-                if config.interval_s < min_interval:
-                    messagebox.showerror(
-                        "Interval too short",
-                        f"NPLC={config.nplc} needs interval >= {min_interval:.3f} s.",
-                    )
-                    return
         except Exception as exc:
             messagebox.showerror("Invalid sweep configuration", str(exc))
             self._refresh_run_status_from_state()
@@ -111,23 +101,24 @@ class SweepControllerMixin(UiMixinTyping):
 
     def _run_sweep_thread(self, config: SweepConfig) -> None:
         try:
-            with self._make_instrument(config) as inst:
-                stop_event = getattr(self, "_stop_event", None)
-                pause_event = getattr(self, "_pause_event", None)
-                result = MeasurementService.run_source_meter(
-                    inst,
-                    config,
-                    on_point=self._on_point_thread,
-                    should_stop=(
-                        stop_event.is_set
-                        if stop_event is not None
-                        else lambda: self._stop_requested
-                    ),
-                    should_pause=(
-                        pause_event.is_set if pause_event is not None else lambda: self._paused
-                    ),
-                    current_range_control=getattr(self, "_current_range_control", None),
-                )
+            with prevent_system_sleep(logger=lambda message: self._queue.put(("log", message))):
+                with self._make_instrument(config) as inst:
+                    stop_event = getattr(self, "_stop_event", None)
+                    pause_event = getattr(self, "_pause_event", None)
+                    result = MeasurementService.run_source_meter(
+                        inst,
+                        config,
+                        on_point=self._on_point_thread,
+                        should_stop=(
+                            stop_event.is_set
+                            if stop_event is not None
+                            else lambda: self._stop_requested
+                        ),
+                        should_pause=(
+                            pause_event.is_set if pause_event is not None else lambda: self._paused
+                        ),
+                        current_range_control=getattr(self, "_current_range_control", None),
+                    )
             self._queue.put(("complete", result))
         except Exception as exc:
             detail = traceback.format_exc()
@@ -249,6 +240,8 @@ class SweepControllerMixin(UiMixinTyping):
                 elif kind == "update_check":
                     result, prompt_install = payload
                     self._handle_update_check_result(result, prompt_install=bool(prompt_install))
+                elif kind == "log":
+                    self.log_event(str(payload))
         except queue.Empty:
             pass
         if redraw_live and self._run_state in {"running", "paused", "stopping"}:

@@ -22,7 +22,11 @@ def build_keithley2400_sweep_command_plan(
         f":SENS:FUNC '{meas}'",
         f":SENS:{meas}:PROT {config.compliance:.12g}",
         f":SENS:{meas}:NPLC {config.nplc:.12g}",
-        f":SOUR:DEL {config.delay_s:.12g}",
+        # SweepRunner owns the user-facing delay so simulator and serial runs
+        # have the same semantics.  Disable the 2400's automatic/source delay
+        # to avoid applying the configured delay a second time inside :READ?.
+        ":SOUR:DEL:AUTO OFF",
+        ":SOUR:DEL 0",
     ]
     if config.auto_source_range:
         commands.append(f":SOUR:{src}:RANG:AUTO ON")

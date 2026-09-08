@@ -33,6 +33,54 @@ def _interruptible_sleep(seconds: float, should_stop: StopCallback | None = None
         time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
 
 
+def wait_until_deadline(
+    deadline: float,
+    should_stop: StopCallback | None = None,
+    should_pause: PauseCallback | None = None,
+    *,
+    monotonic: Callable[[], float] | None = None,
+    sleep: Callable[[float], None] | None = None,
+) -> bool:
+    """Wait for a Constant Time deadline and report a pause request.
+
+    The wait is bounded in small slices so Stop and Pause remain responsive even
+    when the requested interval is long.  A pause return lets the caller rebase
+    its deadline after the operator resumes instead of trying to catch up on
+    every interval that elapsed while paused.
+    """
+    clock = time.monotonic if monotonic is None else monotonic
+    sleeper = time.sleep if sleep is None else sleep
+    while True:
+        if should_stop is not None and should_stop():
+            return False
+        if should_pause is not None and should_pause():
+            return True
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return False
+        before_sleep = clock()
+        sleeper(min(0.05, remaining))
+        # A deterministic test double may intentionally make sleep a no-op.
+        # Avoid spinning forever when the injected clock does not advance.
+        if clock() <= before_sleep:
+            return False
+
+
+def _wait_until_deadline(
+    deadline: float,
+    should_stop: StopCallback | None = None,
+    should_pause: PauseCallback | None = None,
+) -> bool:
+    """Compatibility wrapper using the runner's patchable clock functions."""
+    return wait_until_deadline(
+        deadline,
+        should_stop,
+        should_pause,
+        monotonic=time.monotonic,
+        sleep=time.sleep,
+    )
+
+
 class SweepRunner:
     def __init__(self, instrument: SourceMeter):
         self.instrument = instrument
@@ -52,7 +100,10 @@ class SweepRunner:
             )
         values = source_values_for_config(config)
         points: list[SweepPoint] = []
-        t0 = time.monotonic()
+        # The acquisition clock starts only after instrument preparation.  Reset,
+        # SCPI configuration, output enable, and the initial source command are
+        # setup work rather than elapsed measurement time.
+        t0: float | None = None
         stopped_by_operator = False
         discard_remaining = 0
         last_actual_range_A: float | None = None
@@ -68,20 +119,32 @@ class SweepRunner:
             self.instrument.reset()
             self.instrument.configure_for_sweep(config)
             if current_range_control is not None:
-                state = self._refresh_current_range_state(current_range_control)
+                state = self._initialize_current_range_state(config, current_range_control)
                 last_actual_range_A = state.actual_range_A
             self.instrument.output_on()
 
-            if config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time:
+            is_continuous_time = (
+                config.sweep_kind is SweepKind.CONSTANT_TIME and config.continuous_time
+            )
+            if config.sweep_kind is SweepKind.CONSTANT_TIME:
                 index = 0
                 self.instrument.set_source(config.source_scpi, config.constant_value)
-                while not _should_stop():
+                t0 = time.monotonic()
+                next_deadline = t0
+                total = 0 if is_continuous_time else len(values)
+                while not _should_stop() and (is_continuous_time or index < total):
+                    was_paused = False
                     while should_pause is not None and should_pause():
+                        was_paused = True
                         if _should_stop():
                             break
                         _interruptible_sleep(0.05, _should_stop)
                     if _should_stop():
                         break
+                    if was_paused:
+                        # Do not catch up on deadlines that elapsed while the
+                        # operator had the continuous run paused.
+                        next_deadline = time.monotonic()
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break
@@ -98,6 +161,7 @@ class SweepRunner:
                         break
                     reported_source, measured = stable_read
                     index += 1
+                    assert t0 is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
@@ -106,9 +170,22 @@ class SweepRunner:
                     )
                     points.append(point)
                     if on_point is not None:
-                        on_point(point, index, 0)
-                    _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
+                        on_point(point, index, total)
+                    if not is_continuous_time and index >= total:
+                        break
+                    next_deadline += max(0.0, config.interval_s)
+                    # A slow read may cross more than one deadline.  Continue
+                    # immediately, but discard the missed schedule grid so a
+                    # transient timeout cannot create a catch-up burst.
+                    now = time.monotonic()
+                    if next_deadline < now:
+                        next_deadline = now
+                    if _wait_until_deadline(next_deadline, _should_stop, should_pause):
+                        # The next loop observes the pause and rebases the
+                        # deadline after resume.
+                        continue
             else:
+                t0 = time.monotonic()
                 total = len(values)
                 for index, source_value in enumerate(values, start=1):
                     if _should_stop():
@@ -135,6 +212,7 @@ class SweepRunner:
                     if stable_read is None:
                         break
                     reported_source, measured = stable_read
+                    assert t0 is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
@@ -144,8 +222,6 @@ class SweepRunner:
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, total)
-                    if config.sweep_kind is SweepKind.CONSTANT_TIME and index < total:
-                        _interruptible_sleep(max(0.0, config.interval_s), _should_stop)
         finally:
             run_failed = sys.exc_info()[1] is not None
             if config.output_off_after_run or stopped_by_operator or run_failed:
@@ -221,6 +297,28 @@ class SweepRunner:
             )
         )
 
+    def _initialize_current_range_state(
+        self, config: SweepConfig, control: CurrentRangeControl
+    ) -> CurrentRangeState:
+        """Seed fixed-range state without querying a known, immutable setting."""
+        if config.auto_measure_range:
+            return self._refresh_current_range_state(control)
+        previous = control.snapshot()
+        actual = (
+            float(config.measure_range)
+            if config.measure_scpi == "CURR"
+            else previous.actual_range_A
+        )
+        return control.update_state(
+            CurrentRangeState(
+                autorange=False,
+                actual_range_A=actual,
+                fixed_range_A=actual,
+                last_change_monotonic_s=previous.last_change_monotonic_s,
+                warning=None,
+            )
+        )
+
     def _mark_range_change(
         self, control: CurrentRangeControl | None, range_A: float | None = None
     ) -> None:
@@ -277,6 +375,11 @@ class SweepRunner:
         should_stop: StopCallback | None,
     ) -> tuple[int, float | None, bool]:
         if control is None:
+            return discard_remaining, last_actual_range_A, False
+        state = control.snapshot()
+        if state.autorange is False:
+            if discard_remaining > 0:
+                return discard_remaining - 1, last_actual_range_A, True
             return discard_remaining, last_actual_range_A, False
         state = self._refresh_current_range_state(control)
         actual = state.actual_range_A

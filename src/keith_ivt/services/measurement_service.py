@@ -6,7 +6,7 @@ import time
 import math
 from typing import TYPE_CHECKING
 
-from keith_ivt.core.sweep_runner import SweepRunner
+from keith_ivt.core.sweep_runner import SweepRunner, wait_until_deadline
 from keith_ivt.drivers.base import DriverReadback, SMUDriver
 from keith_ivt.models import SweepPoint, SweepResult, SweepConfig
 from keith_ivt.sweeps.plan import SweepExecutionKind, SweepPlan, plan_from_config
@@ -96,23 +96,50 @@ class MeasurementService:
             self.driver.output_on()
 
             total = plan.point_count
+            is_constant_time = (
+                plan.execution_kind is SweepExecutionKind.CONSTANT_TIME
+                and plan.interval_s is not None
+            )
+            next_deadline: float | None = None
             for index, value in enumerate(plan.values, start=1):
                 if _should_stop():
                     break
+                was_paused = False
                 while should_pause is not None and should_pause():
+                    was_paused = True
                     if _should_stop():
                         break
                     time.sleep(0.05)
                 if _should_stop():
                     break
                 self.driver.set_source(plan.source_mode, value)
+                if is_constant_time and index == 1:
+                    # Start acquisition timing after the initial source command,
+                    # matching the legacy SweepRunner Constant Time semantics.
+                    next_deadline = time.monotonic()
+                if was_paused and next_deadline is not None:
+                    next_deadline = time.monotonic()
                 time.sleep(max(0.0, plan.delay_s))
                 read = self._validated_readback(self.driver.read())
                 reads.append(read)
                 if on_point is not None:
                     on_point(read, index, total)
-                if plan.execution_kind is SweepExecutionKind.CONSTANT_TIME and index < total:
-                    time.sleep(max(0.0, plan.interval_s or 0.0))
+                if is_constant_time and index < total:
+                    assert next_deadline is not None
+                    next_deadline += max(0.0, plan.interval_s or 0.0)
+                    now = time.monotonic()
+                    if next_deadline < now:
+                        next_deadline = now
+                    if wait_until_deadline(
+                        next_deadline,
+                        _should_stop,
+                        should_pause,
+                        monotonic=time.monotonic,
+                        sleep=time.sleep,
+                    ):
+                        # The next loop observes Pause and rebases the deadline
+                        # after the operator resumes.
+                        continue
         finally:
             # The driver-level service is conservative: normal completion, user stop,
             # and failures all attempt to place the SMU in a safe output-off state.

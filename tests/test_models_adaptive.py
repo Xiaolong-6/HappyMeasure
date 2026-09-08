@@ -51,6 +51,8 @@ def test_make_source_values_rejects_non_finite_inputs(
 
 def test_constant_time_values_and_validation() -> None:
     assert make_constant_time_values(0.5, 1.0, 0.5) == [0.5, 0.5, 0.5]
+    assert len(make_constant_time_values(0.5, 0.3, 0.1)) == 4
+    assert len(make_constant_time_values(0.5, 0.7, 0.1)) == 8
     with pytest.raises(ValueError):
         make_constant_time_values(0.5, 0.0, 0.5)
     with pytest.raises(ValueError, match="must be finite"):
