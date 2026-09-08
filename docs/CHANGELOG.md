@@ -8,6 +8,10 @@
 - A read overrun rebases the next deadline immediately, preserving fast recovery
   without a transient catch-up burst; Pause/Resume also rebases instead of
   replaying missed deadlines.
+- Finite Constant Time point generation now keeps an exact duration endpoint
+  when binary floating-point division lands just below an integer ratio.
+- Native `MeasurementService.run_plan()` now uses the same deadline/rebase
+  cadence for finite Constant Time plans as the current UI runner.
 - Constant Time validation now uses only the NPLC aperture and configured delay;
   serial transfer estimates remain ETA/throughput information rather than a
   hard rejection of short requested intervals.

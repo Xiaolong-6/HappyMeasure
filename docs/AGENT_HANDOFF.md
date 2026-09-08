@@ -26,6 +26,12 @@
   and continuous modes. The runner uses one monotonic deadline scheduler, skips
   extra sleep when a read overruns, and rebases after an overrun or Pause so it
   never emits a catch-up burst for missed deadlines.
+- `MeasurementService.run_plan()` uses the shared deadline helper for finite
+  Constant Time native plans as well; STEP and Adaptive plans retain their
+  ordinary per-point execution path.
+- `make_constant_time_values()` uses a small floating-point tolerance when
+  counting inclusive duration endpoints, so exact ratios such as 0.3 / 0.1 do
+  not lose their final sample.
 - `SweepPoint.elapsed_s` is measured from acquisition start, after reset,
   configuration, output enable, and the initial constant source command. It is
   recorded after readback completes; the wall-clock `timestamp` is recorded at

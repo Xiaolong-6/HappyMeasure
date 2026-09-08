@@ -3,9 +3,13 @@ from __future__ import annotations
 import pytest
 
 import keith_ivt.core.sweep_runner as sweep_runner
+import keith_ivt.services.measurement_service as measurement_service
 from keith_ivt.core.current_range import CurrentRangeControl
 from keith_ivt.core.sweep_runner import SweepRunner
+from keith_ivt.drivers.base import DriverReadback, MeasureMode, SourceMode
+from keith_ivt.services.measurement_service import MeasurementService
 from keith_ivt.models import SweepConfig, SweepKind, SweepMode
+from keith_ivt.sweeps.plan import SweepExecutionKind, make_plan
 
 
 class _FakeClock:
@@ -268,6 +272,57 @@ def test_runtime_fixed_range_state_skips_later_per_point_queries(monkeypatch) ->
     # refreshes should follow once the runtime state is fixed.
     assert meter.autorange_queries == 2
     assert meter.range_queries == 2
+
+
+class _TimedNativeDriver:
+    def __init__(self, clock: _FakeClock, read_durations_s: list[float]) -> None:
+        self.clock = clock
+        self.read_durations_s = read_durations_s
+        self.read_starts: list[float] = []
+        self.read_count = 0
+        self.source_value = 0.0
+
+    def reset(self) -> None:
+        pass
+
+    def configure_source_measure(self, **_kwargs) -> None:
+        pass
+
+    def output_on(self) -> None:
+        pass
+
+    def output_off(self) -> None:
+        pass
+
+    def set_source(self, _source_mode: SourceMode, value: float) -> None:
+        self.source_value = float(value)
+
+    def read(self) -> DriverReadback:
+        self.read_starts.append(self.clock.now)
+        self.read_count += 1
+        duration = self.read_durations_s[min(self.read_count - 1, len(self.read_durations_s) - 1)]
+        self.clock.now += duration
+        return DriverReadback(self.source_value, self.source_value / 1000.0)
+
+
+def test_native_constant_time_uses_deadline_rebase(monkeypatch) -> None:
+    clock = _FakeClock()
+    driver = _TimedNativeDriver(clock, [0.03, 0.35, 0.03, 0.03])
+    monkeypatch.setattr(measurement_service.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(measurement_service.time, "sleep", clock.sleep)
+    plan = make_plan(
+        source_mode=SourceMode.VOLTAGE,
+        measure_mode=MeasureMode.CURRENT,
+        values=[0.1, 0.1, 0.1, 0.1],
+        compliance=0.01,
+        nplc=0.1,
+        execution_kind=SweepExecutionKind.CONSTANT_TIME,
+        interval_s=0.1,
+    )
+
+    MeasurementService(driver).run_plan(plan)
+
+    assert driver.read_starts == pytest.approx([0.0, 0.1, 0.45, 0.55])
 
 
 def _run_for_reads_with_control(

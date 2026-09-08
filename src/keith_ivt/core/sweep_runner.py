@@ -33,27 +33,52 @@ def _interruptible_sleep(seconds: float, should_stop: StopCallback | None = None
         time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
 
 
-def _wait_until_deadline(
+def wait_until_deadline(
     deadline: float,
     should_stop: StopCallback | None = None,
     should_pause: PauseCallback | None = None,
+    *,
+    monotonic: Callable[[], float] | None = None,
+    sleep: Callable[[float], None] | None = None,
 ) -> bool:
-    """Wait for a Constant Time sampling deadline and report a pause request.
+    """Wait for a Constant Time deadline and report a pause request.
 
     The wait is bounded in small slices so Stop and Pause remain responsive even
     when the requested interval is long.  A pause return lets the caller rebase
     its deadline after the operator resumes instead of trying to catch up on
     every interval that elapsed while paused.
     """
+    clock = time.monotonic if monotonic is None else monotonic
+    sleeper = time.sleep if sleep is None else sleep
     while True:
         if should_stop is not None and should_stop():
             return False
         if should_pause is not None and should_pause():
             return True
-        remaining = deadline - time.monotonic()
+        remaining = deadline - clock()
         if remaining <= 0:
             return False
-        time.sleep(min(0.05, remaining))
+        before_sleep = clock()
+        sleeper(min(0.05, remaining))
+        # A deterministic test double may intentionally make sleep a no-op.
+        # Avoid spinning forever when the injected clock does not advance.
+        if clock() <= before_sleep:
+            return False
+
+
+def _wait_until_deadline(
+    deadline: float,
+    should_stop: StopCallback | None = None,
+    should_pause: PauseCallback | None = None,
+) -> bool:
+    """Compatibility wrapper using the runner's patchable clock functions."""
+    return wait_until_deadline(
+        deadline,
+        should_stop,
+        should_pause,
+        monotonic=time.monotonic,
+        sleep=time.sleep,
+    )
 
 
 class SweepRunner:

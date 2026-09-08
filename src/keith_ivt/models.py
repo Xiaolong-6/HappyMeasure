@@ -254,7 +254,10 @@ def make_constant_time_values(value: float, duration_s: float, interval_s: float
         raise ValueError("Duration must be positive.")
     if interval_s <= 0:
         raise ValueError("Interval must be positive.")
-    count = int(duration_s / interval_s) + 1
+    # Include the endpoint when duration is an exact multiple of interval.
+    # A tiny tolerance avoids dropping it because values such as 0.3 / 0.1
+    # can evaluate just below 3.0 in binary floating point.
+    count = math.floor(duration_s / interval_s + 1e-12) + 1
     return [float(value)] * max(1, count)
 
 
