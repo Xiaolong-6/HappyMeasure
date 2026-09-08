@@ -2,6 +2,11 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Refined the optional Map Reconstruction Qt workspace with a light scientific
+  theme, compact action header, sectioned inspector, empty states, QC summary
+  rows, light PyQtGraph plots, and map/sample-count color scales. The importer,
+  dual-offset reconstruction, orientation, and exported array semantics are
+  unchanged.
 - Added the standalone optional `map_reconstruction` package and
   `map-reconstruction` console entry point. It imports HappyMeasure `single-v2`
   CSV files with CSV-aware metadata parsing and reconstructs 2-D maps using the
