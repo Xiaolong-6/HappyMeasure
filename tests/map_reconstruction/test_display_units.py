@@ -5,6 +5,7 @@ import numpy as np
 from map_reconstruction.display_units import (
     display_unit_for_signal,
     format_display_value,
+    scientific_unit_for_signal,
     to_display_values,
 )
 
@@ -24,3 +25,6 @@ def test_current_display_uses_microamps_without_changing_scientific_values() -> 
 def test_voltage_and_unknown_signals_remain_in_native_display_units() -> None:
     assert display_unit_for_signal("Voltage_V").axis_label == "Voltage (V)"
     assert display_unit_for_signal("Auxiliary").axis_label == "Auxiliary"
+    assert scientific_unit_for_signal("Current_A") == "A"
+    assert scientific_unit_for_signal("Voltage_V") == "V"
+    assert scientific_unit_for_signal("Auxiliary") == ""

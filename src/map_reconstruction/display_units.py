@@ -20,6 +20,16 @@ class DisplayUnit:
         return f"{self.label} ({self.unit})" if self.unit else self.label
 
 
+def scientific_unit_for_signal(signal_name: str) -> str:
+    """Return the SI unit encoded by a signal name, independent of display scaling."""
+
+    if signal_name == "Current_A":
+        return "A"
+    if signal_name == "Voltage_V":
+        return "V"
+    return ""
+
+
 def display_unit_for_signal(signal_name: str, values: np.ndarray | None = None) -> DisplayUnit:
     """Choose an engineering display unit without changing scientific values."""
 

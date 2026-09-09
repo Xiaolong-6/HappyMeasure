@@ -144,3 +144,27 @@ def test_processing_changes_reuse_raw_result_and_keep_trace_signed(
     np.testing.assert_array_equal(window.raw_curve.getData()[1], raw_before)
     assert np.nanmin(window.processed.values) >= 0
     window.close()
+
+
+def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
+    application,
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    raw_result = window.result
+
+    window.transform_combo.setCurrentIndex(3)
+    window.custom_expression_edit.setText("x * 2")
+    window.normalization_combo.setCurrentIndex(3)
+    window.normalization_reference_spin.setValue(2.0)
+    config = window._processing_config()
+    assert config.normalization_reference == pytest.approx(2.0)
+
+    window.result.values[:] = 0.0
+    window.normalization_combo.setCurrentIndex(1)
+
+    assert window.result is raw_result
+    assert window.processed is None
+    assert window.export_button.isEnabled()
+    assert "reference is zero" in window.qc_label.text()
+    window.close()

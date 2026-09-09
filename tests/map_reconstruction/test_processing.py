@@ -90,15 +90,13 @@ def test_reference_normalization_and_degenerate_min_max_warning() -> None:
             normalization_reference=2.0,
         ),
     )
-    degenerate = process_map(
-        np.asarray([[4.0, 4.0]]),
-        MapProcessingConfig(normalization=NormalizationMode.MIN_MAX),
-    )
-
     np.testing.assert_allclose(reference.values, [[-2.0, 1.0]])
     assert reference.is_dimensionless
-    np.testing.assert_allclose(degenerate.values, [[4.0, 4.0]])
-    assert degenerate.warnings
+    with pytest.raises(ValueError, match="all finite values are equal"):
+        process_map(
+            np.asarray([[4.0, 4.0]]),
+            MapProcessingConfig(normalization=NormalizationMode.MIN_MAX),
+        )
 
 
 def test_empty_map_and_invalid_processing_inputs_are_explicit() -> None:
@@ -122,15 +120,14 @@ def test_normalization_modes_and_zero_protection() -> None:
         np.asarray([[2.0, 4.0, 6.0]]),
         MapProcessingConfig(normalization=NormalizationMode.MIN_MAX),
     )
-    zero = process_map(
-        np.zeros((1, 2)),
-        MapProcessingConfig(normalization=NormalizationMode.MAX_MAGNITUDE),
-    )
-
     np.testing.assert_allclose(max_magnitude.values, [[-1.0, 0.5]])
     np.testing.assert_allclose(min_max.values, [[0.0, 0.5, 1.0]])
-    assert np.isfinite(zero.values).all()
-    assert zero.warnings
+
+    with pytest.raises(ValueError, match="max magnitude"):
+        process_map(
+            np.zeros((1, 2)),
+            MapProcessingConfig(normalization=NormalizationMode.MAX_MAGNITUDE),
+        )
 
 
 def test_log10_rejects_non_positive_values_without_epsilon() -> None:
@@ -142,6 +139,31 @@ def test_log10_rejects_non_positive_values_without_epsilon() -> None:
     np.testing.assert_allclose(processed.values[0, :3], [2.0, 1.0, 0.0])
     assert np.isnan(processed.values[0, 3:]).all()
     assert "2 non-positive" in processed.warnings[0]
+
+
+def test_log10_physical_and_dimensionless_labels_are_explicit() -> None:
+    current = process_map(
+        np.asarray([[1e-6]]),
+        MapProcessingConfig(value_scale=ValueScale.LOG10),
+        signal_name="Current_A",
+    )
+    voltage = process_map(
+        np.asarray([[1.0]]),
+        MapProcessingConfig(value_scale=ValueScale.LOG10),
+        signal_name="Voltage_V",
+    )
+    normalized = process_map(
+        np.asarray([[1.0]]),
+        MapProcessingConfig(
+            normalization=NormalizationMode.MAX_MAGNITUDE,
+            value_scale=ValueScale.LOG10,
+        ),
+        signal_name="Current_A",
+    )
+
+    assert "Current / A" in current.value_label
+    assert "Voltage / V" in voltage.value_label
+    assert "A" not in normalized.value_label
 
 
 def test_color_limits_do_not_change_processed_values() -> None:
@@ -217,5 +239,16 @@ def test_invalid_manual_color_range_is_rejected() -> None:
                 color_range_mode=ColorRangeMode.MANUAL,
                 color_min=3.0,
                 color_max=3.0,
+            ),
+        )
+
+
+def test_zero_reference_normalization_is_rejected() -> None:
+    with pytest.raises(ValueError, match="non-zero"):
+        process_map(
+            np.asarray([[1.0, 2.0]]),
+            MapProcessingConfig(
+                normalization=NormalizationMode.REFERENCE,
+                normalization_reference=0.0,
             ),
         )

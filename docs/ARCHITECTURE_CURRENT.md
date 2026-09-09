@@ -17,11 +17,25 @@ Map value processing lives in `src/map_reconstruction/processing/` and is a
 separate, Qt-free stage after `ReconstructionResult.values`. The raw
 reconstruction is never normalized, display-scaled, clipped, or overwritten.
 `process_map()` applies baseline subtraction, value transform, normalization,
-and optional log10 in that order; color limits are computed separately for
-display. The UI reuses an existing reconstruction when only processing or
-color settings change. Raw CSV export writes the authoritative reconstruction,
-while processed CSV export writes the scientific processed values and a JSON
-sidecar describing the configuration.
+and optional log10 in that order; degenerate normalization references are
+explicit errors rather than silently skipped operations. Physical log labels
+retain their source unit (for example `log10(Current / A)`), while normalized
+and custom-expression results are unitless. Color limits are computed
+separately for display, and display-unit scaling is never written into the
+scientific arrays. The UI reuses an existing reconstruction when only
+processing or color settings change. Raw CSV export writes the authoritative
+reconstruction, while processed CSV export writes the scientific processed
+values and a JSON sidecar that records source physical unit separately from
+display unit and scale.
+
+The standalone Map Reconstruction UI is composed from focused widgets:
+`ui/main_window.py` coordinates lifecycle and signals, `ui/inspector.py` owns
+controls and immutable configuration snapshots, `ui/trace_view.py` owns the
+raw trace/anchor guides, and `ui/map_views.py` owns map, sample-count, and
+distribution views. `ui/exporting.py` keeps Raw/Processed/Both export dialogs
+and metadata serialization out of the composition root. This split is a UI
+responsibility boundary only; it does not add a reconstruction method or
+change the importer/method APIs.
 
 ## Runtime layers
 

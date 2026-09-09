@@ -17,7 +17,18 @@
   scientific units and include a JSON sidecar with processing metadata; the
   raw export remains the unmodified `ReconstructionResult.values` array.
 - Added distinct HappyMeasure and Map Reconstruction application icons. The
-  HappyMeasure mark is also embedded in the Windows portable executable.
+  supplied blue HappyMeasure mark and green Map Reconstruction mark are used
+  by their respective windows; the HappyMeasure mark is also embedded in the
+  Windows portable executable.
+- Hardened Map Reconstruction processing semantics: degenerate normalization
+  now fails explicitly, physical log10 labels retain source units, and custom
+  expression/reference processing remains unitless without changing raw
+  scientific values. Processed-export metadata now separates source physical
+  unit from display unit and scale.
+- Split the optional Map Reconstruction UI into inspector, trace, map/QC, and
+  exporting components while keeping `main_window.py` as the lifecycle
+  composition root. Raw/Processed/Both export actions now share the focused
+  export workflow, with Both using one base-name dialog.
 - Hardened Map Reconstruction against stale or misleading output: invalid
   timing clears derived views and disables export, while a timing solution with
   zero valid pixels reports an empty map rather than displaying fabricated

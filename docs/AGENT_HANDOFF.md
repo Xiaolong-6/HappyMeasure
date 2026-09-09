@@ -72,9 +72,19 @@
   remains raw and authoritative; `process_map()` returns immutable
   `ProcessedMap` values, and `compute_color_limits()` only computes display
   levels. Processing-only control changes reuse the existing reconstruction.
-  Custom transforms are evaluated by a restricted AST allowlist. Raw exports
+  Custom transforms are evaluated by a restricted AST allowlist. Degenerate
+  max-magnitude, min-max, and reference normalizations raise a concise
+  `ValueError`; they are not silently skipped. Physical log labels preserve
+  their source unit, while normalized/custom results are unitless. Raw exports
   remain SI and scientific-orientation arrays; processed exports are SI
-  processed arrays with a JSON configuration sidecar.
+  processed arrays with a JSON configuration sidecar that records source
+  physical unit separately from display unit/scale.
+- The Map Reconstruction UI composition root is intentionally small. Keep
+  inspector controls in `ui/inspector.py`, trace/anchor rendering in
+  `ui/trace_view.py`, map/QC rendering in `ui/map_views.py`, and file dialogs
+  plus metadata serialization in `ui/exporting.py`. Changes to these widgets
+  must preserve the semantic signals and compatibility aliases used by the
+  existing UI regression tests.
 - `src/keith_ivt/assets/happymeasure.png` and
   `src/map_reconstruction/assets/map_reconstruction.png` are the source window
   icons. Matching multi-resolution ICO files support Windows packaging; keep

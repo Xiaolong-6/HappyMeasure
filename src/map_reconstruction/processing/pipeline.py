@@ -83,16 +83,17 @@ def process_map(
         raise ValueError("Map values must be a two-dimensional array.")
     finite_raw = _finite(raw)
     warnings: list[str] = []
+    dimensionless_before_log = (
+        config.normalization is not NormalizationMode.NONE
+        or config.transform is ValueTransform.CUSTOM
+    )
     if finite_raw.size == 0:
         return ProcessedMap(
             np.full(raw.shape, np.nan, dtype=float),
             None,
             ("No finite map values are available for processing.",),
-            _processing_label(
-                signal_name, config, config.normalization is not NormalizationMode.NONE
-            ),
-            config.normalization is not NormalizationMode.NONE
-            or config.value_scale is ValueScale.LOG10,
+            _processing_label(signal_name, config, dimensionless_before_log),
+            dimensionless_before_log or config.value_scale is ValueScale.LOG10,
         )
 
     baseline = 0.0
@@ -135,30 +136,26 @@ def process_map(
     if config.normalization is NormalizationMode.MAX_MAGNITUDE:
         reference = float(np.max(np.abs(finite_values))) if finite_values.size else 0.0
         if reference == 0:
-            warnings.append("Max magnitude normalization skipped because the reference is zero.")
-        else:
-            values[valid] = values[valid] / reference
+            raise ValueError("Cannot normalize by max magnitude because the reference is zero.")
+        values[valid] = values[valid] / reference
     elif config.normalization is NormalizationMode.MIN_MAX:
         if finite_values.size:
             minimum, maximum = float(np.min(finite_values)), float(np.max(finite_values))
             if maximum == minimum:
-                warnings.append("Min-max normalization skipped because all values are equal.")
-            else:
-                values[valid] = (values[valid] - minimum) / (maximum - minimum)
+                raise ValueError(
+                    "Cannot apply min-max normalization because all finite values are equal."
+                )
+            values[valid] = (values[valid] - minimum) / (maximum - minimum)
     elif config.normalization is NormalizationMode.REFERENCE:
-        reference = config.normalization_reference
-        if reference is None or not np.isfinite(reference):
+        reference_value = config.normalization_reference
+        if reference_value is None or not np.isfinite(reference_value):
             raise ValueError("Normalization reference must be a finite number.")
+        reference = float(reference_value)
         if reference == 0:
-            warnings.append("Reference normalization skipped because the reference is zero.")
-        else:
-            values[valid] = values[valid] / reference
+            raise ValueError("Normalization reference must be non-zero.")
+        values[valid] = values[valid] / reference
 
-    is_dimensionless = (
-        config.normalization is not NormalizationMode.NONE
-        or config.transform is ValueTransform.CUSTOM
-        or config.value_scale is ValueScale.LOG10
-    )
+    is_dimensionless = dimensionless_before_log or config.value_scale is ValueScale.LOG10
     if config.value_scale is ValueScale.LOG10:
         finite_before_log = np.isfinite(values) & (values > 0)
         excluded = int(np.count_nonzero(np.isfinite(values) & ~finite_before_log))
@@ -172,7 +169,7 @@ def process_map(
         values,
         baseline if config.baseline_mode is not BaselineMode.NONE else None,
         tuple(warnings),
-        _processing_label(signal_name, config, is_dimensionless),
+        _processing_label(signal_name, config, dimensionless_before_log),
         is_dimensionless,
     )
 

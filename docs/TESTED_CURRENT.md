@@ -11,7 +11,7 @@ passed through the full validation script:
 
 Results:
 
-- 600 tests collected; 599 passed and 1 expected conditional skip
+- 605 tests collected; 604 passed and 1 expected conditional skip
 - combined `keith_ivt` + `map_reconstruction` coverage gate passed
 - compileall, legacy UI contracts, and the repository coverage gate passed
 - Black, Ruff, source mypy, and map-package compile checks passed
@@ -19,6 +19,12 @@ Results:
   stale-state clearing, zero-valid-pixel empty state, point-period editing, and
   guide decimation, plus processing-only reuse of the raw reconstruction. The
   offscreen Qt smoke also rendered the revised layout.
+- processing regressions cover explicit errors for degenerate normalization,
+  physical versus dimensionless log10 labels, unitless custom/reference
+  processing, and source/display unit separation in processed-export metadata.
+- the supplied blue HappyMeasure and green Map Reconstruction icons are
+  installed in their respective PNG/ICO asset pairs and the portable
+  HappyMeasure packaging declaration still points at the HappyMeasure icon.
 - the first full-suite attempt had one timing-sensitive PlotOptimizer failure;
   the immediate rerun passed completely
 - no private source data, paths, metadata values, or observations were used or
