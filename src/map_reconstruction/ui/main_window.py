@@ -17,9 +17,14 @@ from map_reconstruction.display_units import (
     DisplayUnit,
     display_unit_for_signal,
 )
-from map_reconstruction.importers.happymeasure import import_happymeasure_csv
+from map_reconstruction.importers.happymeasure import import_happymeasure_csv_bytes
 from map_reconstruction.methods.dual_offset import reconstruct_map
-from map_reconstruction.models import DualOffsetParams, ReconstructionResult, TimeSeriesData
+from map_reconstruction.models import (
+    DualOffsetParams,
+    ReconstructionResult,
+    ScanPattern,
+    TimeSeriesData,
+)
 from map_reconstruction.processing import (
     MapProcessingConfig,
     NormalizationMode,
@@ -29,9 +34,13 @@ from map_reconstruction.processing import (
     compute_color_limits,
     process_map,
 )
+from map_reconstruction.project_io import ProjectState, load_project
 from map_reconstruction.ui.exporting import (
     export_both,
+    export_parameter_summary,
+    export_pdf_report,
     export_processed,
+    export_project,
     export_raw,
     processed_export_metadata,
 )
@@ -47,13 +56,20 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     params: DualOffsetParams | None
     processing_config: MapProcessingConfig | None
     signal_combo: QtWidgets.QComboBox
+    scan_combo: QtWidgets.QComboBox
     flip_y_check: QtWidgets.QCheckBox
+    first_row_check: QtWidgets.QCheckBox
+    median_check: QtWidgets.QCheckBox
     rows_spin: QtWidgets.QSpinBox
     cols_spin: QtWidgets.QSpinBox
     row_a_spin: QtWidgets.QDoubleSpinBox
     row_b_spin: QtWidgets.QDoubleSpinBox
+    rows_apart_spin: QtWidgets.QSpinBox
+    row_offset_spin: QtWidgets.QSpinBox
     point_a_spin: QtWidgets.QDoubleSpinBox
     point_b_spin: QtWidgets.QDoubleSpinBox
+    points_apart_spin: QtWidgets.QSpinBox
+    point_offset_spin: QtWidgets.QSpinBox
     transform_combo: QtWidgets.QComboBox
     normalization_combo: QtWidgets.QComboBox
     scale_combo: QtWidgets.QComboBox
@@ -70,6 +86,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.processing_config = None
         self._active_color_limits: tuple[float, float] | None = None
         self._loaded_filename: str | None = None
+        self._raw_source_bytes: bytes | None = None
+        self._restoring_project = False
         self._syncing = False
         self.setWindowTitle("Map Reconstruction")
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "map_reconstruction.png"
@@ -118,9 +136,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.pointPeriodEdited.connect(self._point_period_edited)
         self.inspector.resetTraceRequested.connect(self._reset_views)
         self.inspector.openRequested.connect(self._choose_file)
+        self.inspector.openProjectRequested.connect(self._choose_project)
         self.inspector.exportRawRequested.connect(self._export_raw_map)
         self.inspector.exportProcessedRequested.connect(self._export_processed_map)
         self.inspector.exportBothRequested.connect(self._export_both_maps)
+        self.inspector.exportProjectRequested.connect(self._export_project)
+        self.inspector.exportSummaryRequested.connect(self._export_parameter_summary)
+        self.inspector.exportPdfRequested.connect(self._export_pdf_report)
         self.trace_view.anchorMoved.connect(self._anchor_moved)
         self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
         self._set_loaded_view(False)
@@ -131,10 +153,14 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         inspector_names = (
             "file_label",
             "open_button",
+            "open_project_button",
             "export_button",
             "raw_export_action",
             "processed_export_action",
             "both_export_action",
+            "project_export_action",
+            "summary_export_action",
+            "pdf_export_action",
             "signal_combo",
             "rows_spin",
             "cols_spin",
@@ -216,19 +242,71 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if path:
             self.load_file(Path(path))
 
+    def _choose_project(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Open Map Reconstruction project",
+            "",
+            "Map Reconstruction Project (*.hmmap)",
+        )
+        if path:
+            self.load_project_file(Path(path))
+
     def load_file(self, path: Path) -> None:
         try:
-            data = import_happymeasure_csv(path)
+            raw_bytes = path.read_bytes()
+            data = import_happymeasure_csv_bytes(raw_bytes, path.name, source_path=path)
         except (OSError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open CSV", str(exc))
             return
+        self._load_data(data, raw_bytes, path.name)
+
+    def load_project_file(self, path: Path) -> None:
+        try:
+            loaded = load_project(path)
+            data = import_happymeasure_csv_bytes(
+                loaded.raw_csv_bytes,
+                loaded.state.original_filename,
+                source_path=Path(loaded.state.original_filename),
+            )
+            if loaded.state.signal not in data.signals:
+                raise ValueError(f"Project source signal {loaded.state.signal!r} is unavailable.")
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
+            QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
+            return
+        self._restoring_project = True
+        try:
+            self._load_data(
+                data, loaded.raw_csv_bytes, loaded.state.original_filename, reconstruct=False
+            )
+            self.inspector.restore_project_state(loaded.state, self._raw_display_unit().scale)
+            self._set_raw_signal(loaded.state.signal)
+            self._update_processing_units()
+            self._create_anchor_lines()
+        finally:
+            self._restoring_project = False
+        if loaded.state.is_geometry_set:
+            self._reconstruct()
+        else:
+            self._set_export_availability()
+            self.statusBar().showMessage("Project opened. Set Rows and Columns to reconstruct.")
+
+    def _load_data(
+        self,
+        data: TimeSeriesData,
+        raw_bytes: bytes,
+        original_filename: str,
+        *,
+        reconstruct: bool = True,
+    ) -> None:
         self.data = data
         self.result = None
         self.params = None
         self.processed = None
         self._active_color_limits = None
-        self._loaded_filename = path.name
-        self.inspector.set_file_name(path.name)
+        self._raw_source_bytes = raw_bytes
+        self._loaded_filename = original_filename
+        self.inspector.set_file_name(original_filename)
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
         self.inspector.set_signal_names(data.signal_names, preferred)
         self._set_anchor_bounds(data)
@@ -236,8 +314,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._update_processing_units()
         self._create_anchor_lines()
         self._set_loaded_view(True)
-        self._reconstruct()
-        if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
+        if reconstruct:
+            self._reconstruct()
+        if reconstruct and (self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0):
             self.statusBar().showMessage("Set Rows and Columns to reconstruct.")
 
     def _set_loaded_view(self, loaded: bool) -> None:
@@ -250,7 +329,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         processed_available = bool(
             self.processed is not None and np.isfinite(self.processed.values).any()
         )
-        self.inspector.set_export_availability(raw_available, processed_available)
+        source_available = self.data is not None and bool(self._raw_source_bytes)
+        self.inspector.set_export_availability(raw_available, processed_available, source_available)
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
@@ -377,7 +457,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._process_and_display()
 
     def _reconstruct(self) -> None:
-        if self.data is None or self._syncing:
+        if self.data is None or self._syncing or self._restoring_project:
             return
         if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
             self._invalidate_reconstruction("Set Rows and Columns to reconstruct.")
@@ -509,6 +589,37 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _export_both_maps(self) -> None:
         export_both(self)
+
+    def _project_state(self) -> ProjectState:
+        config = self._processing_config()
+        return ProjectState(
+            original_filename=self._loaded_filename or "measurement.csv",
+            signal=self.signal_combo.currentText(),
+            rows=self.rows_spin.value(),
+            columns=self.cols_spin.value(),
+            scan_pattern=ScanPattern(self.scan_combo.currentData()),
+            first_row_ltr=self.first_row_check.isChecked(),
+            aggregation="median" if self.median_check.isChecked() else "mean",
+            row_a_s=self.row_a_spin.value(),
+            row_b_s=self.row_b_spin.value(),
+            rows_apart=self.rows_apart_spin.value(),
+            row_offset=self.row_offset_spin.value(),
+            point_a_s=self.point_a_spin.value(),
+            point_b_s=self.point_b_spin.value(),
+            points_apart=self.points_apart_spin.value(),
+            point_offset=self.point_offset_spin.value(),
+            processing=config,
+            flip_y=self.flip_y_check.isChecked(),
+        )
+
+    def _export_project(self) -> None:
+        export_project(self)
+
+    def _export_parameter_summary(self) -> None:
+        export_parameter_summary(self)
+
+    def _export_pdf_report(self) -> None:
+        export_pdf_report(self)
 
     def _export_map(self) -> None:
         self._export_raw_map()

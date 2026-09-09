@@ -2,6 +2,12 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Added self-contained Map Reconstruction `.hmmap` projects. Each archive
+  preserves the original HappyMeasure source CSV bytes, records a SHA-256,
+  stores canonical reconstruction/processing/display state, and reconstructs
+  from the embedded source on open. Added Data-inspector actions for projects,
+  parameter summaries, and PDF reports; maps remain derived, non-authoritative
+  outputs. See `docs/MAP_PROJECT_FORMAT.md`.
 - Refined the optional Map Reconstruction workspace without changing its
   reconstruction model: file/export actions now live in the Data inspector,
   unset Rows/Columns retain the raw trace but prevent reconstruction, and

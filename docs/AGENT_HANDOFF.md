@@ -112,6 +112,23 @@
   processed needs finite processed values, and Both needs both. A
   processing-only failure must retain raw export and sample-count QC.
 
+## 2026-09-09 Map Reconstruction reproducible projects
+
+- `.hmmap` project persistence lives in headless `project_io.py`; do not move
+  ZIP/JSON/hash logic into `main_window.py` or introduce a second authoritative
+  map. The only required archive members are `project.json` and
+  `source/raw_timeseries.csv`; raw bytes are preserved verbatim and checked
+  against SHA-256 before the embedded CSV is imported.
+- `ProjectState` stores canonical `row_a_s`/`row_b_s`/`point_a_s`/`point_b_s`,
+  geometry, signal, processing in internal scientific units, and Flip Y. It
+  intentionally does not store derived row/point periods or machine paths.
+- Project loading uses the inspector's semantic restore API with signals
+  blocked, then performs one final reconstruction. Restored anchors are marked
+  user-defined so automatic geometry defaults cannot overwrite them.
+- `reporting.py` keeps the parameter summary Qt-free. PDF export is optional
+  Qt-only UI reporting, not a persistence format. The report includes map,
+  sample-count, and raw-trace figures when a raw reconstruction exists.
+
 ## 2026-09-08 Continuous Time timing audit
 
 - Real Keithley 2400-series connection probes attempt a short best-effort

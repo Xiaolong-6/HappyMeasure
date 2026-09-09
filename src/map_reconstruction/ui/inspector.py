@@ -16,6 +16,7 @@ from map_reconstruction.processing import (
     ValueScale,
     ValueTransform,
 )
+from map_reconstruction.project_io import ProjectState
 
 EnumT = TypeVar("EnumT")
 
@@ -30,9 +31,13 @@ class ReconstructionInspector(QtWidgets.QWidget):
     pointPeriodEdited = QtCore.Signal(float)
     resetTraceRequested = QtCore.Signal()
     openRequested = QtCore.Signal()
+    openProjectRequested = QtCore.Signal()
     exportRawRequested = QtCore.Signal()
     exportProcessedRequested = QtCore.Signal()
     exportBothRequested = QtCore.Signal()
+    exportProjectRequested = QtCore.Signal()
+    exportSummaryRequested = QtCore.Signal()
+    exportPdfRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -53,22 +58,34 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.open_button = QtWidgets.QPushButton("Open CSV")
         self.open_button.setObjectName("primaryAction")
         self.open_button.clicked.connect(self.openRequested)
+        self.open_project_button = QtWidgets.QPushButton("Open Project")
+        self.open_project_button.clicked.connect(self.openProjectRequested)
         self.export_button = QtWidgets.QPushButton("Export Map")
         self.export_button.setEnabled(False)
         self.raw_export_action = QtGui.QAction("Raw reconstructed map", self)
         self.processed_export_action = QtGui.QAction("Processed map", self)
         self.both_export_action = QtGui.QAction("Both", self)
+        self.project_export_action = QtGui.QAction("Project...", self)
+        self.summary_export_action = QtGui.QAction("Parameter summary...", self)
+        self.pdf_export_action = QtGui.QAction("PDF report...", self)
         self.raw_export_action.triggered.connect(self.exportRawRequested)
         self.processed_export_action.triggered.connect(self.exportProcessedRequested)
         self.both_export_action.triggered.connect(self.exportBothRequested)
+        self.project_export_action.triggered.connect(self.exportProjectRequested)
+        self.summary_export_action.triggered.connect(self.exportSummaryRequested)
+        self.pdf_export_action.triggered.connect(self.exportPdfRequested)
         export_menu = QtWidgets.QMenu(self.export_button)
         export_menu.addAction(self.raw_export_action)
         export_menu.addAction(self.processed_export_action)
         export_menu.addAction(self.both_export_action)
+        export_menu.addSeparator()
+        export_menu.addAction(self.project_export_action)
+        export_menu.addAction(self.summary_export_action)
+        export_menu.addAction(self.pdf_export_action)
         self.export_button.setMenu(export_menu)
         self.export_button.clicked.connect(self.exportRawRequested)
         data_actions.addWidget(self.open_button)
-        data_actions.addWidget(self.export_button)
+        data_actions.addWidget(self.open_project_button)
         data_actions.addStretch(1)
         data_layout.addLayout(data_actions)
         self.file_label = QtWidgets.QLabel("No file loaded")
@@ -86,6 +103,11 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.signal_combo.currentTextChanged.connect(self.signalChanged)
         self._add_form_row(data_form, "Signal", self.signal_combo)
         data_layout.addLayout(data_form)
+        export_layout = QtWidgets.QHBoxLayout()
+        export_layout.setContentsMargins(0, 0, 0, 0)
+        export_layout.addWidget(self.export_button)
+        export_layout.addStretch(1)
+        data_layout.addLayout(export_layout)
         root.addWidget(data_section)
 
         geometry_section, geometry_layout = self._inspector_section("GEOMETRY")
@@ -489,11 +511,16 @@ class ReconstructionInspector(QtWidgets.QWidget):
             )
         )
 
-    def set_export_availability(self, raw_available: bool, processed_available: bool) -> None:
-        self.export_button.setEnabled(raw_available)
+    def set_export_availability(
+        self, raw_available: bool, processed_available: bool, source_available: bool
+    ) -> None:
+        self.export_button.setEnabled(raw_available or source_available)
         self.raw_export_action.setEnabled(raw_available)
         self.processed_export_action.setEnabled(processed_available)
         self.both_export_action.setEnabled(raw_available and processed_available)
+        self.project_export_action.setEnabled(source_available)
+        self.summary_export_action.setEnabled(source_available)
+        self.pdf_export_action.setEnabled(raw_available)
 
     @property
     def anchors_user_edited(self) -> bool:
@@ -521,6 +548,99 @@ class ReconstructionInspector(QtWidgets.QWidget):
         if preferred:
             self.signal_combo.setCurrentText(preferred)
         self.signal_combo.blockSignals(False)
+
+    def restore_project_state(self, state: ProjectState, raw_scale: float) -> None:
+        """Restore semantic state without producing intermediate UI signals."""
+
+        widgets = (
+            self.signal_combo,
+            self.rows_spin,
+            self.cols_spin,
+            self.scan_combo,
+            self.first_row_check,
+            self.flip_y_check,
+            self.median_check,
+            self.row_a_spin,
+            self.row_b_spin,
+            self.rows_apart_spin,
+            self.row_offset_spin,
+            self.point_a_spin,
+            self.point_b_spin,
+            self.points_apart_spin,
+            self.point_offset_spin,
+            self.transform_combo,
+            self.baseline_combo,
+            self.normalization_combo,
+            self.scale_combo,
+            self.color_range_combo,
+            self.baseline_value_spin,
+            self.baseline_percentile_spin,
+            self.custom_expression_edit,
+            self.normalization_reference_spin,
+            self.percentile_low_spin,
+            self.percentile_high_spin,
+            self.color_min_spin,
+            self.color_max_spin,
+        )
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
+        try:
+            self.signal_combo.setCurrentText(state.signal)
+            self.rows_spin.setValue(state.rows)
+            self.cols_spin.setValue(state.columns)
+            self._update_offset_ranges()
+            self._set_combo_value(self.scan_combo, state.scan_pattern)
+            self.first_row_check.setChecked(state.first_row_ltr)
+            self.flip_y_check.setChecked(state.flip_y)
+            self.median_check.setChecked(state.aggregation == "median")
+            self.row_a_spin.setValue(state.row_a_s)
+            self.row_b_spin.setValue(state.row_b_s)
+            self.rows_apart_spin.setValue(state.rows_apart)
+            self.row_offset_spin.setValue(state.row_offset)
+            self.point_a_spin.setValue(state.point_a_s)
+            self.point_b_spin.setValue(state.point_b_s)
+            self.points_apart_spin.setValue(state.points_apart)
+            self.point_offset_spin.setValue(state.point_offset)
+            config = state.processing
+            self._set_combo_value(self.transform_combo, config.transform)
+            self._set_combo_value(self.baseline_combo, config.baseline_mode)
+            self._set_combo_value(self.normalization_combo, config.normalization)
+            self._set_combo_value(self.scale_combo, config.value_scale)
+            self._set_combo_value(self.color_range_combo, config.color_range_mode)
+            reference_scale = (
+                raw_scale
+                if config.transform
+                in (ValueTransform.RAW, ValueTransform.ABSOLUTE, ValueTransform.NEGATE)
+                else 1.0
+            )
+            processed_scale = (
+                1.0
+                if config.transform is ValueTransform.CUSTOM
+                or config.normalization is not NormalizationMode.NONE
+                or config.value_scale is ValueScale.LOG10
+                else raw_scale
+            )
+            self.baseline_value_spin.setValue((config.baseline_value or 0.0) * raw_scale)
+            self.baseline_percentile_spin.setValue(config.baseline_percentile)
+            self.custom_expression_edit.setText(config.custom_expression)
+            self.normalization_reference_spin.setValue(
+                (config.normalization_reference or 0.0) * reference_scale
+            )
+            self.percentile_low_spin.setValue(config.percentile_low)
+            self.percentile_high_spin.setValue(config.percentile_high)
+            self.color_min_spin.setValue((config.color_min or 0.0) * processed_scale)
+            self.color_max_spin.setValue((config.color_max or 0.0) * processed_scale)
+            self._sync_point_period_from_anchors()
+            self._update_processing_fields()
+            self._anchors_user_edited = True
+        finally:
+            del blockers
+
+    @staticmethod
+    def _set_combo_value(combo: QtWidgets.QComboBox, value: object) -> None:
+        index = combo.findData(value)
+        if index < 0:
+            raise ValueError(f"Project contains unsupported UI value: {value!r}")
+        combo.setCurrentIndex(index)
 
     def set_anchor_bounds(self, data: TimeSeriesData, *, reset: bool = True) -> None:
         """Apply the loaded trace range and, for a new file, useful timing defaults."""

@@ -37,6 +37,14 @@ and metadata serialization out of the composition root. This split is a UI
 responsibility boundary only; it does not add a reconstruction method or
 change the importer/method APIs.
 
+Map Reconstruction project persistence is deliberately headless at its core:
+`project_io.py` owns the versioned `.hmmap` ZIP/JSON contract, original raw CSV
+bytes, and SHA-256 verification, while `reporting.py` owns text summaries and
+the optional Qt PDF report. The UI only supplies dialogs, semantic inspector
+state, and current plot widgets. Project archives never treat a cached map as
+authoritative: they reopen by importing the embedded source and rerunning the
+current Dual Offset/processing pipeline.
+
 ## Runtime layers
 
 ```text

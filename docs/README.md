@@ -2,6 +2,9 @@
 
 This directory contains both user-facing release documents and machine-facing handoff notes. Start here before editing docs so release-critical information stays in one place rather than being scattered across README fragments.
 
+The optional Map Reconstruction workspace stores portable scientific sessions
+using the `.hmmap` format documented in `MAP_PROJECT_FORMAT.md`.
+
 ## Human-facing quick path
 
 Use these first:

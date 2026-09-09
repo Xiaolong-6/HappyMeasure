@@ -1,5 +1,21 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction portable projects and reports
+
+- 628 tests collected; the full validation script completed successfully with
+  the combined coverage gate at 95.10% (required minimum: 95%)
+- 26 focused project-persistence and map-UI regressions passed. They cover
+  byte-preserving `.hmmap` archives, SHA-256 and malformed-archive rejection,
+  full and partial project-state restoration, exactly one reconstruction on
+  restore, action availability, parameter summaries, and non-mutating PDF
+  generation.
+- `compileall`, Ruff, per-file Black, and mypy for all changed Map
+  Reconstruction source modules passed.
+- The PDF test verifies a non-empty PDF with a valid header. This headless
+  session could not perform a native PDF-viewer legibility review; that visual
+  check, along with native file-dialog and mouse-interaction checks, remains
+  an operator task.
+
 ## 2026-09-09 - Map Reconstruction compact timing workspace
 
 - 616 tests collected; 615 passed and 1 expected conditional skip

@@ -11,6 +11,8 @@ import numpy as np
 from PySide6 import QtWidgets  # type: ignore[import-not-found]
 
 from map_reconstruction.display_units import scientific_unit_for_signal
+from map_reconstruction.project_io import save_project
+from map_reconstruction.reporting import generate_pdf_report, write_parameter_summary
 
 
 def export_paths(base_path: Path) -> tuple[Path, Path, Path]:
@@ -138,3 +140,82 @@ def export_both(window: Any) -> None:
         QtWidgets.QMessageBox.critical(window, "Export failed", str(exc))
         return
     window.statusBar().showMessage(f"Exported raw and processed maps to {raw_path.parent}")
+
+
+def _source_stem(window: Any) -> str:
+    return Path(window._loaded_filename or "map").stem
+
+
+def export_project(window: Any) -> None:
+    if window.data is None or not window._raw_source_bytes:
+        QtWidgets.QMessageBox.information(window, "No source data", "Open a source CSV first.")
+        return
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(
+        window,
+        "Export Map Reconstruction project",
+        f"{_source_stem(window)}.hmmap",
+        "Map Reconstruction Project (*.hmmap)",
+    )
+    if not path:
+        return
+    try:
+        save_project(Path(path), window._project_state(), window._raw_source_bytes)
+    except (OSError, ValueError) as exc:
+        QtWidgets.QMessageBox.critical(window, "Project export failed", str(exc))
+        return
+    window.statusBar().showMessage(f"Exported project to {path}")
+
+
+def export_parameter_summary(window: Any) -> None:
+    if window.data is None:
+        QtWidgets.QMessageBox.information(window, "No source data", "Open a source CSV first.")
+        return
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(
+        window,
+        "Export parameter summary",
+        f"{_source_stem(window)}_map_parameters.txt",
+        "Text files (*.txt)",
+    )
+    if not path:
+        return
+    try:
+        write_parameter_summary(
+            Path(path), window._project_state(), window.data, window.result, window.processed
+        )
+    except (OSError, ValueError) as exc:
+        QtWidgets.QMessageBox.critical(window, "Summary export failed", str(exc))
+        return
+    window.statusBar().showMessage(f"Exported parameter summary to {path}")
+
+
+def export_pdf_report(window: Any) -> None:
+    if window.data is None or window.result is None:
+        QtWidgets.QMessageBox.information(
+            window,
+            "No reconstruction",
+            "Reconstruct a valid raw map before exporting a PDF report.",
+        )
+        return
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(
+        window,
+        "Export PDF reconstruction report",
+        f"{_source_stem(window)}_map_report.pdf",
+        "PDF files (*.pdf)",
+    )
+    if not path:
+        return
+    try:
+        generate_pdf_report(
+            Path(path),
+            window._project_state(),
+            window.data,
+            window.result,
+            window.processed,
+            map_widget=window.map_plot,
+            count_widget=window.count_plot,
+            trace_widget=window.raw_plot,
+        )
+    except (OSError, ValueError) as exc:
+        QtWidgets.QMessageBox.critical(window, "PDF export failed", str(exc))
+        return
+    window.statusBar().showMessage(f"Exported PDF report to {path}")

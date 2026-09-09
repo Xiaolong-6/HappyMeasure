@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -26,10 +27,27 @@ def import_happymeasure_csv(path: str | Path) -> TimeSeriesData:
 
     source = Path(path)
     try:
-        with source.open(newline="", encoding="utf-8-sig") as handle:
-            rows = list(csv.reader(handle))
+        raw_bytes = source.read_bytes()
     except OSError as exc:
         raise ValueError(f"Could not read CSV file {source}: {exc}") from exc
+    return import_happymeasure_csv_bytes(raw_bytes, source.name, source_path=source)
+
+
+def import_happymeasure_csv_bytes(
+    raw_bytes: bytes, source_name: str, *, source_path: Path | None = None
+) -> TimeSeriesData:
+    """Import exact HappyMeasure CSV bytes without writing a temporary file.
+
+    Project archives use this path so their embedded source remains the
+    authoritative byte sequence while parsing follows the normal importer
+    contract.
+    """
+
+    try:
+        text = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Could not decode CSV file {source_name}: {exc}") from exc
+    rows = list(csv.reader(io.StringIO(text, newline="")))
     if not rows:
         raise ValueError("CSV file is empty.")
 
@@ -117,5 +135,5 @@ def import_happymeasure_csv(path: str | Path) -> TimeSeriesData:
         time_s=sorted_time,
         signals=sorted_signals,
         metadata=metadata,
-        source_path=source,
+        source_path=source_path,
     )

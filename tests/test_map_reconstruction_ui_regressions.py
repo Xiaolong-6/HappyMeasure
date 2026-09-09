@@ -13,6 +13,8 @@ pytest.importorskip("pyqtgraph")
 from PySide6 import QtWidgets
 
 from map_reconstruction.models import TimeSeriesData
+from map_reconstruction.project_io import save_project
+from map_reconstruction.reporting import generate_pdf_report
 from map_reconstruction.ui.main_window import MAX_GUIDES_PER_FAMILY, MapReconstructionWindow
 
 
@@ -343,3 +345,152 @@ def test_raw_export_remains_available_when_log_processing_has_no_finite_values(a
     assert not window.both_export_action.isEnabled()
     assert "no finite processed values" in window.statusBar().currentMessage().lower()
     window.close()
+
+
+def test_project_round_trip_restores_ui_once_without_original_source(
+    application, tmp_path: Path
+) -> None:
+    source = tmp_path / "measurement.csv"
+    time = np.linspace(0.0, 1.0, 1001)
+    source.write_text(
+        "\n".join(
+            [
+                "# schema,single-v2",
+                '# metadata,{"source":"synthetic"}',
+                "# section,data",
+                "Elapsed_s,Current_A,Voltage_V",
+                *(f"{t:.6f},{1e-6 + t * 1e-6:.12g},{t:.12g}" for t in time),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "session.hmmap"
+    first = MapReconstructionWindow()
+    try:
+        first.load_file(source)
+        assert first.project_export_action.isEnabled()
+        assert first.summary_export_action.isEnabled()
+        assert not first.pdf_export_action.isEnabled()
+        first.rows_spin.setValue(2)
+        first.cols_spin.setValue(2)
+        first.rows_apart_spin.setValue(1)
+        first.points_apart_spin.setValue(1)
+        first.row_a_spin.setValue(0.100)
+        first.row_b_spin.setValue(0.500)
+        first.point_a_spin.setValue(0.150)
+        first.point_b_spin.setValue(0.250)
+        first.row_offset_spin.setValue(1)
+        first.point_offset_spin.setValue(1)
+        first._anchor_spin_finished()
+        first.transform_combo.setCurrentIndex(first.transform_combo.findData("absolute"))
+        first.baseline_combo.setCurrentIndex(first.baseline_combo.findData("manual"))
+        first.baseline_value_spin.setValue(0.5)
+        first.normalization_combo.setCurrentIndex(first.normalization_combo.findData("reference"))
+        first.normalization_reference_spin.setValue(2.0)
+        first.color_range_combo.setCurrentIndex(first.color_range_combo.findData("percentile"))
+        first.percentile_low_spin.setValue(5.0)
+        first.percentile_high_spin.setValue(95.0)
+        first.custom_expression_edit.setText("abs(x) * 2")
+        first.flip_y_check.setChecked(True)
+        first._processing_controls_changed()
+        assert first.result is not None
+        assert first.pdf_export_action.isEnabled()
+        state = first._project_state()
+        values = first.result.values.copy()
+        save_project(project, state, first._raw_source_bytes or b"")
+    finally:
+        first.close()
+    source.unlink()
+
+    second = MapReconstructionWindow()
+    calls = 0
+    original_reconstruct = second._reconstruct
+
+    def counted_reconstruct() -> None:
+        nonlocal calls
+        calls += 1
+        original_reconstruct()
+
+    second._reconstruct = counted_reconstruct  # type: ignore[method-assign]
+    try:
+        second.load_project_file(project)
+        assert calls == 1
+        assert second._loaded_filename == "measurement.csv"
+        assert second.file_label.toolTip() == "measurement.csv"
+        assert second._project_state() == state
+        assert second.result is not None
+        np.testing.assert_allclose(second.result.values, values, equal_nan=True)
+        np.testing.assert_allclose(second.data.time_s, time)
+        assert second.raw_export_action.isEnabled()
+        assert second.project_export_action.isEnabled()
+        assert second.summary_export_action.isEnabled()
+        assert second.pdf_export_action.isEnabled()
+    finally:
+        second.close()
+
+
+def test_partial_project_restores_workspace_without_reconstruction(
+    application, tmp_path: Path
+) -> None:
+    source = tmp_path / "partial.csv"
+    raw = (
+        b"# schema,single-v2\n"
+        b"# section,data\n"
+        b"Elapsed_s,Current_A\n"
+        b"0,1e-6\n"
+        b"0.1,2e-6\n"
+    )
+    source.write_bytes(raw)
+    project = tmp_path / "partial.hmmap"
+    first = MapReconstructionWindow()
+    try:
+        first.load_file(source)
+        assert first.rows_spin.value() == 0
+        assert first.cols_spin.value() == 0
+        save_project(project, first._project_state(), raw)
+    finally:
+        first.close()
+
+    second = MapReconstructionWindow()
+    calls = 0
+    original_reconstruct = second._reconstruct
+
+    def counted_reconstruct() -> None:
+        nonlocal calls
+        calls += 1
+        original_reconstruct()
+
+    second._reconstruct = counted_reconstruct  # type: ignore[method-assign]
+    try:
+        second.load_project_file(project)
+        assert calls == 0
+        assert second.data is not None
+        assert second.result is None
+        assert second._project_state().is_geometry_set is False
+        assert "Set Rows and Columns" in second.statusBar().currentMessage()
+    finally:
+        second.close()
+
+
+def test_pdf_report_is_created_without_mutating_reconstruction(application, tmp_path: Path) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    original_values = window.result.values.copy()
+    report = tmp_path / "report.pdf"
+    try:
+        generate_pdf_report(
+            report,
+            window._project_state(),
+            window.data,
+            window.result,
+            window.processed,
+            map_widget=window.map_plot,
+            count_widget=window.count_plot,
+            trace_widget=window.raw_plot,
+        )
+        assert report.read_bytes().startswith(b"%PDF")
+        assert report.stat().st_size > 1_000
+        np.testing.assert_array_equal(window.result.values, original_values)
+    finally:
+        window.close()
