@@ -2,6 +2,13 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Map Reconstruction now initializes fresh-file timing anchors from the loaded
+  trace span, keeps Samples / pixel and raw exports visible when only map
+  processing fails, and restores processed views after the setting is fixed.
+  Processing controls now distinguish raw, normalization-reference, and
+  processed units; Point period is explicitly shown in seconds. Removed a
+  duplicate map splitter attachment and added synthetic single-v2 load and
+  UI-state regression coverage.
 - Refined the optional Map Reconstruction Qt workspace with a light scientific
   theme, compact action header, sectioned inspector, empty states, QC summary
   rows, light PyQtGraph plots, and map/sample-count color scales. The importer,

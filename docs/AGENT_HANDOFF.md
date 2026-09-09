@@ -141,6 +141,32 @@
   pass. Duration validation and continuous acquisition backend semantics are
   unchanged.
 
+## 2026-09-09 Map Reconstruction UI state remediation
+
+- Fresh single-v2 loads now reset timing anchors to trace-relative defaults:
+  Row A/B at 20%/70%, Point A at 5%, and a positive point gap based on map
+  width. Existing anchors can still be clamped without reset via the optional
+  inspector argument.
+- Processing errors clear only the processed map and Distribution tab. The
+  authoritative raw reconstruction, Samples / pixel counts, timing QC, trace
+  guides, and raw export remain available; true reconstruction invalidation
+  still clears all derived views.
+- Processing-unit labels now distinguish the raw baseline unit, the
+  normalization-reference unit, and the processed/color unit. Custom
+  references are unitless while raw/absolute/negate references retain their
+  physical display unit. Point period is labeled in seconds.
+- Added a read-only synthetic single-v2 `load_file()` regression and a Qt UI
+  regression for processing failure/recovery, sample-count preservation, and
+  custom/reference labels. No private data was used or committed.
+- Validation on this head: 611 tests collected, 610 passed and 1 expected
+  conditional skip; combined coverage 95.56%; compileall, Ruff, and per-file
+  Black checks passed. The changed inspector module passes mypy; the existing
+  repository-wide mypy run still reports unrelated test typing errors.
+- Optional GUI dependencies were installed with `pip install -e ".[map]"`.
+  Offscreen launch without a CSV and a synthetic read-only load probe passed;
+  native desktop drag/pan/wheel/resize visuals remain operator follow-ups in
+  this headless session.
+
 ## Keithley front-panel range popup visual polish note
 
 The Keithley-style front-panel popup is in `src/keith_ivt/ui/status_bar.py`. The current-range area now intentionally uses custom `tk.Frame`/`tk.Label` card blocks instead of a native `ttk.LabelFrame`, because the native layout clipped controls under Windows scaling. Keep the mock-style hierarchy: large black instrument readout, left metadata column, right current-range card with summary cells and one aligned control row.

@@ -96,6 +96,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.points_apart_spin = self._int_spin(10, 1, 100000)
         self.point_period_spin = self._value_spin()
         self.point_period_spin.setRange(1e-12, 1e15)
+        self.point_period_spin.setSuffix(" s")
         self.point_offset_spin = self._int_spin(0, 0, 100000)
         self.row_offset_slider = self._offset_slider()
         self.point_offset_slider = self._offset_slider()
@@ -349,7 +350,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
     @staticmethod
     def _float_spin() -> QtWidgets.QDoubleSpinBox:
         spin = QtWidgets.QDoubleSpinBox()
-        spin.setDecimals(6)
+        spin.setDecimals(12)
         spin.setRange(-1e15, 1e15)
         spin.setSingleStep(0.1)
         spin.setSuffix(" s")
@@ -420,15 +421,40 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.signal_combo.setCurrentText(preferred)
         self.signal_combo.blockSignals(False)
 
-    def set_anchor_bounds(self, data: TimeSeriesData) -> None:
+    def set_anchor_bounds(self, data: TimeSeriesData, *, reset: bool = True) -> None:
+        """Apply the loaded trace range and, for a new file, useful timing defaults."""
         self._has_data = True
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
-        span = max(upper - lower, 1e-6)
-        for spin in (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin):
-            value = float(spin.value())
+        span = max(upper - lower, 0.0)
+        spins = (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin)
+        for spin in spins:
+            spin.blockSignals(True)
             spin.setRange(lower, upper)
-            spin.setSingleStep(span / 1000.0)
-            spin.setValue(float(min(max(value, lower), upper)))
+            spin.setSingleStep(max(span / 1000.0, 1e-12))
+
+        defaults: tuple[float, float, float, float]
+        if reset and span > 0.0:
+            row_a = lower + 0.20 * span
+            row_b = lower + 0.70 * span
+            point_a = lower + 0.05 * span
+            point_gap = span / max(100.0, float(self.cols_spin.value()) * 4.0)
+            point_b = min(upper, point_a + point_gap)
+            if point_b <= point_a:
+                point_a, point_b = lower, upper
+            defaults = (row_a, row_b, point_a, point_b)
+        elif reset:
+            defaults = (lower, lower, lower, lower)
+        else:
+            defaults = (
+                float(min(max(spins[0].value(), lower), upper)),
+                float(min(max(spins[1].value(), lower), upper)),
+                float(min(max(spins[2].value(), lower), upper)),
+                float(min(max(spins[3].value(), lower), upper)),
+            )
+
+        for spin, value in zip(spins, defaults):
+            spin.setValue(value)
+            spin.blockSignals(False)
         self._update_offset_ranges()
         self._sync_point_period_from_anchors()
 
@@ -510,13 +536,21 @@ class ReconstructionInspector(QtWidgets.QWidget):
     def processing_enum(self, enum_type: type[EnumT]) -> EnumT:
         return self._enum_value(self.transform_combo, enum_type)  # type: ignore[arg-type]
 
-    def set_processing_units(self, raw_unit: DisplayUnit, color_unit: DisplayUnit) -> None:
-        dimensionless = not color_unit.unit
+    def set_processing_units(
+        self,
+        raw_unit: DisplayUnit,
+        normalization_reference_unit: DisplayUnit,
+        processed_unit: DisplayUnit,
+    ) -> None:
+        dimensionless = not processed_unit.unit
         labels = {
             "baseline_value": ("Baseline value", raw_unit.unit),
-            "normalization_reference": ("Normalization reference", raw_unit.unit),
-            "color_min": ("Color minimum", "" if dimensionless else color_unit.unit),
-            "color_max": ("Color maximum", "" if dimensionless else color_unit.unit),
+            "normalization_reference": (
+                "Normalization reference",
+                normalization_reference_unit.unit,
+            ),
+            "color_min": ("Color minimum", "" if dimensionless else processed_unit.unit),
+            "color_max": ("Color maximum", "" if dimensionless else processed_unit.unit),
         }
         for key, (label, unit) in labels.items():
             row = self._processing_rows[key]

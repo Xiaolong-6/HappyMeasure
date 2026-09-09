@@ -1,5 +1,24 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction UI state remediation
+
+- 611 tests collected; 610 passed and 1 expected conditional skip
+- full validation passed with 95.56% combined `keith_ivt` +
+  `map_reconstruction` coverage
+- compileall, legacy UI contracts, Ruff, and per-file Black checks passed
+- the synthetic single-v2 `load_file()` regression verifies trace-relative
+  anchors, positive point period, and a valid reconstructed result
+- the Qt UI regression verifies processing-only failure preserves raw result,
+  Samples / pixel data, timing state, and raw export, then restores processed
+  map and Distribution after the setting is fixed
+- optional GUI dependencies were installed with `pip install -e ".[map]"`;
+  offscreen `python -m map_reconstruction` launch and synthetic load probe
+  passed, including both QC tabs and seconds-labelled point period
+- changed `inspector.py` passes mypy. Repository-wide mypy still reports
+  pre-existing typing errors in unrelated tests; no new source error remains.
+- Native desktop visual interactions (drag completion, pan, wheel zoom, and
+  1024×650 resize) were not manually verified in this headless session.
+
 ## 2026-09-09 - Constant Time duration-row state
 
 - 608 tests collected; 607 passed and 1 expected conditional skip

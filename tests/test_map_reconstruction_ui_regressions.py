@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -61,6 +62,37 @@ def test_signal_selection_keeps_raw_trace_and_map_in_sync(application) -> None:
     assert window.raw_plot.getAxis("left").label.toPlainText().strip() == "Voltage (V)"
     assert window.map_color_bar.getAxis("right").label.toPlainText().strip() == "Voltage (V)"
     window.close()
+
+
+def test_load_file_initializes_valid_default_timing(application) -> None:
+    path = Path.cwd() / ".synthetic_single_v2_map_regression.csv"
+    time = np.linspace(0.0, 10.0, 10_001)
+    current = 2e-6 + 0.5e-6 * np.sin(time)
+    voltage = np.cos(time)
+    rows = [
+        "# schema,single-v2",
+        '# metadata,{"source":"synthetic regression"}',
+        "# section,data",
+        "Elapsed_s,Current_A,Voltage_V",
+    ]
+    rows.extend(f"{t:.9f},{i:.12g},{v:.12g}" for t, i, v in zip(time, current, voltage))
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    try:
+        window = MapReconstructionWindow()
+        window.load_file(path)
+
+        assert window.row_b_spin.value() > window.row_a_spin.value()
+        assert window.point_b_spin.value() > window.point_a_spin.value()
+        assert window.row_a_spin.value() == pytest.approx(2.0)
+        assert window.row_b_spin.value() == pytest.approx(7.0)
+        assert window.point_a_spin.value() == pytest.approx(0.5)
+        assert window.point_b_spin.value() == pytest.approx(0.5 + 10.0 / 144.0)
+        assert window.point_period_spin.value() > 0.0
+        assert window.result is not None
+        assert window.inspector.timing_label.text() == "Timing valid: ✓"
+        window.close()
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def test_invalid_timing_clears_stale_result_and_disables_export(application) -> None:
@@ -152,11 +184,21 @@ def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
     window = _window_with_valid_reconstruction(application)
     assert window.result is not None
     raw_result = window.result
+    sample_counts = np.array(window.count_image.image, copy=True)
+
+    window.normalization_combo.setCurrentIndex(3)
+    raw_reference_label = window.inspector._processing_rows["normalization_reference"][0].text()
+    assert raw_reference_label != "Normalization reference"
+    window.normalization_reference_spin.setValue(2.0)
+    window._processing_controls_changed()
+    assert window.processed is not None
+    assert window.count_stack.currentIndex() == 1
 
     window.transform_combo.setCurrentIndex(3)
     window.custom_expression_edit.setText("x * 2")
-    window.normalization_combo.setCurrentIndex(3)
-    window.normalization_reference_spin.setValue(2.0)
+    window._update_processing_units()
+    custom_reference_label = window.inspector._processing_rows["normalization_reference"][0].text()
+    assert custom_reference_label == "Normalization reference"
     config = window._processing_config()
     assert config.normalization_reference == pytest.approx(2.0)
 
@@ -165,6 +207,27 @@ def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
 
     assert window.result is raw_result
     assert window.processed is None
+    assert window.count_stack.currentIndex() == 1
+    np.testing.assert_array_equal(window.count_image.image, sample_counts)
     assert window.export_button.isEnabled()
     assert "reference is zero" in window.qc_label.text()
+
+    window.normalization_combo.setCurrentIndex(0)
+    assert window.processed is not None
+    assert window.count_stack.currentIndex() == 1
+    assert window.distribution_stack.currentIndex() == 1
+    np.testing.assert_array_equal(window.count_image.image, sample_counts)
+    window.close()
+
+
+def test_point_period_control_displays_seconds(application) -> None:
+    window = MapReconstructionWindow()
+    assert window.point_period_spin.suffix() == " s"
+    short_data = TimeSeriesData(
+        time_s=np.asarray([0.0, 1e-6]),
+        signals={"Current_A": np.asarray([1e-6, 2e-6])},
+    )
+    window.inspector.set_anchor_bounds(short_data)
+    assert window.point_b_spin.value() > window.point_a_spin.value()
+    assert window.point_period_spin.value() > 0.0
     window.close()

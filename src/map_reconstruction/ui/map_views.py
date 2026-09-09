@@ -60,7 +60,6 @@ class MapViews(QtWidgets.QWidget):
         map_splitter.addWidget(self.qc_tabs)
         map_splitter.setStretchFactor(0, 1)
         map_splitter.setStretchFactor(1, 1)
-        root.addWidget(map_splitter)
         self._set_loaded(False)
 
     @staticmethod
@@ -265,11 +264,16 @@ class MapViews(QtWidgets.QWidget):
         self.distribution_stack.setCurrentIndex(0)
 
     def clear_processed_views(self, message: str = "Reconstruction unavailable") -> None:
-        self.map_image.clear()
+        """Clear all derived views after reconstruction invalidation."""
+        self.clear_processed_map_and_distribution(message)
         self.count_image.clear()
+        self.count_stack.setCurrentIndex(0)
+
+    def clear_processed_map_and_distribution(self, message: str = "Processing unavailable") -> None:
+        """Clear only processing outputs while retaining reconstruction QC state."""
+        self.map_image.clear()
         self.clear_distribution()
         self.show_empty_map(message, message)
-        self.count_stack.setCurrentIndex(0)
 
     def reset_views(self) -> None:
         self.map_plot.enableAutoRange()

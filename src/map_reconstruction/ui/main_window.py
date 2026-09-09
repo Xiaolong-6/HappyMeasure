@@ -366,14 +366,22 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _update_processing_units(self) -> None:
         raw = self._raw_display_unit()
+        transform = ValueTransform(self.transform_combo.currentData())
         dimensionless = (
-            ValueTransform(self.transform_combo.currentData()) is ValueTransform.CUSTOM
+            transform is ValueTransform.CUSTOM
             or NormalizationMode(self.normalization_combo.currentData())
             is not NormalizationMode.NONE
             or ValueScale(self.scale_combo.currentData()) is ValueScale.LOG10
         )
+        normalization_reference = (
+            raw
+            if transform in (ValueTransform.RAW, ValueTransform.ABSOLUTE, ValueTransform.NEGATE)
+            else DisplayUnit(raw.label, "", 1.0)
+        )
         self.inspector.set_processing_units(
-            raw, DisplayUnit(raw.label, "", 1.0) if dimensionless else raw
+            raw,
+            normalization_reference,
+            DisplayUnit(raw.label, "", 1.0) if dimensionless else raw,
         )
 
     def _processing_controls_changed(self) -> None:
@@ -430,7 +438,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except ValueError as exc:
             self.processed = None
             self._active_color_limits = None
-            self.map_views.clear_processed_views("Processing unavailable")
+            self.map_views.clear_processed_map_and_distribution("Processing unavailable")
             self.inspector.set_warning(str(exc))
             self.export_button.setEnabled(True)
             self.statusBar().showMessage(str(exc))
