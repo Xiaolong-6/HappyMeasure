@@ -2,6 +2,10 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Aligned Map Reconstruction PDF display semantics with the workspace: map and
+  Samples / pixel figures now honor display-only Flip Y, processed maps reuse
+  configured Auto/Percentile/Manual color limits, and raw fallback maps use
+  their own raw-data auto range.
 - Hardened Map Reconstruction project restore and reporting: project processing
   values now restore with the saved signal's own engineering scale; reports
   choose raw maps when processed output is unavailable, render map arrays

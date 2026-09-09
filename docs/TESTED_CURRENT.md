@@ -1,5 +1,15 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction PDF orientation and color semantics
+
+- 634 tests collected; the final full validation script completed successfully.
+- 32 focused project/report/UI regressions passed, including display-only Flip
+  Y for map and sample counts, Manual/Percentile color limits, raw fallback
+  color-range isolation, and non-mutation of scientific arrays.
+- Native Windows PDF viewer verification remains unavailable in this session.
+  The offscreen Qt font backend still renders glyphs as boxes, so it cannot be
+  used to verify native Unicode typography; Unicode strings remain unmodified.
+
 ## 2026-09-09 - Map Reconstruction restore and report remediation
 
 - 633 tests collected; the final full validation script completed successfully.

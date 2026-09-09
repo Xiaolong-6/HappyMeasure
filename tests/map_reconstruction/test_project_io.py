@@ -30,6 +30,7 @@ from map_reconstruction.project_io import (
 from map_reconstruction.reporting import (
     fit_size_keep_aspect,
     format_parameter_summary,
+    report_display_arrays,
     select_report_map,
 )
 
@@ -320,5 +321,45 @@ def test_report_map_selection_and_aspect_ratio_are_scientifically_explicit() -> 
     assert processed.title == "Processed map"
     np.testing.assert_array_equal(processed.values, processed_values)
     assert processed.display_unit.unit == ""
+    assert processed.color_limits == pytest.approx(tuple(np.percentile(processed_values, [5.0, 95.0])))
     assert fit_size_keep_aspect(25, 25, 400, 200) == (200, 200)
     assert fit_size_keep_aspect(100, 50, 100, 100) == (100, 50)
+
+
+def test_report_display_orientation_and_color_limits_follow_scientific_semantics() -> None:
+    result = ReconstructionResult(
+        values=np.asarray([[-10.0, -1.0], [0.0, 1.0], [5.0, 10.0]]),
+        sample_counts=np.asarray([[1, 2], [3, 4], [5, 6]]),
+        timing=TimingSolution(0.1, 0.0, 0.025, 0.0),
+    )
+    manual_state = replace(
+        _state(),
+        flip_y=True,
+        processing=MapProcessingConfig(
+            color_range_mode=ColorRangeMode.MANUAL, color_min=-1.0, color_max=1.0
+        ),
+    )
+    processed = ProcessedMap(result.values, None, (), "Current", False)
+    spec = select_report_map(manual_state, result, processed)
+    display_values, display_counts = report_display_arrays(spec, result)
+
+    assert spec.color_limits == (-1.0, 1.0)
+    np.testing.assert_array_equal(display_values, [[5.0, 10.0], [0.0, 1.0], [-10.0, -1.0]])
+    np.testing.assert_array_equal(display_counts, [[5, 6], [3, 4], [1, 2]])
+    np.testing.assert_array_equal(result.values, [[-10.0, -1.0], [0.0, 1.0], [5.0, 10.0]])
+
+    percentile_state = replace(
+        manual_state,
+        flip_y=False,
+        processing=MapProcessingConfig(
+            color_range_mode=ColorRangeMode.PERCENTILE, percentile_low=20.0, percentile_high=80.0
+        ),
+    )
+    percentile = select_report_map(percentile_state, result, processed)
+    assert percentile.color_limits == pytest.approx(
+        tuple(np.percentile(result.values, [20.0, 80.0]))
+    )
+
+    raw = select_report_map(manual_state, result, None)
+    assert raw.color_limits == (-10.0, 10.0)
+    assert raw.color_limits != spec.color_limits

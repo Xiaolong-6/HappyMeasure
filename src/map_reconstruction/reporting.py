@@ -18,10 +18,12 @@ from map_reconstruction.models import ReconstructionResult, TimeSeriesData
 from map_reconstruction.processing import (
     BaselineMode,
     ColorRangeMode,
+    MapProcessingConfig,
     NormalizationMode,
     ProcessedMap,
     ValueScale,
     ValueTransform,
+    compute_color_limits,
 )
 from map_reconstruction.project_io import ProjectState
 
@@ -34,6 +36,8 @@ class ReportMap:
     title: str
     display_unit: DisplayUnit
     processing_note: str | None
+    color_limits: tuple[float, float]
+    flip_y: bool
 
 
 def _format_value(value: float, unit: str) -> str:
@@ -145,12 +149,42 @@ def select_report_map(
             if processed.is_dimensionless
             else DisplayUnit(processed.value_label, raw_unit.unit, raw_unit.scale)
         )
-        return ReportMap(processed.values, "Processed map", unit, None)
+        limits = compute_color_limits(processed.values, state.processing)
+        if limits is None:  # guarded by the finite-value check above
+            raise ValueError("Processed report map has no finite values.")
+        return ReportMap(
+            processed.values,
+            "Processed map",
+            unit,
+            None,
+            (limits.minimum, limits.maximum),
+            state.flip_y,
+        )
     if processed is None:
         note = "Processed map unavailable; raw reconstruction shown."
     else:
         note = "No finite processed values; raw reconstruction shown."
-    return ReportMap(result.values, "Raw reconstructed map", raw_unit, note)
+    raw_limits = compute_color_limits(result.values, MapProcessingConfig())
+    if raw_limits is None:
+        raise ValueError("Raw report map has no finite values.")
+    return ReportMap(
+        result.values,
+        "Raw reconstructed map",
+        raw_unit,
+        note,
+        (raw_limits.minimum, raw_limits.maximum),
+        state.flip_y,
+    )
+
+
+def report_display_arrays(
+    report_map: ReportMap, result: ReconstructionResult
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return display-oriented report arrays without mutating authoritative data."""
+
+    if report_map.flip_y:
+        return np.flipud(report_map.values), np.flipud(result.sample_counts)
+    return report_map.values, result.sample_counts
 
 
 def fit_size_keep_aspect(
@@ -294,7 +328,7 @@ def _render_widget(widget: Any, width: int, height: int) -> Any:
     return image
 
 
-def _array_image(values: np.ndarray, colors: np.ndarray) -> Any:
+def _array_image(values: np.ndarray, colors: np.ndarray, limits: tuple[float, float]) -> Any:
     """Create a report-only QImage from scientific map values without mutation."""
 
     from PySide6 import QtGui  # type: ignore[import-not-found]
@@ -304,9 +338,11 @@ def _array_image(values: np.ndarray, colors: np.ndarray) -> Any:
         raise ValueError("Report map values must be two-dimensional.")
     finite = np.isfinite(array)
     rgba = np.full((*array.shape, 4), (238, 238, 238, 255), dtype=np.uint8)
+    low, high = limits
+    if not np.isfinite(low) or not np.isfinite(high) or low >= high:
+        raise ValueError("Report color limits must be finite and increasing.")
     if np.any(finite):
-        low, high = float(np.min(array[finite])), float(np.max(array[finite]))
-        normalized = np.full(array.shape, 0.5) if high == low else (array - low) / (high - low)
+        normalized = (array - low) / (high - low)
         positions = np.clip(normalized, 0.0, 1.0) * (len(colors) - 1)
         lower = np.floor(positions).astype(int)
         upper = np.minimum(lower + 1, len(colors) - 1)
@@ -325,6 +361,7 @@ def _draw_array_figure(
     title: str,
     values: np.ndarray,
     colors: np.ndarray,
+    limits: tuple[float, float],
 ) -> None:
     from PySide6 import QtCore, QtGui  # type: ignore[import-not-found]
 
@@ -333,7 +370,7 @@ def _draw_array_figure(
     plot_target = QtCore.QRect(
         target.left(), target.top() + 18, target.width(), target.height() - 22
     )
-    image = _array_image(values, colors)
+    image = _array_image(values, colors, limits)
     fitted = _fit_rect_keep_aspect(plot_target, image.width(), image.height())
     painter.setPen(QtGui.QColor("#9CA3AF"))
     painter.drawRect(fitted)
@@ -355,6 +392,11 @@ def generate_pdf_report(
     from PySide6 import QtCore, QtGui  # type: ignore[import-not-found]
 
     report_map = select_report_map(state, result, processed)
+    map_values, count_values = report_display_arrays(report_map, result)
+    count_limit_values = compute_color_limits(count_values, MapProcessingConfig())
+    if count_limit_values is None:
+        raise ValueError("Sample-count report figure has no finite values.")
+    count_limits = (count_limit_values.minimum, count_limit_values.maximum)
     layout = QtGui.QPageLayout(
         QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A4),
         QtGui.QPageLayout.Orientation.Landscape,
@@ -410,10 +452,13 @@ def generate_pdf_report(
         painter,
         map_target,
         f"{report_map.title}: {report_map.display_unit.axis_label}",
-        report_map.values,
+        map_values,
         map_colors,
+        report_map.color_limits,
     )
-    _draw_array_figure(painter, count_target, "Samples / pixel", result.sample_counts, count_colors)
+    _draw_array_figure(
+        painter, count_target, "Samples / pixel", count_values, count_colors, count_limits
+    )
     painter.setFont(body_font)
     painter.drawText(trace_target.left(), trace_target.top() + 12, "Raw time trace with anchors")
     trace_image = _render_widget(trace_widget, trace_target.width(), trace_target.height() - 18)
