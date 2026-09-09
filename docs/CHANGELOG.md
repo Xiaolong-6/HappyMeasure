@@ -9,6 +9,17 @@
   unchanged.
 - Added distinct HappyMeasure and Map Reconstruction application icons. The
   HappyMeasure mark is also embedded in the Windows portable executable.
+- Hardened Map Reconstruction against stale or misleading output: invalid
+  timing clears derived views and disables export, while a timing solution with
+  zero valid pixels reports an empty map rather than displaying fabricated
+  zeros. Signal selection now updates raw trace, map, and QC together.
+- Added editable Point period registration, a compact raw-trace guide key,
+  decimated guide rendering, a one-million-pixel reconstruction guard, and
+  display-only Current (µA) / Voltage (V) scaling shared by raw, map, and
+  distribution views. Scientific arrays and exported CSV values remain SI.
+- Added a complete synthetic MATLAB Dual Offset parity regression and moved
+  histogram QC calculations out of the optional UI package for headless
+  coverage.
 - Added a read-only Map Reconstruction Distribution QC tab beside Samples /
   pixel. It histograms only finite scientific map values with mean and median
   references; display orientation, sample counts, and exported values remain

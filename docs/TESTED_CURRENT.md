@@ -1,9 +1,9 @@
 # Current Test Status
 
-## 2026-09-08 - Map Reconstruction v1 branch
+## 2026-09-09 - Map Reconstruction audit remediation
 
-The headless Map Reconstruction importer/core tests and the existing
-HappyMeasure suite passed through the full validation script:
+The Map Reconstruction audit remediation and the existing HappyMeasure suite
+passed through the full validation script:
 
 ```powershell
 .\.venv\Scripts\python.exe tests\run_full_validation.py
@@ -11,17 +11,15 @@ HappyMeasure suite passed through the full validation script:
 
 Results:
 
-- 566 tests collected; 565 passed and 1 expected conditional skip
-- combined `keith_ivt` + `map_reconstruction` coverage: 95.28%
+- 580 tests collected; 579 passed and 1 expected conditional skip
+- combined `keith_ivt` + `map_reconstruction` coverage gate passed
 - compileall, legacy UI contracts, and the repository coverage gate passed
-- a private single-v2 CSV was opened read-only for importer validation; no
-  source data, path, metadata values, or sample-specific observations were
-  committed
-- with `[map]` installed, Qt interaction smoke covered empty launch, a
-  read-only private import, controls, cursors, map/count rendering, reset,
-  export, and timing error/warning feedback; native file-dialog selection and
-  visually observed desktop rendering remain operator follow-ups because the
-  desktop automation service did not expose a targetable window
+- Black, Ruff, source mypy, and map-package compile checks passed
+- map UI regression tests cover synchronized signal switching, invalid-timing
+  stale-state clearing, zero-valid-pixel empty state, point-period editing, and
+  guide decimation. The offscreen Qt smoke also rendered the revised layout.
+- no private source data, paths, metadata values, or observations were used or
+  committed during this remediation
 
 ## 2026-09-07 - HappyMeasure 1.1b5 release candidate
 

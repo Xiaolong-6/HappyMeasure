@@ -12,10 +12,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         from map_reconstruction.ui.main_window import run_app
     except ImportError as exc:
+        missing_name = getattr(exc, "name", None)
+        cause = exc.__cause__
+        if missing_name is None and isinstance(cause, ModuleNotFoundError):
+            missing_name = cause.name
+        if missing_name not in {"PySide6", "pyqtgraph"}:
+            raise
         print(
             "Map Reconstruction requires optional GUI dependencies.\n"
             'Install with: pip install -e ".[map]"\n'
-            f"Details: {exc}",
+            f"Missing: {missing_name}",
             file=sys.stderr,
         )
         return 2

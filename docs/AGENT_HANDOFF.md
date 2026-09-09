@@ -60,6 +60,13 @@
   pixel` and a read-only `Distribution` view. The distribution takes finite
   values directly from `ReconstructionResult.values`, so display-only Flip Y
   never changes its bars, summary statistics, or mean/median reference lines.
+- Map Reconstruction invalidates all prior derived state on invalid timing or
+  oversized geometry, so Export Map cannot emit a stale array. A timing-valid
+  reconstruction with zero finite pixels retains only zero sample counts and
+  an explicit empty-map explanation. `Current_A` is displayed as Current
+  (µA) consistently on trace, map, and distribution; all model and export
+  arrays remain SI. `qc/distribution.py` is deliberately headless, while guide
+  rendering is limited to 500 row references and 500 pixel starts per family.
 - `src/keith_ivt/assets/happymeasure.png` and
   `src/map_reconstruction/assets/map_reconstruction.png` are the source window
   icons. Matching multi-resolution ICO files support Windows packaging; keep

@@ -11,6 +11,12 @@ try:
 except ImportError as exc:  # pragma: no cover - optional GUI dependency
     raise ImportError("PySide6 and pyqtgraph are required for the Map Reconstruction UI") from exc
 
+from map_reconstruction.display_units import (
+    DisplayUnit,
+    display_unit_for_signal,
+    format_display_value,
+    to_display_values,
+)
 from map_reconstruction.importers.happymeasure import import_happymeasure_csv
 from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.models import (
@@ -19,7 +25,7 @@ from map_reconstruction.models import (
     ScanPattern,
     TimeSeriesData,
 )
-from map_reconstruction.ui.distribution import make_histogram_data
+from map_reconstruction.qc.distribution import make_histogram_data
 from map_reconstruction.ui.style import (
     BORDER,
     GRID_MAJOR,
@@ -29,6 +35,8 @@ from map_reconstruction.ui.style import (
     TRACE,
     apply_light_theme,
 )
+
+MAX_GUIDES_PER_FAMILY = 500
 
 
 class MapReconstructionWindow(QtWidgets.QMainWindow):
@@ -85,7 +93,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         data_form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
         self.signal_combo = QtWidgets.QComboBox()
-        self.signal_combo.currentTextChanged.connect(self._reconstruct)
+        self.signal_combo.currentTextChanged.connect(self._signal_changed)
         self._add_form_row(data_form, "Signal", self.signal_combo)
         data_layout.addLayout(data_form)
         controls_layout.addWidget(data_section)
@@ -136,6 +144,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.rows_apart_spin = self._int_spin(10, 1, 100000)
         self.row_offset_spin = self._int_spin(0, 0, 100000)
         self.points_apart_spin = self._int_spin(10, 1, 100000)
+        self.point_period_spin = self._float_spin()
+        self.point_period_spin.setRange(1e-12, 1e15)
         self.point_offset_spin = self._int_spin(0, 0, 100000)
         self.row_offset_slider = self._offset_slider()
         self.point_offset_slider = self._offset_slider()
@@ -176,6 +186,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._add_form_row(point_timing, "Point A", self.point_a_spin)
         self._add_form_row(point_timing, "Point B", self.point_b_spin)
         self._add_form_row(point_timing, "Points apart", self.points_apart_spin)
+        self._add_form_row(point_timing, "Point period", self.point_period_spin)
         self._add_form_row(point_timing, "Point offset", point_offset_control)
         registration_layout.addLayout(point_timing)
         controls_layout.addWidget(registration_section)
@@ -262,7 +273,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         map_splitter.addWidget(self.qc_tabs)
         right_splitter.addWidget(map_splitter)
 
-        self.raw_stack, self.raw_plot = self._make_trace_panel()
+        self.raw_stack, self.raw_plot, self.raw_guide_key = self._make_trace_panel()
         self.raw_curve = self.raw_plot.plot([], [], pen=pg.mkPen(TRACE, width=1.15))
         right_splitter.addWidget(self.raw_stack)
         right_splitter.setStretchFactor(0, 45)
@@ -298,6 +309,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.point_offset_spin.valueChanged.connect(self.point_offset_slider.setValue)
         self.row_offset_slider.valueChanged.connect(self.row_offset_spin.setValue)
         self.point_offset_slider.valueChanged.connect(self.point_offset_spin.setValue)
+        self.points_apart_spin.valueChanged.connect(self._sync_point_period_from_anchors)
+        self.point_period_spin.editingFinished.connect(self._point_period_finished)
         for spin in (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin):
             spin.editingFinished.connect(self._anchor_spin_finished)
 
@@ -450,7 +463,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         stack.addWidget(plot)
         return stack, plot, image, color_bar
 
-    def _make_trace_panel(self) -> tuple[QtWidgets.QStackedWidget, pg.PlotWidget]:
+    def _make_trace_panel(
+        self,
+    ) -> tuple[QtWidgets.QStackedWidget, pg.PlotWidget, QtWidgets.QLabel]:
         stack = QtWidgets.QStackedWidget()
         stack.addWidget(
             self._make_empty_panel(
@@ -460,8 +475,25 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         plot = pg.PlotWidget()
         self._configure_plot(plot, "Raw time trace")
         plot.setLabel("bottom", "Elapsed time", units="s", color=SECONDARY_TEXT)
-        stack.addWidget(plot)
-        return stack, plot
+        plot.setLabel("left", "Signal", color=SECONDARY_TEXT)
+        panel = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(panel)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        guide_key = QtWidgets.QLabel(
+            "<span style='color:#e53935'>●</span> Row A &nbsp; "
+            "<span style='color:#00bcd4'>●</span> Row B &nbsp; "
+            "<span style='color:#2979ff'>●</span> Point A &nbsp; "
+            "<span style='color:#d500f9'>●</span> Point B &nbsp; "
+            "<span style='color:#888888'>⋮</span> Row refs &nbsp; "
+            "<span style='color:#d4a017'>¦</span> Pixel starts"
+        )
+        guide_key.setObjectName("guideKey")
+        guide_key.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        layout.addWidget(guide_key)
+        layout.addWidget(plot, 1)
+        stack.addWidget(panel)
+        return stack, plot, guide_key
 
     def _make_distribution_panel(
         self,
@@ -529,9 +561,10 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         index = 1 if loaded else 0
         for stack in (self.map_stack, self.count_stack, self.raw_stack):
             stack.setCurrentIndex(index)
+        self.raw_guide_key.setVisible(loaded)
         if not loaded:
-            self.distribution_stack.setCurrentIndex(0)
-        self.export_button.setEnabled(loaded)
+            self._clear_distribution()
+        self.export_button.setEnabled(loaded and self.result is not None)
 
     def _choose_file(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -550,6 +583,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Could not open CSV", str(exc))
             return
         self.data = data
+        self.result = None
+        self.params = None
         self._loaded_filename = path.name
         self._refresh_file_label()
         self.header_subtitle.setText("Loaded time-series data")
@@ -560,7 +595,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.signal_combo.setCurrentText(preferred)
         self.signal_combo.blockSignals(False)
         self._set_anchor_bounds(data)
-        self.raw_curve.setData(data.time_s, data.signals[preferred])
+        self._set_raw_signal(preferred)
         self._create_anchor_lines()
         self._set_loaded_view(True)
         self._reconstruct()
@@ -584,6 +619,27 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         super().resizeEvent(event)
         self._refresh_file_label()
 
+    def _current_display_unit(self) -> DisplayUnit:
+        return display_unit_for_signal(self.signal_combo.currentText())
+
+    def _set_raw_signal(self, signal_name: str) -> None:
+        if self.data is None or signal_name not in self.data.signals:
+            return
+        display_unit = display_unit_for_signal(signal_name)
+        self.raw_curve.setData(
+            self.data.time_s,
+            to_display_values(self.data.signals[signal_name], display_unit),
+        )
+        self.raw_plot.setLabel("left", display_unit.axis_label, color=SECONDARY_TEXT)
+
+    def _signal_changed(self, signal_name: str) -> None:
+        """Keep the raw trace, map, and QC data on one selected signal."""
+
+        if self.data is None:
+            return
+        self._set_raw_signal(signal_name)
+        self._reconstruct()
+
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
         span = max(upper - lower, 1e-6)
@@ -604,6 +660,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             spin.setSingleStep(span / 1000.0)
             spin.setValue(float(np.clip(value, lower, upper)))
         self._update_offset_ranges()
+        self._sync_point_period_from_anchors()
 
     def _update_offset_ranges(self) -> None:
         row_max = max(0, self.rows_spin.value() - 1)
@@ -612,6 +669,41 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.point_offset_spin.setRange(0, point_max)
         self.row_offset_slider.setRange(0, row_max)
         self.point_offset_slider.setRange(0, point_max)
+
+    def _sync_point_period_from_anchors(self, *_args: object) -> None:
+        """Show the period implied by the current Point A/B anchor pair."""
+
+        if self.data is None:
+            return
+        period = (
+            self.point_b_spin.value() - self.point_a_spin.value()
+        ) / self.points_apart_spin.value()
+        if period <= 0:
+            return
+        self.point_period_spin.blockSignals(True)
+        self.point_period_spin.setValue(period)
+        self.point_period_spin.blockSignals(False)
+
+    def _point_period_finished(self) -> None:
+        """Apply an edited Point period by moving Point B, as in the MATLAB workflow."""
+
+        if self.data is None or self._syncing:
+            return
+        point_b = (
+            self.point_a_spin.value()
+            + self.points_apart_spin.value() * self.point_period_spin.value()
+        )
+        if not self.point_b_spin.minimum() <= point_b <= self.point_b_spin.maximum():
+            self._invalidate_reconstruction(
+                "Point period places Point B outside the loaded time range."
+            )
+            return
+        self._syncing = True
+        self.point_b_spin.setValue(point_b)
+        if "point_b_s" in self.anchor_lines:
+            self.anchor_lines["point_b_s"].setValue(point_b)
+        self._syncing = False
+        self._reconstruct()
 
     def _create_anchor_lines(self) -> None:
         for line in self.anchor_lines.values():
@@ -648,6 +740,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             return
 
     def _anchor_line_finished(self, _line: pg.InfiniteLine) -> None:
+        self._sync_point_period_from_anchors()
         self._reconstruct()
 
     def _anchor_spin_finished(self) -> None:
@@ -661,6 +754,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         ):
             if key in self.anchor_lines:
                 self.anchor_lines[key].setValue(spin.value())
+        self._sync_point_period_from_anchors()
         self._reconstruct()
 
     def _current_params(self) -> DualOffsetParams:
@@ -687,12 +781,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             params = self._current_params()
             result = reconstruct_map(self.data, self.signal_combo.currentText(), params)
         except ValueError as exc:
-            self.statusBar().showMessage(str(exc))
-            self.timing_label.setText("Timing valid: no")
-            self.qc_label.setVisible(False)
+            self._invalidate_reconstruction(str(exc))
             return
         self.params = params
-        self.result = result
         timing = result.timing
         self.timing_label.setText("Timing valid: ✓")
         finite = np.isfinite(result.values)
@@ -705,73 +796,162 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         self.qc_values["Valid pixels"].setText(f"{valid_percent:.0f} %")
         self.qc_values["Median samples/pixel"].setText(f"{median_samples:.3g}")
+        self._update_value_axis_labels()
+        if not np.any(finite):
+            self.result = None
+            warnings = ["No valid pixels for current timing.", *result.warnings]
+            self.qc_label.setText(" | ".join(warnings))
+            self.qc_label.setVisible(True)
+            self._show_empty_panel(
+                self.map_stack,
+                "No valid reconstructed pixels",
+                "Adjust timing anchors or offsets to place pixel windows within the trace.",
+            )
+            self.map_image.clear()
+            self._set_image(self.count_plot, self.count_image, result.sample_counts)
+            self.count_stack.setCurrentIndex(1)
+            self._clear_distribution()
+            self._update_guides(result)
+            self.export_button.setEnabled(False)
+            self.statusBar().showMessage("No valid reconstructed pixels for current timing.")
+            return
+
+        self.result = result
         self.qc_label.setText(" | ".join(result.warnings))
         self.qc_label.setVisible(bool(result.warnings))
-        self._update_value_axis_labels()
-        self._set_image(self.map_plot, self.map_image, result.values)
+        self._set_image(
+            self.map_plot,
+            self.map_image,
+            result.values,
+            display_unit=self._current_display_unit(),
+        )
+        self.map_stack.setCurrentIndex(1)
         self._set_image(self.count_plot, self.count_image, result.sample_counts)
+        self.count_stack.setCurrentIndex(1)
         self._update_distribution(result)
         self._update_guides(result)
+        self.export_button.setEnabled(True)
         self.statusBar().showMessage("Map reconstructed.")
 
     def _update_value_axis_labels(self) -> None:
-        """Keep primary-map and distribution value axes in the same native units."""
+        """Keep raw, map, and distribution axes in the same display units."""
 
-        label = self.signal_combo.currentText() or "Signal"
+        label = self._current_display_unit().axis_label
         self.map_color_bar.setLabel("right", label)
         self.distribution_plot.setLabel("bottom", label, color=SECONDARY_TEXT)
+        self.raw_plot.setLabel("left", label, color=SECONDARY_TEXT)
 
     def _update_distribution(self, result: ReconstructionResult) -> None:
         """Render finite scientific map values without display-orientation transforms."""
 
         histogram = make_histogram_data(result.values)
         if histogram is None:
-            self.distribution_stack.setCurrentIndex(0)
-            self.mean_line.hide()
-            self.median_line.hide()
+            self._clear_distribution()
             return
 
+        display_unit = self._current_display_unit()
         self.distribution_bars.setOpts(
-            x0=histogram.edges[:-1],
-            x1=histogram.edges[1:],
+            x0=to_display_values(histogram.edges[:-1], display_unit),
+            x1=to_display_values(histogram.edges[1:], display_unit),
             height=histogram.counts,
         )
-        self.mean_line.setValue(histogram.mean)
-        self.median_line.setValue(histogram.median)
+        self.mean_line.setValue(histogram.mean * display_unit.scale)
+        self.median_line.setValue(histogram.median * display_unit.scale)
         self.mean_line.show()
         self.median_line.show()
         self.distribution_stats.setText(
             "Finite pixels "
             f"{histogram.finite_count} / {histogram.total_count}    "
-            f"Mean {histogram.mean:.6g}    Median {histogram.median:.6g}"
+            f"Mean {format_display_value(histogram.mean, display_unit)}    "
+            f"Median {format_display_value(histogram.median, display_unit)}"
         )
         self.distribution_stack.setCurrentIndex(1)
         self.distribution_plot.enableAutoRange()
 
-    def _set_image(self, plot: pg.PlotWidget, image: pg.ImageItem, values: np.ndarray) -> None:
+    def _set_image(
+        self,
+        plot: pg.PlotWidget,
+        image: pg.ImageItem,
+        values: np.ndarray,
+        *,
+        display_unit: DisplayUnit | None = None,
+    ) -> bool:
         display = np.asarray(values, dtype=float)
+        if display_unit is not None:
+            display = to_display_values(display, display_unit)
         if self.flip_y_check.isChecked():
             display = np.flipud(display)
         if not np.isfinite(display).any():
-            display = np.zeros_like(display)
+            image.clear()
+            return False
         image.setImage(display, autoLevels=True)
         plot.enableAutoRange()
+        return True
 
-    def _update_guides(self, result: ReconstructionResult) -> None:
+    def _show_empty_panel(self, stack: QtWidgets.QStackedWidget, title: str, message: str) -> None:
+        panel = stack.widget(0)
+        title_label = panel.findChild(QtWidgets.QLabel, "emptyTitle")
+        message_label = panel.findChild(QtWidgets.QLabel, "emptyMessage")
+        if title_label is not None:
+            title_label.setText(title)
+        if message_label is not None:
+            message_label.setText(message)
+        stack.setCurrentIndex(0)
+
+    def _clear_distribution(self) -> None:
+        self.distribution_bars.setOpts(
+            x0=np.array([], dtype=float),
+            x1=np.array([], dtype=float),
+            height=np.array([], dtype=float),
+        )
+        self.distribution_stats.clear()
+        self.mean_line.hide()
+        self.median_line.hide()
+        self.distribution_stack.setCurrentIndex(0)
+
+    def _clear_guides(self) -> None:
         for guide in self.guide_items:
             self.raw_plot.removeItem(guide)
         self.guide_items = []
+
+    def _invalidate_reconstruction(self, message: str) -> None:
+        """Clear stale derived state after invalid timing or oversized geometry."""
+
+        self.result = None
+        self.params = None
+        self.timing_label.setText("Timing valid: no")
+        for value in self.qc_values.values():
+            value.setText("—")
+        self.qc_label.setText(message)
+        self.qc_label.setVisible(True)
+        self._show_empty_panel(self.map_stack, "Reconstruction unavailable", message)
+        self._show_empty_panel(self.count_stack, "Sample counts unavailable", message)
+        self.map_image.clear()
+        self.count_image.clear()
+        self._clear_distribution()
+        self._clear_guides()
+        self.export_button.setEnabled(False)
+        self.statusBar().showMessage(message)
+
+    @staticmethod
+    def _guide_indices(count: int) -> np.ndarray:
+        if count <= MAX_GUIDES_PER_FAMILY:
+            return np.arange(count)
+        return np.unique(np.linspace(0, count - 1, MAX_GUIDES_PER_FAMILY, dtype=int))
+
+    def _update_guides(self, result: ReconstructionResult) -> None:
+        self._clear_guides()
         if self.data is None or self.params is None:
             return
         t_min, t_max = float(self.data.time_s[0]), float(self.data.time_s[-1])
         timing = result.timing
-        for row in range(self.params.rows):
+        for row in self._guide_indices(self.params.rows):
             position = timing.row_ref0_s + row * timing.row_period_s
             if t_min <= position <= t_max:
                 self._add_guide(position, "#888888", QtCore.Qt.PenStyle.DotLine)
         row_index = int(np.floor((self.params.point_a_s - timing.row_ref0_s) / timing.row_period_s))
         row_base = timing.row_ref0_s + row_index * timing.row_period_s
-        for column in range(self.params.cols):
+        for column in self._guide_indices(self.params.cols):
             position = row_base + timing.pixel1_phase_s + column * timing.point_period_s
             if t_min <= position <= t_max:
                 self._add_guide(position, "#d4a017", QtCore.Qt.PenStyle.DashLine)

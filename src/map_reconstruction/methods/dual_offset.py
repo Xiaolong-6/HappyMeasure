@@ -10,6 +10,8 @@ from map_reconstruction.models import (
     TimingSolution,
 )
 
+MAX_RECONSTRUCTION_PIXELS = 1_000_000
+
 
 def solve_timing(params: DualOffsetParams) -> TimingSolution:
     """Solve row/point periods and phases from the four user anchors."""
@@ -66,6 +68,10 @@ def reconstruct_map(
         raise ValueError(f"Unknown signal {signal_name!r}.")
     if np.any(np.diff(data.time_s) < 0):
         raise ValueError("Time-series data must be sorted by time.")
+    if params.rows * params.cols > MAX_RECONSTRUCTION_PIXELS:
+        raise ValueError(
+            f"Map size exceeds the {MAX_RECONSTRUCTION_PIXELS:,}-pixel reconstruction limit."
+        )
 
     timing = solve_timing(params)
     signal = data.signals[signal_name]

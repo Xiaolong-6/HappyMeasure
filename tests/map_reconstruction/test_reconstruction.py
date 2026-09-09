@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from map_reconstruction.methods.dual_offset import reconstruct_map
+from map_reconstruction.methods.dual_offset import MAX_RECONSTRUCTION_PIXELS, reconstruct_map
 from map_reconstruction.models import DualOffsetParams, TimeSeriesData
 
 
@@ -85,3 +86,14 @@ def test_overlapping_point_train_is_a_nonfatal_warning():
     )
 
     assert "Spatial point train exceeds row period." in result.warnings
+
+
+def test_reconstruction_rejects_geometry_above_responsive_ui_limit():
+    data = TimeSeriesData(time_s=np.arange(10.0), signals={"x": np.arange(10.0)})
+
+    with pytest.raises(ValueError, match="reconstruction limit"):
+        reconstruct_map(
+            data,
+            "x",
+            params(rows=1001, cols=MAX_RECONSTRUCTION_PIXELS // 1000 + 1),
+        )

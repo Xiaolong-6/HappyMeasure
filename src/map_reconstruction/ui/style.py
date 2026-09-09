@@ -86,6 +86,14 @@ QLabel#distributionStats {{
     border-radius: 4px;
     padding: 4px 7px;
 }}
+QLabel#guideKey {{
+    color: {SECONDARY_TEXT};
+    background: {PANEL};
+    border: 1px solid {BORDER};
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 9px;
+}}
 QScrollArea {{
     background: transparent;
     border: none;

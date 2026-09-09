@@ -1,6 +1,6 @@
 import numpy as np
 
-from map_reconstruction.ui.distribution import make_histogram_data
+from map_reconstruction.qc.distribution import make_histogram_data
 
 
 def test_histogram_uses_only_finite_scientific_map_values() -> None:
