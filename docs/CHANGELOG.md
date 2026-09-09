@@ -2,6 +2,18 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Refined the optional Map Reconstruction workspace without changing its
+  reconstruction model: file/export actions now live in the Data inspector,
+  unset Rows/Columns retain the raw trace but prevent reconstruction, and
+  fresh valid geometry receives a trace-fitting automatic anchor proposal.
+  Manual anchor edits and drag operations retain operator values. Raw,
+  Processed, and Both exports now reflect the availability of their individual
+  arrays, including a recoverable processing-only failure.
+- Map Reconstruction timing inputs now use intentionally compact GUI precision:
+  YA/YB/XA/XB display to three decimals with 0.01 s steps, and Point period
+  displays to four decimals with 0.001 s steps. QC timing text is similarly
+  compact. Core calculations, scientific arrays, and CSV exports retain their
+  full floating-point precision.
 - Map Reconstruction now initializes fresh-file timing anchors from the loaded
   trace span, keeps Samples / pixel and raw exports visible when only map
   processing fails, and restores processed views after the setting is fixed.

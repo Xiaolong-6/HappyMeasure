@@ -48,6 +48,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     processing_config: MapProcessingConfig | None
     signal_combo: QtWidgets.QComboBox
     flip_y_check: QtWidgets.QCheckBox
+    rows_spin: QtWidgets.QSpinBox
+    cols_spin: QtWidgets.QSpinBox
     row_a_spin: QtWidgets.QDoubleSpinBox
     row_b_spin: QtWidgets.QDoubleSpinBox
     point_a_spin: QtWidgets.QDoubleSpinBox
@@ -82,23 +84,22 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         root = QtWidgets.QVBoxLayout(central)
         root.setContentsMargins(16, 14, 16, 10)
         root.setSpacing(12)
-        self._build_header(root)
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         root.addWidget(splitter)
-        root.setStretch(1, 1)
+        root.setStretch(0, 1)
         self.setCentralWidget(central)
 
         self.inspector = ReconstructionInspector(self)
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.inspector)
-        scroll.setMinimumWidth(260)
+        scroll.setMinimumWidth(215)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         splitter.addWidget(scroll)
 
         right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.map_views = MapViews(self)
-        self.trace_view = TraceView(self._choose_file, self)
+        self.trace_view = TraceView(parent=self)
         right.addWidget(self.map_views)
         right.addWidget(self.trace_view)
         right.setStretchFactor(0, 45)
@@ -107,7 +108,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([270, 910])
+        splitter.setSizes([238, 942])
 
         self._expose_compatibility_attributes()
         self.inspector.signalChanged.connect(self._signal_changed)
@@ -116,46 +117,24 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.processingChanged.connect(self._processing_controls_changed)
         self.inspector.pointPeriodEdited.connect(self._point_period_edited)
         self.inspector.resetTraceRequested.connect(self._reset_views)
+        self.inspector.openRequested.connect(self._choose_file)
+        self.inspector.exportRawRequested.connect(self._export_raw_map)
+        self.inspector.exportProcessedRequested.connect(self._export_processed_map)
+        self.inspector.exportBothRequested.connect(self._export_both_maps)
         self.trace_view.anchorMoved.connect(self._anchor_moved)
         self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
         self._set_loaded_view(False)
-
-    def _build_header(self, layout: QtWidgets.QVBoxLayout) -> None:
-        header = QtWidgets.QFrame()
-        header.setObjectName("appHeader")
-        header.setMaximumHeight(76)
-        header_layout = QtWidgets.QHBoxLayout(header)
-        header_layout.setContentsMargins(16, 10, 12, 10)
-        title_layout = QtWidgets.QVBoxLayout()
-        title_layout.setSpacing(1)
-        title = QtWidgets.QLabel("Map Reconstruction")
-        title.setObjectName("appTitle")
-        self.header_subtitle = QtWidgets.QLabel("HappyMeasure time-series workspace")
-        self.header_subtitle.setObjectName("appSubtitle")
-        title_layout.addWidget(title)
-        title_layout.addWidget(self.header_subtitle)
-        header_layout.addLayout(title_layout)
-        header_layout.addStretch(1)
-        self.open_button = QtWidgets.QPushButton("Open CSV")
-        self.open_button.setObjectName("primaryAction")
-        self.open_button.clicked.connect(self._choose_file)
-        self.export_button = QtWidgets.QPushButton("Export Map")
-        menu = QtWidgets.QMenu(self.export_button)
-        menu.addAction("Raw reconstructed map", self._export_raw_map)
-        menu.addAction("Processed map", self._export_processed_map)
-        menu.addAction("Both", self._export_both_maps)
-        self.export_button.setMenu(menu)
-        self.export_button.clicked.connect(self._export_raw_map)
-        self.export_button.setEnabled(False)
-        header_layout.addWidget(self.open_button)
-        header_layout.addWidget(self.export_button)
-        layout.addWidget(header)
 
     def _expose_compatibility_attributes(self) -> None:
         """Keep the small existing UI regression surface stable during the split."""
 
         inspector_names = (
             "file_label",
+            "open_button",
+            "export_button",
+            "raw_export_action",
+            "processed_export_action",
+            "both_export_action",
             "signal_combo",
             "rows_spin",
             "cols_spin",
@@ -250,7 +229,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._active_color_limits = None
         self._loaded_filename = path.name
         self.inspector.set_file_name(path.name)
-        self.header_subtitle.setText("Loaded time-series data")
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
         self.inspector.set_signal_names(data.signal_names, preferred)
         self._set_anchor_bounds(data)
@@ -259,12 +237,20 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._create_anchor_lines()
         self._set_loaded_view(True)
         self._reconstruct()
-        self.statusBar().showMessage(f"Loaded {data.sample_count} samples from {path.name}")
+        if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
+            self.statusBar().showMessage("Set Rows and Columns to reconstruct.")
 
     def _set_loaded_view(self, loaded: bool) -> None:
         self.map_views.set_loaded(loaded)
         self.trace_view.show_loaded(loaded)
-        self.export_button.setEnabled(loaded and self.result is not None)
+        self._set_export_availability()
+
+    def _set_export_availability(self) -> None:
+        raw_available = self.result is not None
+        processed_available = bool(
+            self.processed is not None and np.isfinite(self.processed.values).any()
+        )
+        self.inspector.set_export_availability(raw_available, processed_available)
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
@@ -295,6 +281,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._reconstruct()
 
     def _anchor_moved(self, name: str, value: float) -> None:
+        self.inspector.mark_anchors_user_edited()
         self._syncing = True
         getattr(self, name.replace("_s", "") + "_spin").setValue(value)
         self._syncing = False
@@ -392,6 +379,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     def _reconstruct(self) -> None:
         if self.data is None or self._syncing:
             return
+        if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
+            self._invalidate_reconstruction("Set Rows and Columns to reconstruct.")
+            return
+        if self.inspector.initialize_geometry_aware_anchors(self.data):
+            self._create_anchor_lines()
         try:
             params = self.inspector.current_params()
             result = reconstruct_map(self.data, self.signal_combo.currentText(), params)
@@ -418,15 +410,14 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.map_views.clear_processed_views("No valid reconstructed pixels")
             self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
             self.trace_view.clear_guides()
-            self.export_button.setEnabled(False)
+            self._set_export_availability()
             self.statusBar().showMessage(message)
             return
         self.result = result
         self._process_and_display()
         self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
         self._update_guides(result)
-        self.export_button.setEnabled(True)
-        self.statusBar().showMessage("Map reconstructed.")
+        self._set_export_availability()
 
     def _process_and_display(self) -> None:
         if self.result is None or self.data is None:
@@ -440,8 +431,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._active_color_limits = None
             self.map_views.clear_processed_map_and_distribution("Processing unavailable")
             self.inspector.set_warning(str(exc))
-            self.export_button.setEnabled(True)
-            self.statusBar().showMessage(str(exc))
+            self._set_export_availability()
+            self.statusBar().showMessage("Raw map reconstructed; processing unavailable.")
             return
         self.processing_config = config
         self.processed = processed
@@ -470,7 +461,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 display_unit.axis_label,
             )
         self.map_views.show_distribution(processed, display_unit)
-        self.export_button.setEnabled(bool(np.isfinite(processed.values).any()))
+        self._set_export_availability()
+        if np.isfinite(processed.values).any():
+            self.statusBar().showMessage("Map reconstructed.")
+        else:
+            self.statusBar().showMessage("Raw map reconstructed; no finite processed values.")
 
     def _invalidate_reconstruction(self, message: str) -> None:
         self.result = None
@@ -480,7 +475,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.clear_qc(message)
         self.map_views.clear_processed_views(message)
         self.trace_view.clear_guides()
-        self.export_button.setEnabled(False)
+        self._set_export_availability()
         self.statusBar().showMessage(message)
 
     def _update_guides(self, result: ReconstructionResult) -> None:

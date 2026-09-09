@@ -22,17 +22,7 @@ QMainWindow {{
     background: {APP_BACKGROUND};
     color: {PRIMARY_TEXT};
 }}
-QFrame#appHeader {{
-    background: {PANEL};
-    border: 1px solid {BORDER};
-    border-radius: 6px;
-}}
-QLabel#appTitle {{
-    color: {PRIMARY_TEXT};
-    font-size: 18px;
-    font-weight: 600;
-}}
-QLabel#appSubtitle, QLabel#sectionHeader, QLabel#fieldLabel, QLabel#fileLabel {{
+QLabel#sectionHeader, QLabel#fieldLabel, QLabel#fileLabel {{
     color: {SECONDARY_TEXT};
 }}
 QLabel#sectionHeader {{

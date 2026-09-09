@@ -90,6 +90,28 @@
   icons. Matching multi-resolution ICO files support Windows packaging; keep
   the two marks distinct.
 
+## 2026-09-09 Map Reconstruction compact timing workspace
+
+- The Map Reconstruction main window no longer has an application action
+  header. `Open CSV` and the `Export Map` Raw/Processed/Both menu live in the
+  inspector Data section; keep the main window as the composition root and do
+  not move file/export behavior into reconstruction code.
+- Rows and Columns start at zero and display `—`. This is the deliberate
+  geometry-unset state: retain the raw trace, show `Set Rows and Columns to
+  reconstruct.`, and do not create an exportable reconstruction. Do not infer
+  a raster geometry from timing data.
+- While anchors remain automatic, a valid geometry proposes a trace-fitting
+  Dual Offset setup. Once an anchor spin box, Point period control, or trace
+  guide is manually changed, `anchors_user_edited` protects those values from
+  later geometry-driven initialization.
+- UI timing names are YA/YB/XA/XB only; internal field names remain unchanged.
+  YA/YB/XA/XB use 3 displayed decimals and 0.01 s steps; Point period uses 4
+  displayed decimals and 0.001 s steps. This is presentation/input resolution
+  only: do not round core calculations, `ReconstructionResult`, or exports.
+- Export availability is action-specific: raw needs a raw reconstruction,
+  processed needs finite processed values, and Both needs both. A
+  processing-only failure must retain raw export and sample-count QC.
+
 ## 2026-09-08 Continuous Time timing audit
 
 - Real Keithley 2400-series connection probes attempt a short best-effort

@@ -37,10 +37,10 @@ class TraceView(QtWidgets.QStackedWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
         self.guide_key = QtWidgets.QLabel(
-            "<span style='color:#e53935'>●</span> Row A &nbsp; "
-            "<span style='color:#00bcd4'>●</span> Row B &nbsp; "
-            "<span style='color:#2979ff'>●</span> Point A &nbsp; "
-            "<span style='color:#d500f9'>●</span> Point B &nbsp; "
+            "<span style='color:#e53935'>●</span> YA &nbsp; "
+            "<span style='color:#00bcd4'>●</span> YB &nbsp; "
+            "<span style='color:#2979ff'>●</span> XA &nbsp; "
+            "<span style='color:#d500f9'>●</span> XB &nbsp; "
             "<span style='color:#888888'>⋮</span> Row refs &nbsp; "
             "<span style='color:#d4a017'>¦</span> Pixel starts"
         )
@@ -105,10 +105,10 @@ class TraceView(QtWidgets.QStackedWidget):
     def set_anchors(self, values: dict[str, float]) -> None:
         self.clear_anchors()
         specs = (
-            ("row_a_s", "#e53935", "Row A"),
-            ("row_b_s", "#00bcd4", "Row B"),
-            ("point_a_s", "#2979ff", "Point A"),
-            ("point_b_s", "#d500f9", "Point B"),
+            ("row_a_s", "#e53935", "YA"),
+            ("row_b_s", "#00bcd4", "YB"),
+            ("point_a_s", "#2979ff", "XA"),
+            ("point_b_s", "#d500f9", "XB"),
         )
         for name, color, label in specs:
             line = pg.InfiniteLine(

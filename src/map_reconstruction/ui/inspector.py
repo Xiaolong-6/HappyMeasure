@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
+from PySide6 import QtCore, QtGui, QtWidgets  # type: ignore[import-not-found]
 
 from map_reconstruction.display_units import DisplayUnit
 from map_reconstruction.models import DualOffsetParams, ScanPattern, TimeSeriesData
@@ -29,11 +29,16 @@ class ReconstructionInspector(QtWidgets.QWidget):
     processingChanged = QtCore.Signal()
     pointPeriodEdited = QtCore.Signal(float)
     resetTraceRequested = QtCore.Signal()
+    openRequested = QtCore.Signal()
+    exportRawRequested = QtCore.Signal()
+    exportProcessedRequested = QtCore.Signal()
+    exportBothRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
         self._has_data = False
         self._syncing = False
+        self._anchors_user_edited = False
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -42,13 +47,42 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.setSpacing(10)
 
         data_section, data_layout = self._inspector_section("DATA")
+        data_actions = QtWidgets.QHBoxLayout()
+        data_actions.setContentsMargins(0, 0, 0, 0)
+        data_actions.setSpacing(6)
+        self.open_button = QtWidgets.QPushButton("Open CSV")
+        self.open_button.setObjectName("primaryAction")
+        self.open_button.clicked.connect(self.openRequested)
+        self.export_button = QtWidgets.QPushButton("Export Map")
+        self.export_button.setEnabled(False)
+        self.raw_export_action = QtGui.QAction("Raw reconstructed map", self)
+        self.processed_export_action = QtGui.QAction("Processed map", self)
+        self.both_export_action = QtGui.QAction("Both", self)
+        self.raw_export_action.triggered.connect(self.exportRawRequested)
+        self.processed_export_action.triggered.connect(self.exportProcessedRequested)
+        self.both_export_action.triggered.connect(self.exportBothRequested)
+        export_menu = QtWidgets.QMenu(self.export_button)
+        export_menu.addAction(self.raw_export_action)
+        export_menu.addAction(self.processed_export_action)
+        export_menu.addAction(self.both_export_action)
+        self.export_button.setMenu(export_menu)
+        self.export_button.clicked.connect(self.exportRawRequested)
+        data_actions.addWidget(self.open_button)
+        data_actions.addWidget(self.export_button)
+        data_actions.addStretch(1)
+        data_layout.addLayout(data_actions)
         self.file_label = QtWidgets.QLabel("No file loaded")
         self.file_label.setObjectName("fileLabel")
         self.file_label.setWordWrap(False)
+        self.file_label.setMinimumWidth(0)
+        self.file_label.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred
+        )
         self.file_label.setToolTip("No file loaded")
         data_layout.addWidget(self.file_label)
         data_form = self._form_layout()
         self.signal_combo = QtWidgets.QComboBox()
+        self.signal_combo.setMaximumWidth(145)
         self.signal_combo.currentTextChanged.connect(self.signalChanged)
         self._add_form_row(data_form, "Signal", self.signal_combo)
         data_layout.addLayout(data_form)
@@ -56,8 +90,10 @@ class ReconstructionInspector(QtWidgets.QWidget):
 
         geometry_section, geometry_layout = self._inspector_section("GEOMETRY")
         geometry_form = self._form_layout()
-        self.rows_spin = self._int_spin(36, 1, 10000)
-        self.cols_spin = self._int_spin(36, 1, 10000)
+        self.rows_spin = self._int_spin(0, 0, 10000)
+        self.cols_spin = self._int_spin(0, 0, 10000)
+        self.rows_spin.setSpecialValueText("—")
+        self.cols_spin.setSpecialValueText("—")
         self._add_form_row(geometry_form, "Rows", self.rows_spin)
         self._add_form_row(geometry_form, "Columns", self.cols_spin)
         self.scan_combo = self._enum_combo(
@@ -96,7 +132,12 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.points_apart_spin = self._int_spin(10, 1, 100000)
         self.point_period_spin = self._value_spin()
         self.point_period_spin.setRange(1e-12, 1e15)
+        self.point_period_spin.setDecimals(4)
+        self.point_period_spin.setSingleStep(0.001)
         self.point_period_spin.setSuffix(" s")
+        self.point_period_spin.setButtonSymbols(
+            QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows
+        )
         self.point_offset_spin = self._int_spin(0, 0, 100000)
         self.row_offset_slider = self._offset_slider()
         self.point_offset_slider = self._offset_slider()
@@ -104,17 +145,37 @@ class ReconstructionInspector(QtWidgets.QWidget):
         point_offset_control = self._paired_offset(self.point_offset_spin, self.point_offset_slider)
         row_timing = self._form_layout()
         registration_layout.addWidget(self._subsection_header("ROW TIMING"))
-        self._add_form_row(row_timing, "Row A", self.row_a_spin)
-        self._add_form_row(row_timing, "Row B", self.row_b_spin)
-        self._add_form_row(row_timing, "Rows apart", self.rows_apart_spin)
+        self._add_form_row(
+            row_timing,
+            "YA",
+            self.row_a_spin,
+            "First Y/row timing anchor used to determine row period.",
+        )
+        self._add_form_row(row_timing, "YB", self.row_b_spin, "Second Y/row timing anchor.")
+        self._add_form_row(
+            row_timing,
+            "Rows apart",
+            self.rows_apart_spin,
+            "Number of row intervals separating YA and YB. T_row = (YB - YA) / Rows apart.",
+        )
         self._add_form_row(row_timing, "Row offset", row_offset_control)
         registration_layout.addLayout(row_timing)
         registration_layout.addSpacing(7)
         point_timing = self._form_layout()
         registration_layout.addWidget(self._subsection_header("POINT TIMING"))
-        self._add_form_row(point_timing, "Point A", self.point_a_spin)
-        self._add_form_row(point_timing, "Point B", self.point_b_spin)
-        self._add_form_row(point_timing, "Points apart", self.points_apart_spin)
+        self._add_form_row(
+            point_timing,
+            "XA",
+            self.point_a_spin,
+            "First X/pixel timing anchor used to determine point period.",
+        )
+        self._add_form_row(point_timing, "XB", self.point_b_spin, "Second X/pixel timing anchor.")
+        self._add_form_row(
+            point_timing,
+            "Points apart",
+            self.points_apart_spin,
+            "Number of pixel intervals separating XA and XB. T_point = (XB - XA) / Points apart.",
+        )
         self._add_form_row(point_timing, "Point period", self.point_period_spin)
         self._add_form_row(point_timing, "Point offset", point_offset_control)
         registration_layout.addLayout(point_timing)
@@ -270,6 +331,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.point_offset_slider.valueChanged.connect(self.point_offset_spin.setValue)
         self.points_apart_spin.valueChanged.connect(self._sync_point_period_from_anchors)
         for spin in (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin):
+            spin.valueChanged.connect(self._mark_anchors_user_edited)
             spin.editingFinished.connect(self._anchor_spin_finished)
         self.point_period_spin.editingFinished.connect(self._point_period_finished)
         for combo in (
@@ -316,14 +378,22 @@ class ReconstructionInspector(QtWidgets.QWidget):
         form = QtWidgets.QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         form.setHorizontalSpacing(12)
-        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
         return form
 
     @staticmethod
-    def _add_form_row(form: QtWidgets.QFormLayout, label: str, widget: QtWidgets.QWidget) -> None:
+    def _add_form_row(
+        form: QtWidgets.QFormLayout,
+        label: str,
+        widget: QtWidgets.QWidget,
+        tooltip: str | None = None,
+    ) -> None:
         label_widget = QtWidgets.QLabel(label)
         label_widget.setObjectName("fieldLabel")
+        if tooltip:
+            label_widget.setToolTip(tooltip)
+            widget.setToolTip(tooltip)
         form.addRow(label_widget, widget)
 
     def _add_processing_row(
@@ -344,19 +414,18 @@ class ReconstructionInspector(QtWidgets.QWidget):
         spin = QtWidgets.QSpinBox()
         spin.setRange(minimum, maximum)
         spin.setValue(value)
-        spin.setMinimumWidth(72)
+        spin.setFixedWidth(118)
         return spin
 
     @staticmethod
     def _float_spin() -> QtWidgets.QDoubleSpinBox:
         spin = QtWidgets.QDoubleSpinBox()
-        spin.setDecimals(12)
+        spin.setDecimals(3)
         spin.setRange(-1e15, 1e15)
-        spin.setSingleStep(0.1)
+        spin.setSingleStep(0.01)
         spin.setSuffix(" s")
-        spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
         spin.setKeyboardTracking(False)
-        spin.setMinimumWidth(84)
+        spin.setFixedWidth(128)
         return spin
 
     @staticmethod
@@ -367,7 +436,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         spin.setSingleStep(1.0)
         spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
         spin.setKeyboardTracking(False)
-        spin.setMinimumWidth(84)
+        spin.setFixedWidth(128)
         return spin
 
     @staticmethod
@@ -390,6 +459,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         control = QtWidgets.QWidget()
         layout = QtWidgets.QHBoxLayout(control)
         layout.setContentsMargins(0, 0, 0, 0)
+        spin.setFixedWidth(70)
         layout.addWidget(spin)
         layout.addWidget(slider)
         return control
@@ -405,13 +475,44 @@ class ReconstructionInspector(QtWidgets.QWidget):
     def _enum_value(combo: QtWidgets.QComboBox, _enum_type: type[EnumT]) -> EnumT:
         return combo.currentData()
 
+    def resizeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().resizeEvent(event)
+        self._refresh_file_label()
+
+    def _refresh_file_label(self) -> None:
+        available = max(0, self.file_label.contentsRect().width())
+        self.file_label.setText(
+            self.file_label.fontMetrics().elidedText(
+                getattr(self, "_file_name", "No file loaded"),
+                QtCore.Qt.TextElideMode.ElideRight,
+                available,
+            )
+        )
+
+    def set_export_availability(self, raw_available: bool, processed_available: bool) -> None:
+        self.export_button.setEnabled(raw_available)
+        self.raw_export_action.setEnabled(raw_available)
+        self.processed_export_action.setEnabled(processed_available)
+        self.both_export_action.setEnabled(raw_available and processed_available)
+
+    @property
+    def anchors_user_edited(self) -> bool:
+        return self._anchors_user_edited
+
+    def _mark_anchors_user_edited(self, *_args: object) -> None:
+        if self._has_data and not self._syncing:
+            self._anchors_user_edited = True
+
+    def mark_anchors_user_edited(self) -> None:
+        self._anchors_user_edited = True
+
     def set_file_name(self, filename: str | None) -> None:
         if filename is None:
-            self.file_label.setText("No file loaded")
-            self.file_label.setToolTip("No file loaded")
+            self._file_name = "No file loaded"
         else:
-            self.file_label.setText(filename)
-            self.file_label.setToolTip(filename)
+            self._file_name = filename
+        self.file_label.setToolTip(self._file_name)
+        self._refresh_file_label()
 
     def set_signal_names(self, names: tuple[str, ...], preferred: str | None = None) -> None:
         self.signal_combo.blockSignals(True)
@@ -424,13 +525,15 @@ class ReconstructionInspector(QtWidgets.QWidget):
     def set_anchor_bounds(self, data: TimeSeriesData, *, reset: bool = True) -> None:
         """Apply the loaded trace range and, for a new file, useful timing defaults."""
         self._has_data = True
+        if reset:
+            self._anchors_user_edited = False
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
         span = max(upper - lower, 0.0)
         spins = (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin)
         for spin in spins:
             spin.blockSignals(True)
             spin.setRange(lower, upper)
-            spin.setSingleStep(max(span / 1000.0, 1e-12))
+            spin.setSingleStep(min(0.01, max(span / 1000.0, 1e-12)))
 
         defaults: tuple[float, float, float, float]
         if reset and span > 0.0:
@@ -458,6 +561,46 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self._update_offset_ranges()
         self._sync_point_period_from_anchors()
 
+    def initialize_geometry_aware_anchors(self, data: TimeSeriesData) -> bool:
+        """Fit automatic timing anchors inside the trace once geometry is known."""
+        if self._anchors_user_edited or self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
+            return False
+        lower, upper = float(data.time_s[0]), float(data.time_s[-1])
+        span = upper - lower
+        if span <= 0.0:
+            return False
+
+        rows = self.rows_spin.value()
+        cols = self.cols_spin.value()
+        row_period = 0.90 * span / rows
+        row_a = lower + 0.05 * span
+        maximum_rows_apart = max(1, int((upper - row_a) // row_period))
+        rows_apart = min(self.rows_apart_spin.value(), maximum_rows_apart)
+        point_a = row_a + 0.05 * row_period
+        points_apart = self.points_apart_spin.value()
+        point_period = 0.80 * row_period / max(cols, points_apart)
+        row_b = row_a + rows_apart * row_period
+        point_b = min(upper, point_a + points_apart * point_period)
+
+        widgets = (
+            self.rows_apart_spin,
+            self.row_a_spin,
+            self.row_b_spin,
+            self.point_a_spin,
+            self.point_b_spin,
+        )
+        for widget in widgets:
+            widget.blockSignals(True)
+        self.rows_apart_spin.setValue(rows_apart)
+        self.row_a_spin.setValue(row_a)
+        self.row_b_spin.setValue(row_b)
+        self.point_a_spin.setValue(point_a)
+        self.point_b_spin.setValue(point_b)
+        for widget in widgets:
+            widget.blockSignals(False)
+        self._sync_point_period_from_anchors()
+        return True
+
     def _update_offset_ranges(self, *_args: object) -> None:
         row_max = max(0, self.rows_spin.value() - 1)
         point_max = max(0, self.cols_spin.value() - 1)
@@ -479,12 +622,14 @@ class ReconstructionInspector(QtWidgets.QWidget):
     def _anchor_spin_finished(self) -> None:
         if self._syncing:
             return
+        self.mark_anchors_user_edited()
         self._sync_point_period_from_anchors()
         self.registrationChanged.emit()
 
     def _point_period_finished(self) -> None:
         if not self._has_data or self._syncing:
             return
+        self.mark_anchors_user_edited()
         point_b = (
             self.point_a_spin.value()
             + self.points_apart_spin.value() * self.point_period_spin.value()
@@ -606,9 +751,9 @@ class ReconstructionInspector(QtWidgets.QWidget):
 
     def set_timing_solution(self, row_period: float, point_period: float, unused: float) -> None:
         self.timing_label.setText("Timing valid: ✓")
-        self.qc_values["Row period"].setText(f"{row_period:.6g} s")
-        self.qc_values["Point period"].setText(f"{point_period:.6g} s")
-        self.qc_values["Unused / row"].setText(f"{unused:.6g} s")
+        self.qc_values["Row period"].setText(f"{row_period:.4f} s")
+        self.qc_values["Point period"].setText(f"{point_period:.4f} s")
+        self.qc_values["Unused / row"].setText(f"{unused:.3f} s")
 
     def set_qc(self, valid_percent: float, median_samples: float) -> None:
         self.qc_values["Valid pixels"].setText(f"{valid_percent:.0f} %")

@@ -64,7 +64,24 @@ def test_signal_selection_keeps_raw_trace_and_map_in_sync(application) -> None:
     window.close()
 
 
-def test_load_file_initializes_valid_default_timing(application) -> None:
+def test_fresh_geometry_is_unset(application) -> None:
+    window = MapReconstructionWindow()
+
+    assert window.findChild(QtWidgets.QFrame, "appHeader") is None
+    assert window.inspector.isAncestorOf(window.open_button)
+    assert window.inspector.isAncestorOf(window.export_button)
+    assert window.rows_spin.value() == 0
+    assert window.cols_spin.value() == 0
+    assert window.rows_spin.specialValueText() == "—"
+    assert window.cols_spin.specialValueText() == "—"
+    long_name = "very_long_measurement_name_" * 12 + ".csv"
+    window.inspector.set_file_name(long_name)
+    assert window.file_label.toolTip() == long_name
+    assert window.file_label.sizePolicy().horizontalPolicy() is QtWidgets.QSizePolicy.Policy.Ignored
+    window.close()
+
+
+def test_load_file_waits_for_geometry_then_initializes_fit_anchors(application) -> None:
     path = Path.cwd() / ".synthetic_single_v2_map_regression.csv"
     time = np.linspace(0.0, 10.0, 10_001)
     current = 2e-6 + 0.5e-6 * np.sin(time)
@@ -81,15 +98,39 @@ def test_load_file_initializes_valid_default_timing(application) -> None:
         window = MapReconstructionWindow()
         window.load_file(path)
 
+        _, raw_values = window.raw_curve.getData()
+        assert raw_values.size == current.size
+        assert np.isfinite(raw_values).all()
+        assert window.result is None
+        assert window.rows_spin.value() == 0
+        assert window.cols_spin.value() == 0
+        assert "Set Rows and Columns" in window.statusBar().currentMessage()
         assert window.row_b_spin.value() > window.row_a_spin.value()
         assert window.point_b_spin.value() > window.point_a_spin.value()
         assert window.row_a_spin.value() == pytest.approx(2.0)
         assert window.row_b_spin.value() == pytest.approx(7.0)
         assert window.point_a_spin.value() == pytest.approx(0.5)
-        assert window.point_b_spin.value() == pytest.approx(0.5 + 10.0 / 144.0)
+        assert window.point_b_spin.value() == pytest.approx(0.6)
         assert window.point_period_spin.value() > 0.0
+
+        window.rows_spin.setValue(2)
+        window.cols_spin.setValue(2)
+
         assert window.result is not None
         assert window.inspector.timing_label.text() == "Timing valid: ✓"
+        row_period = (
+            window.row_b_spin.value() - window.row_a_spin.value()
+        ) / window.rows_apart_spin.value()
+        point_period = (
+            window.point_b_spin.value() - window.point_a_spin.value()
+        ) / window.points_apart_spin.value()
+        last_row_end = (
+            window.row_a_spin.value()
+            + (window.rows_spin.value() - 1) * row_period
+            + window.cols_spin.value() * point_period
+        )
+        assert last_row_end <= time[-1]
+        assert window.cols_spin.value() * point_period < row_period
         window.close()
     finally:
         path.unlink(missing_ok=True)
@@ -223,11 +264,82 @@ def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
 def test_point_period_control_displays_seconds(application) -> None:
     window = MapReconstructionWindow()
     assert window.point_period_spin.suffix() == " s"
-    short_data = TimeSeriesData(
-        time_s=np.asarray([0.0, 1e-6]),
+    data = TimeSeriesData(
+        time_s=np.asarray([0.0, 1.0]),
         signals={"Current_A": np.asarray([1e-6, 2e-6])},
     )
-    window.inspector.set_anchor_bounds(short_data)
+    window.inspector.set_anchor_bounds(data)
     assert window.point_b_spin.value() > window.point_a_spin.value()
     assert window.point_period_spin.value() > 0.0
+    window.close()
+
+
+def test_user_edited_anchors_are_not_reinitialized_for_later_geometry_changes(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    window.row_a_spin.setValue(1.234)
+    window._anchor_spin_finished()
+    assert window.inspector.anchors_user_edited
+
+    window.rows_spin.setValue(3)
+
+    assert window.row_a_spin.value() == pytest.approx(1.234)
+    window.close()
+
+
+def test_timing_controls_use_native_buttons_and_explain_anchor_semantics(application) -> None:
+    window = MapReconstructionWindow()
+
+    for spin in (
+        window.row_a_spin,
+        window.row_b_spin,
+        window.point_a_spin,
+        window.point_b_spin,
+        window.point_period_spin,
+    ):
+        assert spin.buttonSymbols() is QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows
+    assert window.row_a_spin.singleStep() == pytest.approx(0.01)
+    assert window.point_period_spin.singleStep() == pytest.approx(0.001)
+    assert window.row_a_spin.decimals() == 3
+    assert window.row_b_spin.decimals() == 3
+    assert window.point_a_spin.decimals() == 3
+    assert window.point_b_spin.decimals() == 3
+    assert window.point_period_spin.decimals() == 4
+    assert "T_row = (YB - YA) / Rows apart" in window.rows_apart_spin.toolTip()
+    assert "T_point = (XB - XA) / Points apart" in window.points_apart_spin.toolTip()
+    labels = {label.text(): label for label in window.inspector.findChildren(QtWidgets.QLabel)}
+    assert "First Y/row timing anchor" in labels["YA"].toolTip()
+    assert "Second X/pixel timing anchor" in labels["XB"].toolTip()
+
+    window.inspector.set_timing_solution(14.71044, 0.21544, 9.32456)
+    assert window.inspector.qc_values["Row period"].text() == "14.7104 s"
+    assert window.inspector.qc_values["Point period"].text() == "0.2154 s"
+    assert window.inspector.qc_values["Unused / row"].text() == "9.325 s"
+    window.close()
+
+
+def test_trace_uses_ya_yb_xa_xb_labels(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+
+    assert all(label in window.raw_guide_key.text() for label in ("YA", "YB", "XA", "XB"))
+    assert window.anchor_lines["row_a_s"].label.format == "YA"
+    assert window.anchor_lines["row_b_s"].label.format == "YB"
+    assert window.anchor_lines["point_a_s"].label.format == "XA"
+    assert window.anchor_lines["point_b_s"].label.format == "XB"
+    window.close()
+
+
+def test_raw_export_remains_available_when_log_processing_has_no_finite_values(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    window.result.values[:] = -1e-6
+
+    window.scale_combo.setCurrentIndex(1)
+
+    assert window.processed is not None
+    assert not np.isfinite(window.processed.values).any()
+    assert window.export_button.isEnabled()
+    assert window.raw_export_action.isEnabled()
+    assert not window.processed_export_action.isEnabled()
+    assert not window.both_export_action.isEnabled()
+    assert "no finite processed values" in window.statusBar().currentMessage().lower()
     window.close()

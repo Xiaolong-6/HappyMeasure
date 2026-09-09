@@ -1,5 +1,18 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction compact timing workspace
+
+- 616 tests collected; 615 passed and 1 expected conditional skip
+- full validation passed with 95.56% combined `keith_ivt` +
+  `map_reconstruction` coverage; compileall and legacy UI contracts passed
+- Ruff, per-file Black, and mypy for the modified map UI source files passed
+- 13 focused Qt UI regressions passed, including unset geometry, automatic
+  trace-fitting anchors, protected manual anchors, action-specific export
+  availability, compact timing precision, and processing-only error recovery
+- `python -m map_reconstruction` was launched, but this session did not expose
+  its native desktop window to the automation surface. Native drag, pan, zoom,
+  resize, and file-dialog interactions therefore remain operator visual checks.
+
 ## 2026-09-09 - Map Reconstruction UI state remediation
 
 - 611 tests collected; 610 passed and 1 expected conditional skip
