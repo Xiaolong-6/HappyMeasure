@@ -2,6 +2,9 @@
 
 This directory contains both user-facing release documents and machine-facing handoff notes. Start here before editing docs so release-critical information stays in one place rather than being scattered across README fragments.
 
+The optional Map Reconstruction workspace stores portable scientific sessions
+using the `.hmmap` format documented in `MAP_PROJECT_FORMAT.md`.
+
 ## Human-facing quick path
 
 Use these first:
@@ -37,6 +40,7 @@ Use in this order before real DUT measurement:
 - `SETTINGS_MIGRATION.md` — settings-schema migration notes.
 - `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding drivers and sweep paths.
 - `HARDWARE_DRIVER_MIGRATION.md` — driver-layer migration notes.
+- `../src/map_reconstruction/` — standalone optional-Qt map reconstruction package.
 - `RESTART_MECHANISM.md` — UI restart behavior.
 - `UI_STYLE_GUIDE.md` and `UI_VISUAL_CHECKLIST.md` — UI styling and visual checks.
 - `NAMING.md` — naming conventions.

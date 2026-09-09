@@ -2,6 +2,87 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Aligned Map Reconstruction PDF display semantics with the workspace: map and
+  Samples / pixel figures now honor display-only Flip Y, processed maps reuse
+  configured Auto/Percentile/Manual color limits, and raw fallback maps use
+  their own raw-data auto range.
+- Hardened Map Reconstruction project restore and reporting: project processing
+  values now restore with the saved signal's own engineering scale; reports
+  choose raw maps when processed output is unavailable, render map arrays
+  without spatial distortion, retain Unicode strings, and omit inactive
+  processing settings while labelling physical summary values with SI units.
+- Added self-contained Map Reconstruction `.hmmap` projects. Each archive
+  preserves the original HappyMeasure source CSV bytes, records a SHA-256,
+  stores canonical reconstruction/processing/display state, and reconstructs
+  from the embedded source on open. Added Data-inspector actions for projects,
+  parameter summaries, and PDF reports; maps remain derived, non-authoritative
+  outputs. See `docs/MAP_PROJECT_FORMAT.md`.
+- Refined the optional Map Reconstruction workspace without changing its
+  reconstruction model: file/export actions now live in the Data inspector,
+  unset Rows/Columns retain the raw trace but prevent reconstruction, and
+  fresh valid geometry receives a trace-fitting automatic anchor proposal.
+  Manual anchor edits and drag operations retain operator values. Raw,
+  Processed, and Both exports now reflect the availability of their individual
+  arrays, including a recoverable processing-only failure.
+- Map Reconstruction timing inputs now use intentionally compact GUI precision:
+  YA/YB/XA/XB display to three decimals with 0.01 s steps, and Point period
+  displays to four decimals with 0.001 s steps. QC timing text is similarly
+  compact. Core calculations, scientific arrays, and CSV exports retain their
+  full floating-point precision.
+- Map Reconstruction now initializes fresh-file timing anchors from the loaded
+  trace span, keeps Samples / pixel and raw exports visible when only map
+  processing fails, and restores processed views after the setting is fixed.
+  Processing controls now distinguish raw, normalization-reference, and
+  processed units; Point period is explicitly shown in seconds. Removed a
+  duplicate map splitter attachment and added synthetic single-v2 load and
+  UI-state regression coverage.
+- Refined the optional Map Reconstruction Qt workspace with a light scientific
+  theme, compact action header, sectioned inspector, empty states, QC summary
+  rows, light PyQtGraph plots, and map/sample-count color scales. The importer,
+  dual-offset reconstruction, orientation, and raw exported array semantics
+  are unchanged.
+- Added an explicit Qt-free Map Values processing pipeline. Raw signed values
+  are the default; baseline subtraction, absolute/negate/custom transforms,
+  normalization, log10, and auto/percentile/manual color levels are explicit
+  choices. Color clipping and display-unit scaling never alter scientific map
+  arrays. Custom expressions use a restricted AST evaluator with no Python
+  execution or attribute access.
+- Map export now offers Raw, Processed, or Both. Processed exports remain in
+  scientific units and include a JSON sidecar with processing metadata; the
+  raw export remains the unmodified `ReconstructionResult.values` array.
+- Added distinct HappyMeasure and Map Reconstruction application icons. The
+  supplied blue HappyMeasure mark and green Map Reconstruction mark are used
+  by their respective windows; the HappyMeasure mark is also embedded in the
+  Windows portable executable.
+- Hardened Map Reconstruction processing semantics: degenerate normalization
+  now fails explicitly, physical log10 labels retain source units, and custom
+  expression/reference processing remains unitless without changing raw
+  scientific values. Processed-export metadata now separates source physical
+  unit from display unit and scale.
+- Split the optional Map Reconstruction UI into inspector, trace, map/QC, and
+  exporting components while keeping `main_window.py` as the lifecycle
+  composition root. Raw/Processed/Both export actions now share the focused
+  export workflow, with Both using one base-name dialog.
+- Hardened Map Reconstruction against stale or misleading output: invalid
+  timing clears derived views and disables export, while a timing solution with
+  zero valid pixels reports an empty map rather than displaying fabricated
+  zeros. Signal selection now updates raw trace, map, and QC together.
+- Added editable Point period registration, a compact raw-trace guide key,
+  decimated guide rendering, a one-million-pixel reconstruction guard, and
+  display-only Current (µA) / Voltage (V) scaling shared by raw, map, and
+  distribution views. Scientific arrays and exported CSV values remain SI.
+- Added a complete synthetic MATLAB Dual Offset parity regression and moved
+  histogram QC calculations out of the optional UI package for headless
+  coverage.
+- Added a read-only Map Reconstruction Distribution QC tab beside Samples /
+  pixel. It histograms only finite scientific map values with mean and median
+  references; display orientation, sample counts, and exported values remain
+  unchanged.
+- Added the standalone optional `map_reconstruction` package and
+  `map-reconstruction` console entry point. It imports HappyMeasure `single-v2`
+  CSV files with CSV-aware metadata parsing and reconstructs 2-D maps using the
+  dual-offset timing method without coupling to HappyMeasure's instrument/UI
+  runtime. Install GUI dependencies with `pip install -e ".[map]"`.
 - Successful real Keithley 2400-series detection now attempts one short
   instrument-side confirmation beep; beep failure is logged as degraded UX and
   does not invalidate an otherwise successful connection. Debug simulator
@@ -27,6 +108,9 @@
 - Fixed current measurement ranges skip redundant per-point `RANG:AUTO?` and
   `RANG?` queries, including after a runtime Auto → Fixed action, while explicit
   range actions still refresh state and preserve settle/discard handling.
+- Constant Time's `Duration (s)` row now disables both its label and entry when
+  `Constant until Stop` is enabled, preserves the previous finite value, and
+  reapplies the state after dynamic sweep-field rebuilds.
 - The Keithley 2400 driver disables automatic/programmed source delay so the
   runner's configured delay is applied exactly once for simulator and serial
   runs.

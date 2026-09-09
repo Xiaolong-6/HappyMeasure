@@ -2,6 +2,49 @@
 
 HappyMeasure is a simulator-first beta, with the application shell split into focused UI modules for external review.
 
+## Standalone Map Reconstruction boundary
+
+`src/map_reconstruction/` is a separate optional application in the same
+repository. Its dependency direction is UI → methods/models/processing/QC → NumPy, while
+`importers/happymeasure.py` is the only initial coupling to HappyMeasure and
+only through the `single-v2` file format. The package must not import
+`keith_ivt` UI, sweep runners, serial drivers, hardware controllers, or
+HappyMeasure application state. Qt and PyQtGraph remain optional and are lazy
+from the `map_reconstruction` command entry point; the importer, numerical
+core, display-unit helpers, and QC calculations stay headless-testable.
+
+Map value processing lives in `src/map_reconstruction/processing/` and is a
+separate, Qt-free stage after `ReconstructionResult.values`. The raw
+reconstruction is never normalized, display-scaled, clipped, or overwritten.
+`process_map()` applies baseline subtraction, value transform, normalization,
+and optional log10 in that order; degenerate normalization references are
+explicit errors rather than silently skipped operations. Physical log labels
+retain their source unit (for example `log10(Current / A)`), while normalized
+and custom-expression results are unitless. Color limits are computed
+separately for display, and display-unit scaling is never written into the
+scientific arrays. The UI reuses an existing reconstruction when only
+processing or color settings change. Raw CSV export writes the authoritative
+reconstruction, while processed CSV export writes the scientific processed
+values and a JSON sidecar that records source physical unit separately from
+display unit and scale.
+
+The standalone Map Reconstruction UI is composed from focused widgets:
+`ui/main_window.py` coordinates lifecycle and signals, `ui/inspector.py` owns
+controls and immutable configuration snapshots, `ui/trace_view.py` owns the
+raw trace/anchor guides, and `ui/map_views.py` owns map, sample-count, and
+distribution views. `ui/exporting.py` keeps Raw/Processed/Both export dialogs
+and metadata serialization out of the composition root. This split is a UI
+responsibility boundary only; it does not add a reconstruction method or
+change the importer/method APIs.
+
+Map Reconstruction project persistence is deliberately headless at its core:
+`project_io.py` owns the versioned `.hmmap` ZIP/JSON contract, original raw CSV
+bytes, and SHA-256 verification, while `reporting.py` owns text summaries and
+the optional Qt PDF report. The UI only supplies dialogs, semantic inspector
+state, and current plot widgets. Project archives never treat a cached map as
+authoritative: they reopen by importing the embedded source and rerunning the
+current Dual Offset/processing pipeline.
+
 ## Runtime layers
 
 ```text

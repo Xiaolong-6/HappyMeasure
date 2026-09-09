@@ -17,9 +17,14 @@ dependencies = [
 HappyMeasure = "happymeasure.__main__:run"
 happymeasure = "happymeasure.__main__:run"
 happymeasure-preflight = "happymeasure.hardware_preflight:main"
+map-reconstruction = "map_reconstruction.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+keith_ivt = ["assets/*.png", "assets/*.ico"]
+map_reconstruction = ["assets/*.png", "assets/*.ico"]
 
 [project.optional-dependencies]
 dev = [
@@ -30,6 +35,11 @@ dev = [
   "black>=23.0",
   "mypy>=1.0",
   "types-pyserial>=3.5.0",
+]
+map = [
+  "PySide6>=6,<7",
+  "pyqtgraph>=0.13,<1",
+  "numpy>=2,<3",
 ]
 
 [tool.pytest.ini_options]
@@ -66,6 +76,8 @@ omit = [
   "src/keith_ivt/app_config.py",
   "src/keith_ivt/__main__.py",
   "src/happymeasure/*",
+  "src/map_reconstruction/ui/*",
+  "src/map_reconstruction/__main__.py",
 ]
 
 [tool.coverage.report]

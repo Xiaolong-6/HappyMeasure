@@ -285,8 +285,16 @@ class SweepConfigMixin(UiMixinTyping):
     def _update_time_duration_state(self) -> None:
         pair = getattr(self, "duration_row", None)
         try:
-            if pair and len(pair) > 1 and pair[1].winfo_exists():
-                pair[1].configure(state="disabled" if self.constant_until_stop.get() else "normal")
+            if pair and len(pair) > 1 and pair[0].winfo_exists() and pair[1].winfo_exists():
+                editable = bool(
+                    getattr(self, "_connected", False)
+                    and getattr(self, "_run_state", "idle")
+                    in {"idle", "stopped", "completed", "aborted"}
+                )
+                disabled = bool(self.constant_until_stop.get()) or not editable
+                state = ["disabled"] if disabled else ["!disabled"]
+                pair[0].state(state)
+                pair[1].state(state)
         except Exception:
             self.duration_row = None
 

@@ -38,6 +38,97 @@
   the AC-unplug step and remains an operator follow-up. The generated
   `hardware_smoke_results/` artifacts are local and ignored by Git.
 
+## 2026-09-08 Map Reconstruction v1
+
+- A dedicated `feat/map-reconstruction-v1` branch adds the standalone
+  `src/map_reconstruction/` package. It does not modify HappyMeasure's
+  instrument, sweep, serial, power-guard, or Tk UI paths.
+- The headless core includes a CSV-aware `single-v2` importer, generic
+  `TimeSeriesData`, dual-offset timing/reconstruction, same-direction and
+  serpentine orientation, sample-window/nearest fallback extraction, and
+  reconstruction QC warnings. The optional PySide6/PyQtGraph UI is lazy-loaded
+  by `python -m map_reconstruction` and `map-reconstruction`.
+- A private single-v2 CSV was opened read-only for importer validation. No
+  source data, path, metadata values, or sample-specific observations were
+  copied into the repository or reported.
+- With `[map]` installed, the v1 UI passed a local Qt interaction smoke using a
+  private read-only single-v2 import. The native file-selection dialog and
+  visually observed desktop rendering remain operator follow-ups because this
+  session did not expose a targetable desktop window. Combined CSVs, live
+  integration, and non-dual-offset registration remain known limitations.
+- The right-hand Map Reconstruction QC area now uses tabs for `Samples /
+  pixel` and a read-only `Distribution` view. The distribution takes finite
+  values directly from `ReconstructionResult.values`, so display-only Flip Y
+  never changes its bars, summary statistics, or mean/median reference lines.
+- Map Reconstruction invalidates all prior derived state on invalid timing or
+  oversized geometry, so Export Map cannot emit a stale array. A timing-valid
+  reconstruction with zero finite pixels retains only zero sample counts and
+  an explicit empty-map explanation. `Current_A` is displayed as Current
+  (µA) consistently on trace, map, and distribution; all model and export
+  arrays remain SI. `qc/distribution.py` is deliberately headless, while guide
+  rendering is limited to 500 row references and 500 pixel starts per family.
+- Map value processing is implemented in the headless
+  `src/map_reconstruction/processing/` package. `ReconstructionResult.values`
+  remains raw and authoritative; `process_map()` returns immutable
+  `ProcessedMap` values, and `compute_color_limits()` only computes display
+  levels. Processing-only control changes reuse the existing reconstruction.
+  Custom transforms are evaluated by a restricted AST allowlist. Degenerate
+  max-magnitude, min-max, and reference normalizations raise a concise
+  `ValueError`; they are not silently skipped. Physical log labels preserve
+  their source unit, while normalized/custom results are unitless. Raw exports
+  remain SI and scientific-orientation arrays; processed exports are SI
+  processed arrays with a JSON configuration sidecar that records source
+  physical unit separately from display unit/scale.
+- The Map Reconstruction UI composition root is intentionally small. Keep
+  inspector controls in `ui/inspector.py`, trace/anchor rendering in
+  `ui/trace_view.py`, map/QC rendering in `ui/map_views.py`, and file dialogs
+  plus metadata serialization in `ui/exporting.py`. Changes to these widgets
+  must preserve the semantic signals and compatibility aliases used by the
+  existing UI regression tests.
+- `src/keith_ivt/assets/happymeasure.png` and
+  `src/map_reconstruction/assets/map_reconstruction.png` are the source window
+  icons. Matching multi-resolution ICO files support Windows packaging; keep
+  the two marks distinct.
+
+## 2026-09-09 Map Reconstruction compact timing workspace
+
+- The Map Reconstruction main window no longer has an application action
+  header. `Open CSV` and the `Export Map` Raw/Processed/Both menu live in the
+  inspector Data section; keep the main window as the composition root and do
+  not move file/export behavior into reconstruction code.
+- Rows and Columns start at zero and display `—`. This is the deliberate
+  geometry-unset state: retain the raw trace, show `Set Rows and Columns to
+  reconstruct.`, and do not create an exportable reconstruction. Do not infer
+  a raster geometry from timing data.
+- While anchors remain automatic, a valid geometry proposes a trace-fitting
+  Dual Offset setup. Once an anchor spin box, Point period control, or trace
+  guide is manually changed, `anchors_user_edited` protects those values from
+  later geometry-driven initialization.
+- UI timing names are YA/YB/XA/XB only; internal field names remain unchanged.
+  YA/YB/XA/XB use 3 displayed decimals and 0.01 s steps; Point period uses 4
+  displayed decimals and 0.001 s steps. This is presentation/input resolution
+  only: do not round core calculations, `ReconstructionResult`, or exports.
+- Export availability is action-specific: raw needs a raw reconstruction,
+  processed needs finite processed values, and Both needs both. A
+  processing-only failure must retain raw export and sample-count QC.
+
+## 2026-09-09 Map Reconstruction reproducible projects
+
+- `.hmmap` project persistence lives in headless `project_io.py`; do not move
+  ZIP/JSON/hash logic into `main_window.py` or introduce a second authoritative
+  map. The only required archive members are `project.json` and
+  `source/raw_timeseries.csv`; raw bytes are preserved verbatim and checked
+  against SHA-256 before the embedded CSV is imported.
+- `ProjectState` stores canonical `row_a_s`/`row_b_s`/`point_a_s`/`point_b_s`,
+  geometry, signal, processing in internal scientific units, and Flip Y. It
+  intentionally does not store derived row/point periods or machine paths.
+- Project loading uses the inspector's semantic restore API with signals
+  blocked, then performs one final reconstruction. Restored anchors are marked
+  user-defined so automatic geometry defaults cannot overwrite them.
+- `reporting.py` keeps the parameter summary Qt-free. PDF export is optional
+  Qt-only UI reporting, not a persistence format. The report includes map,
+  sample-count, and raw-trace figures when a raw reconstruction exists.
+
 ## 2026-09-08 Continuous Time timing audit
 
 - Real Keithley 2400-series connection probes attempt a short best-effort
@@ -77,6 +168,43 @@
   the device source delay and software delay from being applied twice.
 - Real Keithley throughput and instrument-side behavior remain a hardware gate;
   no specific RS-232 sample rate is promised by the simulator tests.
+
+## 2026-09-09 Constant Time duration-row UI state
+
+- In Constant Time mode, `constant_until_stop=True` disables both widgets in
+  `duration_row`: the Duration label and its entry. The value remains stored
+  and becomes editable again when Until Stop is turned off.
+- The state is reapplied after dynamic sweep controls are rebuilt and after
+  global sweep-field state changes (connect/disconnect or run-state changes),
+  so the Until Stop semantic is not overwritten by the general editable-state
+  pass. Duration validation and continuous acquisition backend semantics are
+  unchanged.
+
+## 2026-09-09 Map Reconstruction UI state remediation
+
+- Fresh single-v2 loads now reset timing anchors to trace-relative defaults:
+  Row A/B at 20%/70%, Point A at 5%, and a positive point gap based on map
+  width. Existing anchors can still be clamped without reset via the optional
+  inspector argument.
+- Processing errors clear only the processed map and Distribution tab. The
+  authoritative raw reconstruction, Samples / pixel counts, timing QC, trace
+  guides, and raw export remain available; true reconstruction invalidation
+  still clears all derived views.
+- Processing-unit labels now distinguish the raw baseline unit, the
+  normalization-reference unit, and the processed/color unit. Custom
+  references are unitless while raw/absolute/negate references retain their
+  physical display unit. Point period is labeled in seconds.
+- Added a read-only synthetic single-v2 `load_file()` regression and a Qt UI
+  regression for processing failure/recovery, sample-count preservation, and
+  custom/reference labels. No private data was used or committed.
+- Validation on this head: 611 tests collected, 610 passed and 1 expected
+  conditional skip; combined coverage 95.56%; compileall, Ruff, and per-file
+  Black checks passed. The changed inspector module passes mypy; the existing
+  repository-wide mypy run still reports unrelated test typing errors.
+- Optional GUI dependencies were installed with `pip install -e ".[map]"`.
+  Offscreen launch without a CSV and a synthetic read-only load probe passed;
+  native desktop drag/pan/wheel/resize visuals remain operator follow-ups in
+  this headless session.
 
 ## Keithley front-panel range popup visual polish note
 
