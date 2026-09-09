@@ -279,7 +279,10 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._load_data(
                 data, loaded.raw_csv_bytes, loaded.state.original_filename, reconstruct=False
             )
-            self.inspector.restore_project_state(loaded.state, self._raw_display_unit().scale)
+            project_unit = display_unit_for_signal(
+                loaded.state.signal, data.signals[loaded.state.signal]
+            )
+            self.inspector.restore_project_state(loaded.state, project_unit.scale)
             self._set_raw_signal(loaded.state.signal)
             self._update_processing_units()
             self._create_anchor_lines()

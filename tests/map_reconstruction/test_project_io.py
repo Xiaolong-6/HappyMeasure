@@ -3,16 +3,19 @@ from __future__ import annotations
 import hashlib
 import json
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from map_reconstruction.models import ScanPattern
+from map_reconstruction.models import ReconstructionResult, ScanPattern, TimingSolution
 from map_reconstruction.processing import (
     BaselineMode,
     ColorRangeMode,
     MapProcessingConfig,
     NormalizationMode,
+    ProcessedMap,
     ValueScale,
     ValueTransform,
 )
@@ -24,7 +27,11 @@ from map_reconstruction.project_io import (
     load_project,
     save_project,
 )
-from map_reconstruction.reporting import format_parameter_summary
+from map_reconstruction.reporting import (
+    fit_size_keep_aspect,
+    format_parameter_summary,
+    select_report_map,
+)
 
 
 def _raw_csv() -> bytes:
@@ -73,6 +80,14 @@ def _state(*, geometry: bool = True, custom: bool = False) -> ProjectState:
         point_offset=2 if geometry else 0,
         processing=processing,
         flip_y=True,
+    )
+
+
+def _result() -> ReconstructionResult:
+    return ReconstructionResult(
+        values=np.asarray([[1e-6, 2e-6], [3e-6, 4e-6]]),
+        sample_counts=np.asarray([[1, 2], [3, 4]]),
+        timing=TimingSolution(0.1, 0.0, 0.025, 0.0),
     )
 
 
@@ -215,3 +230,95 @@ def test_parameter_summary_uses_compact_anchor_names_and_partial_placeholders() 
     assert "Row period: —" in summary
     assert "Point period: —" in summary
     assert "C:\\Users" not in summary
+
+
+def test_parameter_summary_shows_only_active_processing_values_and_si_units() -> None:
+    physical = replace(
+        _state(),
+        processing=MapProcessingConfig(
+            baseline_mode=BaselineMode.MANUAL,
+            baseline_value=-2.5e-6,
+            normalization=NormalizationMode.NONE,
+            normalization_reference=4e-6,
+            color_range_mode=ColorRangeMode.MANUAL,
+            color_min=-1e-6,
+            color_max=5e-6,
+        ),
+    )
+    summary = format_parameter_summary(physical)
+
+    assert "Baseline value: -2.5e-06 A" in summary
+    assert "Normalization: None" in summary
+    assert "Normalization reference:" not in summary
+    assert "Color minimum: -1e-06 A" in summary
+    assert "Color maximum: 5e-06 A" in summary
+
+    inactive = replace(
+        physical,
+        original_filename="测量.csv",
+        processing=MapProcessingConfig(
+            baseline_mode=BaselineMode.NONE,
+            baseline_value=123.0,
+            normalization=NormalizationMode.NONE,
+            normalization_reference=456.0,
+            color_range_mode=ColorRangeMode.AUTO,
+        ),
+    )
+    inactive_summary = format_parameter_summary(inactive)
+    assert "Rows × columns" in inactive_summary
+    assert "File: 测量.csv" in inactive_summary
+    assert "Baseline value:" not in inactive_summary
+    assert "Normalization reference:" not in inactive_summary
+    assert "Color minimum:" not in inactive_summary
+    assert "Color maximum:" not in inactive_summary
+
+
+def test_custom_processing_summary_does_not_claim_physical_processed_units() -> None:
+    state = replace(
+        _state(custom=True),
+        processing=MapProcessingConfig(
+            transform=ValueTransform.CUSTOM,
+            custom_expression="abs(x) * 2",
+            normalization=NormalizationMode.REFERENCE,
+            normalization_reference=0.5,
+            color_range_mode=ColorRangeMode.MANUAL,
+            color_min=-0.1,
+            color_max=0.8,
+        ),
+    )
+
+    summary = format_parameter_summary(state)
+
+    assert "Value: Custom expression" in summary
+    assert "Normalization reference: 0.5\n" in summary
+    assert "Normalization reference: 0.5 A" not in summary
+    assert "Color minimum: -0.1\n" in summary
+    assert "Color minimum: -0.1 A" not in summary
+
+
+def test_report_map_selection_and_aspect_ratio_are_scientifically_explicit() -> None:
+    state = _state()
+    result = _result()
+    raw = select_report_map(state, result, None)
+    all_nan = select_report_map(
+        state,
+        result,
+        ProcessedMap(np.full(result.values.shape, np.nan), None, (), "Normalized Current", True),
+    )
+    processed_values = np.asarray([[0.25, 0.5], [0.75, 1.0]])
+    processed = select_report_map(
+        state,
+        result,
+        ProcessedMap(processed_values, None, (), "Normalized Current", True),
+    )
+
+    assert raw.title == "Raw reconstructed map"
+    assert raw.display_unit.axis_label == "Current (µA)"
+    assert raw.processing_note == "Processed map unavailable; raw reconstruction shown."
+    assert all_nan.title == "Raw reconstructed map"
+    assert all_nan.processing_note == "No finite processed values; raw reconstruction shown."
+    assert processed.title == "Processed map"
+    np.testing.assert_array_equal(processed.values, processed_values)
+    assert processed.display_unit.unit == ""
+    assert fit_size_keep_aspect(25, 25, 400, 200) == (200, 200)
+    assert fit_size_keep_aspect(100, 50, 100, 100) == (100, 50)

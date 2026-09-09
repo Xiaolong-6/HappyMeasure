@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import inspect
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +16,8 @@ from PySide6 import QtWidgets
 
 from map_reconstruction.models import TimeSeriesData
 from map_reconstruction.project_io import save_project
-from map_reconstruction.reporting import generate_pdf_report
+import map_reconstruction.reporting as reporting
+from map_reconstruction.reporting import generate_pdf_report, select_report_map
 from map_reconstruction.ui.main_window import MAX_GUIDES_PER_FAMILY, MapReconstructionWindow
 
 
@@ -473,24 +476,130 @@ def test_partial_project_restores_workspace_without_reconstruction(
         second.close()
 
 
+def test_voltage_project_restore_uses_the_saved_signal_scale(application, tmp_path: Path) -> None:
+    source = tmp_path / "voltage_measurement.csv"
+    time = np.linspace(0.0, 1.0, 1001)
+    source.write_text(
+        "\n".join(
+            [
+                "# schema,single-v2",
+                "# section,data",
+                "Elapsed_s,Current_A,Voltage_V",
+                *(f"{t:.6f},{1e-6 + t * 1e-6:.12g},{0.1 + 0.8 * t:.12g}" for t in time),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    project = tmp_path / "voltage.hmmap"
+    first = MapReconstructionWindow()
+    try:
+        first.load_file(source)
+        first.signal_combo.setCurrentText("Voltage_V")
+        first.rows_spin.setValue(2)
+        first.cols_spin.setValue(2)
+        first.rows_apart_spin.setValue(1)
+        first.points_apart_spin.setValue(1)
+        first.row_a_spin.setValue(0.1)
+        first.row_b_spin.setValue(0.7)
+        first.point_a_spin.setValue(0.2)
+        first.point_b_spin.setValue(0.4)
+        first.baseline_combo.setCurrentIndex(first.baseline_combo.findData("manual"))
+        first.baseline_value_spin.setValue(200.0)  # 200 mV = 0.2 V
+        first.normalization_combo.setCurrentIndex(first.normalization_combo.findData("reference"))
+        first.normalization_reference_spin.setValue(500.0)  # 500 mV = 0.5 V
+        first.color_range_combo.setCurrentIndex(first.color_range_combo.findData("manual"))
+        first.color_min_spin.setValue(-0.1)
+        first.color_max_spin.setValue(0.8)
+        first._processing_controls_changed()
+        state = first._project_state()
+        assert state.signal == "Voltage_V"
+        assert state.processing.baseline_value == pytest.approx(0.2)
+        assert state.processing.normalization_reference == pytest.approx(0.5)
+        save_project(project, state, first._raw_source_bytes or b"")
+    finally:
+        first.close()
+
+    second = MapReconstructionWindow()
+    try:
+        second.load_project_file(project)
+        restored = second._processing_config()
+        assert second.signal_combo.currentText() == "Voltage_V"
+        assert restored.baseline_value == pytest.approx(0.2)
+        assert restored.normalization_reference == pytest.approx(0.5)
+        assert restored.color_min == pytest.approx(-0.1)
+        assert restored.color_max == pytest.approx(0.8)
+    finally:
+        second.close()
+
+
 def test_pdf_report_is_created_without_mutating_reconstruction(application, tmp_path: Path) -> None:
     window = _window_with_valid_reconstruction(application)
     assert window.result is not None
     original_values = window.result.values.copy()
+    original_counts = window.result.sample_counts.copy()
+    assert window.processed is not None
+    original_processed = window.processed.values.copy()
     report = tmp_path / "report.pdf"
+    unicode_state = replace(window._project_state(), original_filename="测量.csv")
     try:
         generate_pdf_report(
             report,
-            window._project_state(),
+            unicode_state,
             window.data,
             window.result,
             window.processed,
-            map_widget=window.map_plot,
             count_widget=window.count_plot,
             trace_widget=window.raw_plot,
         )
         assert report.read_bytes().startswith(b"%PDF")
         assert report.stat().st_size > 1_000
+        assert "Rows × columns" in reporting.format_parameter_summary(unicode_state)
+        assert "—" in reporting.format_parameter_summary(
+            replace(unicode_state, rows=0, columns=0, row_offset=0, point_offset=0)
+        )
+        assert 'encode("ascii"' not in inspect.getsource(reporting.generate_pdf_report)
         np.testing.assert_array_equal(window.result.values, original_values)
+        np.testing.assert_array_equal(window.result.sample_counts, original_counts)
+        np.testing.assert_array_equal(window.processed.values, original_processed)
+    finally:
+        window.close()
+
+
+def test_pdf_report_falls_back_to_raw_map_for_unavailable_processing(
+    application, tmp_path: Path
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    report = tmp_path / "raw_fallback.pdf"
+    all_nan = window.processed
+    assert all_nan is not None
+    all_nan_values = np.full(all_nan.values.shape, np.nan)
+    unavailable = type(all_nan)(
+        all_nan_values,
+        all_nan.baseline_used,
+        all_nan.warnings,
+        all_nan.value_label,
+        all_nan.is_dimensionless,
+    )
+    try:
+        assert (
+            select_report_map(window._project_state(), window.result, None).title
+            == "Raw reconstructed map"
+        )
+        assert (
+            select_report_map(window._project_state(), window.result, unavailable).title
+            == "Raw reconstructed map"
+        )
+        generate_pdf_report(
+            report,
+            window._project_state(),
+            window.data,
+            window.result,
+            unavailable,
+            count_widget=window.count_plot,
+            trace_widget=window.raw_plot,
+        )
+        assert report.read_bytes().startswith(b"%PDF")
     finally:
         window.close()

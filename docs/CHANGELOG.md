@@ -2,6 +2,11 @@
 
 ## Unreleased — Continuous Time timing and RS-232 throughput
 
+- Hardened Map Reconstruction project restore and reporting: project processing
+  values now restore with the saved signal's own engineering scale; reports
+  choose raw maps when processed output is unavailable, render map arrays
+  without spatial distortion, retain Unicode strings, and omit inactive
+  processing settings while labelling physical summary values with SI units.
 - Added self-contained Map Reconstruction `.hmmap` projects. Each archive
   preserves the original HappyMeasure source CSV bytes, records a SHA-256,
   stores canonical reconstruction/processing/display state, and reconstructs

@@ -1,5 +1,19 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction restore and report remediation
+
+- 633 tests collected; the final full validation script completed successfully.
+- 31 focused project-persistence and Map Reconstruction UI regressions passed,
+  including Voltage_V scientific-value restoration, raw-map PDF fallback,
+  all-NaN processed fallback, aspect-fit helpers, Unicode source text, and
+  non-mutating report generation.
+- Ruff, Black, compileall, and mypy for the changed Map Reconstruction modules
+  passed.
+- The rendered offscreen Qt PDF preserves map/sample-count aspect ratio, but
+  this environment's offscreen Qt font backend renders all glyphs as boxes
+  (also reproduced by an isolated font probe). Native desktop PDF text and
+  Unicode display therefore remain an operator verification step.
+
 ## 2026-09-09 - Map Reconstruction portable projects and reports
 
 - 628 tests collected; the full validation script completed successfully with

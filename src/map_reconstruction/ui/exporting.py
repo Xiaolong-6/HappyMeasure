@@ -211,7 +211,6 @@ def export_pdf_report(window: Any) -> None:
             window.data,
             window.result,
             window.processed,
-            map_widget=window.map_plot,
             count_widget=window.count_plot,
             trace_widget=window.raw_plot,
         )

@@ -2,44 +2,166 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from map_reconstruction.display_units import (
+    DisplayUnit,
+    display_unit_for_signal,
+    scientific_unit_for_signal,
+)
 from map_reconstruction.models import ReconstructionResult, TimeSeriesData
-from map_reconstruction.processing import ProcessedMap
+from map_reconstruction.processing import (
+    BaselineMode,
+    ColorRangeMode,
+    NormalizationMode,
+    ProcessedMap,
+    ValueScale,
+    ValueTransform,
+)
 from map_reconstruction.project_io import ProjectState
 
 
-def _friendly(value: str) -> str:
-    return value.replace("_", " ").capitalize()
+@dataclass(frozen=True, slots=True)
+class ReportMap:
+    """The one scientific map chosen for a report figure."""
+
+    values: np.ndarray
+    title: str
+    display_unit: DisplayUnit
+    processing_note: str | None
+
+
+def _format_value(value: float, unit: str) -> str:
+    return f"{value:.6g}" + (f" {unit}" if unit else "")
+
+
+def _raw_processing_unit(state: ProjectState) -> str:
+    """Return the source SI unit for values applied before transformation."""
+
+    return scientific_unit_for_signal(state.signal)
+
+
+def processing_value_unit(state: ProjectState) -> str:
+    """Return a safe unit for the final processed/color-value domain."""
+
+    config = state.processing
+    if (
+        config.transform is ValueTransform.CUSTOM
+        or config.normalization is not NormalizationMode.NONE
+        or config.value_scale is ValueScale.LOG10
+    ):
+        return ""
+    return _raw_processing_unit(state)
+
+
+def normalization_reference_unit(state: ProjectState) -> str:
+    """Return the unit of an explicit normalization reference, when physical."""
+
+    if state.processing.transform is ValueTransform.CUSTOM:
+        return ""
+    return _raw_processing_unit(state)
 
 
 def _processing_lines(state: ProjectState) -> list[str]:
+    """Format only active processing controls with scientifically safe units."""
+
     config = state.processing
-    lines = [f"Value: {_friendly(config.transform.value)}"]
-    lines.append(
-        "Baseline: "
-        + (_friendly(config.baseline_mode.value))
-        + (f" ({config.baseline_value:.6g})" if config.baseline_value is not None else "")
-    )
-    if config.baseline_mode.value == "percentile":
-        lines.append(f"Baseline percentile: {config.baseline_percentile:.3g}%")
-    lines.append("Normalization: " + _friendly(config.normalization.value))
-    if config.normalization_reference is not None:
-        lines.append(f"Normalization reference: {config.normalization_reference:.6g}")
-    lines.append("Scale: " + _friendly(config.value_scale.value))
-    color = _friendly(config.color_range_mode.value)
-    if config.color_range_mode.value == "percentile":
-        color += f" ({config.percentile_low:.3g} - {config.percentile_high:.3g}%)"
-    elif config.color_range_mode.value == "manual":
-        color += f" ({config.color_min:.6g} - {config.color_max:.6g})"
-    lines.append("Color limits: " + color)
-    if config.transform.value == "custom":
+    value_names = {
+        ValueTransform.RAW: "Raw signed",
+        ValueTransform.ABSOLUTE: "Absolute value",
+        ValueTransform.NEGATE: "Negate",
+        ValueTransform.CUSTOM: "Custom expression",
+    }
+    lines = [f"Value: {value_names[config.transform]}"]
+
+    baseline_names = {
+        BaselineMode.NONE: "None",
+        BaselineMode.MANUAL: "Manual",
+        BaselineMode.MEAN: "Mean",
+        BaselineMode.MEDIAN: "Median",
+        BaselineMode.MINIMUM: "Minimum",
+        BaselineMode.MAXIMUM: "Maximum",
+        BaselineMode.PERCENTILE: "Percentile",
+    }
+    lines.append(f"Baseline: {baseline_names[config.baseline_mode]}")
+    if config.baseline_mode is BaselineMode.MANUAL and config.baseline_value is not None:
+        lines.append(
+            "Baseline value: " + _format_value(config.baseline_value, _raw_processing_unit(state))
+        )
+    elif config.baseline_mode is BaselineMode.PERCENTILE:
+        lines.append(f"Baseline percentile: {config.baseline_percentile:.6g}%")
+
+    normalization_names = {
+        NormalizationMode.NONE: "None",
+        NormalizationMode.MAX_MAGNITUDE: "Max magnitude",
+        NormalizationMode.MIN_MAX: "Min-max",
+        NormalizationMode.REFERENCE: "Reference",
+    }
+    lines.append(f"Normalization: {normalization_names[config.normalization]}")
+    if (
+        config.normalization is NormalizationMode.REFERENCE
+        and config.normalization_reference is not None
+    ):
+        lines.append(
+            "Normalization reference: "
+            + _format_value(config.normalization_reference, normalization_reference_unit(state))
+        )
+
+    lines.append("Scale: " + ("Linear" if config.value_scale is ValueScale.LINEAR else "Log10"))
+    color_names = {
+        ColorRangeMode.AUTO: "Auto data range",
+        ColorRangeMode.PERCENTILE: "Percentile",
+        ColorRangeMode.MANUAL: "Manual",
+    }
+    lines.append(f"Color limits: {color_names[config.color_range_mode]}")
+    if config.color_range_mode is ColorRangeMode.PERCENTILE:
+        lines.append(f"Low percentile: {config.percentile_low:.6g}%")
+        lines.append(f"High percentile: {config.percentile_high:.6g}%")
+    elif config.color_range_mode is ColorRangeMode.MANUAL:
+        unit = processing_value_unit(state)
+        if config.color_min is not None:
+            lines.append("Color minimum: " + _format_value(config.color_min, unit))
+        if config.color_max is not None:
+            lines.append("Color maximum: " + _format_value(config.color_max, unit))
+    if config.transform is ValueTransform.CUSTOM:
         lines.append(f"f(x): {config.custom_expression}")
     return lines
+
+
+def select_report_map(
+    state: ProjectState, result: ReconstructionResult, processed: ProcessedMap | None
+) -> ReportMap:
+    """Choose the actual map displayed in a report without consulting Qt state."""
+
+    raw_unit = display_unit_for_signal(state.signal, result.values)
+    if processed is not None and np.isfinite(processed.values).any():
+        unit = (
+            DisplayUnit(processed.value_label, "", 1.0)
+            if processed.is_dimensionless
+            else DisplayUnit(processed.value_label, raw_unit.unit, raw_unit.scale)
+        )
+        return ReportMap(processed.values, "Processed map", unit, None)
+    if processed is None:
+        note = "Processed map unavailable; raw reconstruction shown."
+    else:
+        note = "No finite processed values; raw reconstruction shown."
+    return ReportMap(result.values, "Raw reconstructed map", raw_unit, note)
+
+
+def fit_size_keep_aspect(
+    source_width: int, source_height: int, target_width: int, target_height: int
+) -> tuple[int, int]:
+    """Return the largest integer size that fits a target without distortion."""
+
+    if min(source_width, source_height, target_width, target_height) <= 0:
+        raise ValueError("Source and target dimensions must be positive.")
+    scale = min(target_width / source_width, target_height / source_height)
+    return max(1, round(source_width * scale)), max(1, round(source_height * scale))
 
 
 def format_parameter_summary(
@@ -87,9 +209,9 @@ def format_parameter_summary(
         "Geometry",
         "--------",
         f"Rows × columns: {geometry}",
-        f"Scan pattern: {_friendly(state.scan_pattern.value)}",
+        f"Scan pattern: {state.scan_pattern.value.replace('_', ' ').capitalize()}",
         f"First row: {'L -> R' if state.first_row_ltr else 'R -> L'}",
-        f"Aggregation: {_friendly(state.aggregation)}",
+        f"Aggregation: {state.aggregation.capitalize()}",
         f"Flip Y display: {'Yes' if state.flip_y else 'No'}",
         "",
         "Registration",
@@ -118,7 +240,9 @@ def format_parameter_summary(
         "Warnings: " + (" | ".join(warnings) if warnings else "None"),
     ]
     if result is not None and processed is None:
-        lines.extend(["", "Processed map: unavailable; raw reconstruction retained."])
+        lines.extend(["", "Processed map unavailable; raw reconstruction retained."])
+    elif result is not None and processed is not None and not np.isfinite(processed.values).any():
+        lines.extend(["", "No finite processed values; raw reconstruction retained."])
     return "\n".join(lines) + "\n"
 
 
@@ -134,8 +258,24 @@ def write_parameter_summary(
     )
 
 
+def _fit_rect_keep_aspect(target: Any, source_width: int, source_height: int) -> Any:
+    """Center an aspect-preserving rectangle inside a Qt target rectangle."""
+
+    from PySide6 import QtCore  # type: ignore[import-not-found]
+
+    width, height = fit_size_keep_aspect(
+        source_width, source_height, target.width(), target.height()
+    )
+    return QtCore.QRect(
+        target.x() + (target.width() - width) // 2,
+        target.y() + (target.height() - height) // 2,
+        width,
+        height,
+    )
+
+
 def _render_widget(widget: Any, width: int, height: int) -> Any:
-    """Render one plot widget into a print-resolution QImage on demand."""
+    """Render a plot widget into a letterboxed print-resolution QImage."""
 
     from PySide6 import QtCore, QtGui  # type: ignore[import-not-found]
 
@@ -144,10 +284,60 @@ def _render_widget(widget: Any, width: int, height: int) -> Any:
     painter = QtGui.QPainter(image)
     source_size = widget.size()
     if source_size.width() > 0 and source_size.height() > 0:
-        painter.scale(width / source_size.width(), height / source_size.height())
+        target = _fit_rect_keep_aspect(
+            QtCore.QRect(0, 0, width, height), source_size.width(), source_size.height()
+        )
+        painter.translate(target.x(), target.y())
+        painter.scale(target.width() / source_size.width(), target.height() / source_size.height())
     widget.render(painter)
     painter.end()
     return image
+
+
+def _array_image(values: np.ndarray, colors: np.ndarray) -> Any:
+    """Create a report-only QImage from scientific map values without mutation."""
+
+    from PySide6 import QtGui  # type: ignore[import-not-found]
+
+    array = np.asarray(values, dtype=float)
+    if array.ndim != 2:
+        raise ValueError("Report map values must be two-dimensional.")
+    finite = np.isfinite(array)
+    rgba = np.full((*array.shape, 4), (238, 238, 238, 255), dtype=np.uint8)
+    if np.any(finite):
+        low, high = float(np.min(array[finite])), float(np.max(array[finite]))
+        normalized = np.full(array.shape, 0.5) if high == low else (array - low) / (high - low)
+        positions = np.clip(normalized, 0.0, 1.0) * (len(colors) - 1)
+        lower = np.floor(positions).astype(int)
+        upper = np.minimum(lower + 1, len(colors) - 1)
+        blend = (positions - lower)[..., np.newaxis]
+        rgb = colors[lower] * (1.0 - blend) + colors[upper] * blend
+        rgba[finite, :3] = rgb[finite].astype(np.uint8)
+    height, width = array.shape
+    return QtGui.QImage(
+        rgba.data, width, height, rgba.strides[0], QtGui.QImage.Format.Format_RGBA8888
+    ).copy()
+
+
+def _draw_array_figure(
+    painter: Any,
+    target: Any,
+    title: str,
+    values: np.ndarray,
+    colors: np.ndarray,
+) -> None:
+    from PySide6 import QtCore, QtGui  # type: ignore[import-not-found]
+
+    painter.setFont(QtGui.QFont("Segoe UI", 8))
+    painter.drawText(target.left(), target.top() + 12, title)
+    plot_target = QtCore.QRect(
+        target.left(), target.top() + 18, target.width(), target.height() - 22
+    )
+    image = _array_image(values, colors)
+    fitted = _fit_rect_keep_aspect(plot_target, image.width(), image.height())
+    painter.setPen(QtGui.QColor("#9CA3AF"))
+    painter.drawRect(fitted)
+    painter.drawImage(fitted, image)
 
 
 def generate_pdf_report(
@@ -157,7 +347,6 @@ def generate_pdf_report(
     result: ReconstructionResult,
     processed: ProcessedMap | None,
     *,
-    map_widget: Any,
     count_widget: Any,
     trace_widget: Any,
 ) -> None:
@@ -165,23 +354,21 @@ def generate_pdf_report(
 
     from PySide6 import QtCore, QtGui  # type: ignore[import-not-found]
 
-    writer = QtGui.QPdfWriter(str(path))
-    writer.setResolution(150)
-    writer.setPageLayout(
-        QtGui.QPageLayout(
-            QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A4),
-            QtGui.QPageLayout.Orientation.Landscape,
-            QtCore.QMarginsF(12, 12, 12, 12),
-        )
+    report_map = select_report_map(state, result, processed)
+    layout = QtGui.QPageLayout(
+        QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A4),
+        QtGui.QPageLayout.Orientation.Landscape,
+        QtCore.QMarginsF(12, 12, 12, 12),
     )
-    painter = QtGui.QPainter(writer)
-    if not painter.isActive():
-        raise ValueError("Could not create PDF report.")
-    page = writer.pageLayout().paintRectPixels(writer.resolution())
+    printable = layout.paintRectPixels(150)
+    page = QtCore.QRect(0, 0, printable.width(), printable.height())
+    first_page = QtGui.QImage(page.size(), QtGui.QImage.Format.Format_RGB32)
+    first_page.fill(QtCore.Qt.GlobalColor.white)
+    painter = QtGui.QPainter(first_page)
     painter.setPen(QtGui.QColor("#14213D"))
-    title_font = QtGui.QFont("Arial", 15)
+    title_font = QtGui.QFont("Segoe UI", 15)
     title_font.setBold(True)
-    body_font = QtGui.QFont("Arial", 8)
+    body_font = QtGui.QFont("Segoe UI", 8)
     painter.setFont(title_font)
     painter.drawText(page.left(), page.top() + 22, "Map Reconstruction Report")
     painter.setFont(body_font)
@@ -191,23 +378,62 @@ def generate_pdf_report(
     ).splitlines()
     y = page.top() + 42
     for line in summary_lines:
-        painter.drawText(page.left(), y, line.encode("ascii", "replace").decode("ascii"))
+        painter.drawText(page.left(), y, line)
         y += 14
-    writer.newPage()
+    painter.end()
+
+    figures_page = QtGui.QImage(page.size(), QtGui.QImage.Format.Format_RGB32)
+    figures_page.fill(QtCore.Qt.GlobalColor.white)
+    painter = QtGui.QPainter(figures_page)
+    painter.setPen(QtGui.QColor("#14213D"))
     painter.setFont(title_font)
     painter.drawText(page.left(), page.top() + 22, "Figures")
-    labels = (
-        ("Reconstructed map" if processed is not None else "Raw reconstruction", map_widget),
-        ("Samples / pixel", count_widget),
-        ("Raw time trace with anchors", trace_widget),
-    )
-    figure_top = page.top() + 30
-    figure_height = (page.height() - 38) // 3
-    for index, (label, widget) in enumerate(labels):
-        top = figure_top + index * figure_height
+    if report_map.processing_note:
         painter.setFont(body_font)
-        painter.drawText(page.left(), top + 12, label.encode("ascii", "replace").decode("ascii"))
-        target = QtCore.QRect(page.left(), top + 16, page.width(), figure_height - 22)
-        image = _render_widget(widget, target.width(), target.height())
-        painter.drawImage(target, image)
+        painter.drawText(page.left(), page.top() + 38, report_map.processing_note)
+    top = page.top() + 48
+    gap = 18
+    half_width = (page.width() - gap) // 2
+    top_height = (page.height() - 88) // 2
+    map_target = QtCore.QRect(page.left(), top, half_width, top_height)
+    count_target = QtCore.QRect(page.left() + half_width + gap, top, half_width, top_height)
+    trace_target = QtCore.QRect(page.left(), top + top_height + 20, page.width(), top_height)
+    map_colors = np.asarray(
+        [(18, 44, 90), (29, 101, 185), (32, 164, 166), (200, 216, 77), (247, 232, 90)],
+        dtype=float,
+    )
+    count_colors = np.asarray(
+        [(239, 246, 255), (191, 219, 254), (96, 165, 250), (37, 99, 235), (23, 62, 140)],
+        dtype=float,
+    )
+    _draw_array_figure(
+        painter,
+        map_target,
+        f"{report_map.title}: {report_map.display_unit.axis_label}",
+        report_map.values,
+        map_colors,
+    )
+    _draw_array_figure(painter, count_target, "Samples / pixel", result.sample_counts, count_colors)
+    painter.setFont(body_font)
+    painter.drawText(trace_target.left(), trace_target.top() + 12, "Raw time trace with anchors")
+    trace_image = _render_widget(trace_widget, trace_target.width(), trace_target.height() - 18)
+    painter.drawImage(
+        QtCore.QRect(
+            trace_target.left(),
+            trace_target.top() + 18,
+            trace_target.width(),
+            trace_target.height() - 18,
+        ),
+        trace_image,
+    )
     painter.end()
+    writer = QtGui.QPdfWriter(str(path))
+    writer.setResolution(150)
+    writer.setPageLayout(layout)
+    pdf_painter = QtGui.QPainter(writer)
+    if not pdf_painter.isActive():
+        raise ValueError("Could not create PDF report.")
+    pdf_painter.drawImage(printable, first_page)
+    writer.newPage()
+    pdf_painter.drawImage(printable, figures_page)
+    pdf_painter.end()
