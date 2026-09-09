@@ -74,6 +74,9 @@
 - Fixed current measurement ranges skip redundant per-point `RANG:AUTO?` and
   `RANG?` queries, including after a runtime Auto → Fixed action, while explicit
   range actions still refresh state and preserve settle/discard handling.
+- Constant Time's `Duration (s)` row now disables both its label and entry when
+  `Constant until Stop` is enabled, preserves the previous finite value, and
+  reapplies the state after dynamic sweep-field rebuilds.
 - The Keithley 2400 driver disables automatic/programmed source delay so the
   runner's configured delay is applied exactly once for simulator and serial
   runs.

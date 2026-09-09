@@ -130,6 +130,17 @@
 - Real Keithley throughput and instrument-side behavior remain a hardware gate;
   no specific RS-232 sample rate is promised by the simulator tests.
 
+## 2026-09-09 Constant Time duration-row UI state
+
+- In Constant Time mode, `constant_until_stop=True` disables both widgets in
+  `duration_row`: the Duration label and its entry. The value remains stored
+  and becomes editable again when Until Stop is turned off.
+- The state is reapplied after dynamic sweep controls are rebuilt and after
+  global sweep-field state changes (connect/disconnect or run-state changes),
+  so the Until Stop semantic is not overwritten by the general editable-state
+  pass. Duration validation and continuous acquisition backend semantics are
+  unchanged.
+
 ## Keithley front-panel range popup visual polish note
 
 The Keithley-style front-panel popup is in `src/keith_ivt/ui/status_bar.py`. The current-range area now intentionally uses custom `tk.Frame`/`tk.Label` card blocks instead of a native `ttk.LabelFrame`, because the native layout clipped controls under Windows scaling. Keep the mock-style hierarchy: large black instrument readout, left metadata column, right current-range card with summary cells and one aligned control row.

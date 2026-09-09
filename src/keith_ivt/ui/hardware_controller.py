@@ -267,6 +267,10 @@ class HardwareControllerMixin(UiMixinTyping):
                 logger = logging.getLogger("keith_ivt.ui.hardware_controller")
                 logger.debug(f"Failed to update dynamic controls state: {e}")
         try:
+            self._update_time_duration_state()
+        except Exception:
+            pass
+        try:
             self._update_hysteresis_state()
         except Exception:
             pass

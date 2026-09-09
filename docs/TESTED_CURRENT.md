@@ -1,5 +1,16 @@
 # Current Test Status
 
+## 2026-09-09 - Constant Time duration-row state
+
+- 608 tests collected; 607 passed and 1 expected conditional skip
+- focused duration-row regressions cover finite mode, Until Stop disabling of
+  both label and entry, value preservation, and Time → Step → Time rebuilding
+- the existing Debug simulator desktop flow passed, and an actual Tk Debug
+  probe confirmed the enabled/disabled states and preserved `123.45` duration
+  across toggle and dynamic rebuild
+- full validation passed with 95.56% coverage; compileall, Ruff, source mypy,
+  and Black formatter checks passed
+
 ## 2026-09-09 - Map Reconstruction audit remediation
 
 The Map Reconstruction audit remediation and the existing HappyMeasure suite
