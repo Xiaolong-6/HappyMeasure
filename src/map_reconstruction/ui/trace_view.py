@@ -10,6 +10,7 @@ from map_reconstruction.display_units import DisplayUnit, to_display_values
 from map_reconstruction.ui.style import GRID_MAJOR, PANEL, PRIMARY_TEXT, SECONDARY_TEXT, TRACE
 
 MAX_GUIDES_PER_FAMILY = 500
+MAX_PHASE_WINDOW_GRAPHICS = 200
 
 
 class TraceView(QtWidgets.QStackedWidget):
@@ -24,6 +25,7 @@ class TraceView(QtWidgets.QStackedWidget):
         self._syncing = False
         self.anchor_lines: dict[str, pg.InfiniteLine] = {}
         self.guide_items: list[pg.InfiniteLine] = []
+        self.phase_window_items: list[pg.LinearRegionItem] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -49,6 +51,10 @@ class TraceView(QtWidgets.QStackedWidget):
         layout.addWidget(self.guide_key)
         layout.addWidget(self.plot, 1)
         self.curve = self.plot.plot([], [], pen=pg.mkPen(TRACE, width=1.15))
+        self.used_samples = pg.ScatterPlotItem(
+            pen=None, brush=pg.mkBrush("#F59E0B"), size=7, symbol="o"
+        )
+        self.plot.addItem(self.used_samples)
         # Stable aliases for callers that used the pre-component view names.
         self.raw_plot = self.plot
         self.raw_curve = self.curve
@@ -178,6 +184,52 @@ class TraceView(QtWidgets.QStackedWidget):
         for guide in self.guide_items:
             self.plot.removeItem(guide)
         self.guide_items = []
+        for band in self.phase_window_items:
+            self.plot.removeItem(band)
+        self.phase_window_items = []
+        self.used_samples.setData([], [])
+
+    def set_phase_window_guides(
+        self,
+        row_positions: np.ndarray,
+        bounds: np.ndarray,
+        time_s: np.ndarray,
+        values: np.ndarray,
+        display_unit: DisplayUnit,
+    ) -> None:
+        """Render decimated core bounds and exactly their selected samples."""
+
+        self.clear_guides()
+        for position in row_positions[self.guide_indices(row_positions.size)]:
+            self._add_guide(float(position), "#888888", QtCore.Qt.PenStyle.DotLine)
+        flat_bounds = np.asarray(bounds, dtype=float).reshape(-1, 2)
+        indices = self.guide_indices(min(flat_bounds.shape[0], MAX_PHASE_WINDOW_GRAPHICS))
+        if flat_bounds.shape[0] > MAX_PHASE_WINDOW_GRAPHICS:
+            indices = np.unique(
+                np.linspace(0, flat_bounds.shape[0] - 1, MAX_PHASE_WINDOW_GRAPHICS, dtype=int)
+            )
+        selected_times: list[np.ndarray] = []
+        selected_values: list[np.ndarray] = []
+        for index in indices:
+            left, right = flat_bounds[index]
+            band = pg.LinearRegionItem(
+                values=(float(left), float(right)),
+                movable=False,
+                brush=pg.mkBrush(245, 158, 11, 38),
+                pen=pg.mkPen("#D97706", width=0.8),
+            )
+            band.setZValue(-5)
+            self.plot.addItem(band)
+            self.phase_window_items.append(band)
+            first = int(np.searchsorted(time_s, left, side="left"))
+            last = int(np.searchsorted(time_s, right, side="left"))
+            selected_times.append(time_s[first:last])
+            selected_values.append(values[first:last])
+        if selected_times:
+            self.used_samples.setData(
+                np.concatenate(selected_times),
+                to_display_values(np.concatenate(selected_values), display_unit),
+            )
 
     def clear(self) -> None:
         self.curve.clear()

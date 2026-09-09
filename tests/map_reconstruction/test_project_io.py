@@ -22,6 +22,7 @@ from map_reconstruction.processing import (
 from map_reconstruction.project_io import (
     PROJECT_JSON_PATH,
     PROJECT_SCHEMA,
+    PROJECT_SCHEMA_V2,
     RAW_CSV_PATH,
     ProjectState,
     load_project,
@@ -111,6 +112,26 @@ def test_project_archive_has_schema_and_preserves_raw_csv_bytes(tmp_path: Path) 
     assert payload["source"]["sha256"] == hashlib.sha256(raw).hexdigest()
     assert payload["source"]["original_filename"] == "measurement.csv"
     assert "C:" not in json.dumps(payload)
+
+
+def test_phase_window_v2_project_round_trip_preserves_explicit_registration(tmp_path: Path) -> None:
+    state = replace(
+        _state(),
+        method="dual_offset_phase_window",
+        y_phase_fraction=0.25,
+        x_period_offset=0,
+        x_phase_fraction=0.25,
+        window_mode="fixed_duration",
+        window_fraction=0.65,
+        window_duration_s=0.005,
+    )
+    project = tmp_path / "phase-window.hmmap"
+
+    save_project(project, state, _raw_csv())
+    loaded = load_project(project)
+
+    assert loaded.project_metadata["schema"] == PROJECT_SCHEMA_V2
+    assert loaded.state == state
 
 
 def test_project_round_trip_restores_scientific_state_and_processing(tmp_path: Path) -> None:
@@ -321,7 +342,9 @@ def test_report_map_selection_and_aspect_ratio_are_scientifically_explicit() -> 
     assert processed.title == "Processed map"
     np.testing.assert_array_equal(processed.values, processed_values)
     assert processed.display_unit.unit == ""
-    assert processed.color_limits == pytest.approx(tuple(np.percentile(processed_values, [5.0, 95.0])))
+    assert processed.color_limits == pytest.approx(
+        tuple(np.percentile(processed_values, [5.0, 95.0]))
+    )
     assert fit_size_keep_aspect(25, 25, 400, 200) == (200, 200)
     assert fit_size_keep_aspect(100, 50, 100, 100) == (100, 50)
 

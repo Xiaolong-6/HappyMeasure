@@ -698,3 +698,43 @@ def test_pdf_report_falls_back_to_raw_map_for_unavailable_processing(
         assert report.read_bytes().startswith(b"%PDF")
     finally:
         window.close()
+
+
+def test_phase_window_selector_updates_bands_markers_and_sampling_qc(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    try:
+        window.method_combo.setCurrentIndex(
+            window.method_combo.findData("dual_offset_phase_window")
+        )
+        assert window.method_combo.currentData() == "dual_offset_phase_window"
+        assert not window.inspector.phase_window_section.isHidden()
+        assert window.result is not None
+        assert window.trace_view.phase_window_items
+        first_band = tuple(window.trace_view.phase_window_items[0].getRegion())
+        window.x_phase_spin.setValue(52.5)
+        window.inspector.registrationChanged.emit()
+        moved_band = tuple(window.trace_view.phase_window_items[0].getRegion())
+        assert moved_band != first_band
+        window.window_mode_combo.setCurrentIndex(
+            window.window_mode_combo.findData("fixed_duration")
+        )
+        assert not window.window_duration_spin.isHidden()
+        assert "0 samples" in window.qc_values
+        assert "P10 samples/pixel" in window.qc_values
+    finally:
+        window.close()
+
+
+def test_explicit_legacy_conversion_preserves_current_reconstruction(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    values = window.result.values.copy()
+    counts = window.result.sample_counts.copy()
+    try:
+        window.inspector.convert_phase_button.click()
+        assert window.method_combo.currentData() == "dual_offset_phase_window"
+        assert window.result is not None
+        np.testing.assert_allclose(window.result.values, values, equal_nan=True)
+        np.testing.assert_array_equal(window.result.sample_counts, counts)
+    finally:
+        window.close()

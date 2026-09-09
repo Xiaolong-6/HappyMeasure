@@ -19,11 +19,20 @@ from map_reconstruction.display_units import (
 )
 from map_reconstruction.importers.happymeasure import import_happymeasure_csv_bytes
 from map_reconstruction.methods.dual_offset import reconstruct_map
+from map_reconstruction.methods.phase_window import (
+    convert_legacy_to_phase_window,
+    reconstruct_phase_window_map,
+    window_bounds,
+)
 from map_reconstruction.models import (
     DualOffsetParams,
+    PhaseWindowParams,
+    PhaseWindowTimingSolution,
     ReconstructionResult,
     ScanPattern,
     TimeSeriesData,
+    TimingSolution,
+    WindowMode,
 )
 from map_reconstruction.processing import (
     MapProcessingConfig,
@@ -53,7 +62,7 @@ from map_reconstruction.ui.trace_view import MAX_GUIDES_PER_FAMILY, TraceView  #
 class MapReconstructionWindow(QtWidgets.QMainWindow):
     """Coordinate file lifecycle, reconstruction, processing, and view updates."""
 
-    params: DualOffsetParams | None
+    params: DualOffsetParams | PhaseWindowParams | None
     processing_config: MapProcessingConfig | None
     signal_combo: QtWidgets.QComboBox
     scan_combo: QtWidgets.QComboBox
@@ -70,6 +79,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     point_b_spin: QtWidgets.QDoubleSpinBox
     points_apart_spin: QtWidgets.QSpinBox
     point_offset_spin: QtWidgets.QSpinBox
+    method_combo: QtWidgets.QComboBox
+    x_period_offset_spin: QtWidgets.QSpinBox
+    y_phase_spin: QtWidgets.QDoubleSpinBox
+    x_phase_spin: QtWidgets.QDoubleSpinBox
+    window_mode_combo: QtWidgets.QComboBox
+    window_fraction_spin: QtWidgets.QDoubleSpinBox
+    window_duration_spin: QtWidgets.QDoubleSpinBox
     transform_combo: QtWidgets.QComboBox
     normalization_combo: QtWidgets.QComboBox
     scale_combo: QtWidgets.QComboBox
@@ -132,6 +148,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.signalChanged.connect(self._signal_changed)
         self.inspector.geometryChanged.connect(self._reconstruct)
         self.inspector.registrationChanged.connect(self._reconstruct)
+        self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
         self.inspector.processingChanged.connect(self._processing_controls_changed)
         self.inspector.pointPeriodEdited.connect(self._point_period_edited)
         self.inspector.resetTraceRequested.connect(self._reset_views)
@@ -178,6 +195,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             "points_apart_spin",
             "point_period_spin",
             "point_offset_spin",
+            "method_combo",
+            "x_period_offset_spin",
+            "y_phase_spin",
+            "x_phase_spin",
+            "window_mode_combo",
+            "window_fraction_spin",
+            "window_duration_spin",
             "point_offset_slider",
             "transform_combo",
             "baseline_combo",
@@ -469,7 +493,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._create_anchor_lines()
         try:
             params = self.inspector.current_params()
-            result = reconstruct_map(self.data, self.signal_combo.currentText(), params)
+            result = (
+                reconstruct_phase_window_map(self.data, self.signal_combo.currentText(), params)
+                if isinstance(params, PhaseWindowParams)
+                else reconstruct_map(self.data, self.signal_combo.currentText(), params)
+            )
         except ValueError as exc:
             self._invalidate_reconstruction(str(exc))
             return
@@ -480,9 +508,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             result.timing.point_period_s,
             result.timing.row_period_s - params.cols * result.timing.point_period_s,
         )
+        nonzero_counts = result.sample_counts[finite]
         self.inspector.set_qc(
             100.0 * float(np.mean(finite)),
-            float(np.median(result.sample_counts[finite])) if np.any(finite) else 0.0,
+            float(np.median(nonzero_counts)) if np.any(finite) else 0.0,
+            100.0 * float(np.mean(result.sample_counts == 0)),
+            100.0 * float(np.mean(result.sample_counts == 1)),
+            float(np.percentile(nonzero_counts, 10.0)) if np.any(finite) else 0.0,
         )
         if not np.any(finite):
             self.result = None
@@ -501,6 +533,60 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
         self._update_guides(result)
         self._set_export_availability()
+
+    def _convert_legacy_to_phase_window(self) -> None:
+        """Explicitly convert only if the current raw reconstruction is identical."""
+
+        if self.data is None:
+            return
+        try:
+            legacy = self.inspector.current_params()
+            if not isinstance(legacy, DualOffsetParams):
+                return
+            conversion = convert_legacy_to_phase_window(legacy)
+            legacy_result = reconstruct_map(self.data, self.signal_combo.currentText(), legacy)
+            phase_result = reconstruct_phase_window_map(
+                self.data, self.signal_combo.currentText(), conversion.params
+            )
+            if not (
+                np.array_equal(legacy_result.sample_counts, phase_result.sample_counts)
+                and np.allclose(legacy_result.values, phase_result.values, equal_nan=True)
+            ):
+                raise ValueError("Conversion could not reproduce the current Legacy pixel windows.")
+        except ValueError as exc:
+            self.inspector.set_warning(str(exc))
+            self.statusBar().showMessage("Legacy conversion was not applied.")
+            return
+        widgets = (
+            self.method_combo,
+            self.y_phase_spin,
+            self.x_period_offset_spin,
+            self.x_phase_spin,
+            self.window_mode_combo,
+            self.window_fraction_spin,
+        )
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
+        try:
+            self.method_combo.setCurrentIndex(
+                self.method_combo.findData("dual_offset_phase_window")
+            )
+            self.y_phase_spin.setValue(conversion.params.y_phase_fraction * 100.0)
+            self.x_period_offset_spin.setValue(conversion.params.x_period_offset)
+            self.x_phase_spin.setValue(conversion.params.x_phase_fraction * 100.0)
+            self.window_mode_combo.setCurrentIndex(
+                self.window_mode_combo.findData(conversion.params.window_mode)
+            )
+            self.window_fraction_spin.setValue(conversion.params.window_fraction * 100.0)
+        finally:
+            del blockers
+        self.inspector.set_legacy_phase_compatibility(
+            conversion.params.legacy_inclusive_right, conversion.params.legacy_pixel1_phase_s
+        )
+        self.inspector._update_phase_window_fields()
+        self._reconstruct()
+        self.statusBar().showMessage(
+            "Converted Legacy timing to Phase Window without changing pixels."
+        )
 
     def _process_and_display(self) -> None:
         if self.result is None or self.data is None:
@@ -566,6 +652,19 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             return
         timing = result.timing
         t_min, t_max = float(self.data.time_s[0]), float(self.data.time_s[-1])
+        if isinstance(self.params, PhaseWindowParams):
+            assert isinstance(timing, PhaseWindowTimingSolution)
+            rows = timing.row0_s + np.arange(self.params.rows) * timing.row_period_s
+            bounds = window_bounds(timing, self.params.rows, self.params.cols)
+            self.trace_view.set_phase_window_guides(
+                rows[(rows >= t_min) & (rows <= t_max)],
+                bounds,
+                self.data.time_s,
+                self.data.signals[self.signal_combo.currentText()],
+                self._raw_display_unit(),
+            )
+            return
+        assert isinstance(timing, TimingSolution)
         rows = timing.row_ref0_s + np.arange(self.params.rows) * timing.row_period_s
         row_index = int(np.floor((self.params.point_a_s - timing.row_ref0_s) / timing.row_period_s))
         row_base = timing.row_ref0_s + row_index * timing.row_period_s
@@ -595,6 +694,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _project_state(self) -> ProjectState:
         config = self._processing_config()
+        phase_params = (
+            self.inspector.current_params()
+            if self.rows_spin.value() > 0
+            and self.cols_spin.value() > 0
+            and self.method_combo.currentData() == "dual_offset_phase_window"
+            else None
+        )
         return ProjectState(
             original_filename=self._loaded_filename or "measurement.csv",
             signal=self.signal_combo.currentText(),
@@ -613,6 +719,27 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             point_offset=self.point_offset_spin.value(),
             processing=config,
             flip_y=self.flip_y_check.isChecked(),
+            method=self.method_combo.currentData(),
+            y_phase_fraction=self.y_phase_spin.value() / 100.0,
+            x_period_offset=self.x_period_offset_spin.value(),
+            x_phase_fraction=self.x_phase_spin.value() / 100.0,
+            window_mode=self.window_mode_combo.currentData(),
+            window_fraction=self.window_fraction_spin.value() / 100.0,
+            window_duration_s=(
+                self.window_duration_spin.value()
+                if WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
+                else None
+            ),
+            legacy_inclusive_right=(
+                phase_params.legacy_inclusive_right
+                if isinstance(phase_params, PhaseWindowParams)
+                else False
+            ),
+            legacy_pixel1_phase_s=(
+                phase_params.legacy_pixel1_phase_s
+                if isinstance(phase_params, PhaseWindowParams)
+                else None
+            ),
         )
 
     def _export_project(self) -> None:

@@ -105,6 +105,29 @@ def test_phase_window_rejects_invalid_window_geometry(
         solve_phase_window_timing(_params(**changes))
 
 
+@pytest.mark.parametrize(
+    "changes, message",
+    [({"row_b_s": 10.0}, "Row B"), ({"point_b_s": 1.0}, "Point B")],
+)
+def test_phase_window_rejects_non_positive_periods(
+    changes: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        solve_phase_window_timing(_params(**changes))
+
+
+def test_phase_window_rejects_unknown_unsorted_and_oversized_inputs() -> None:
+    params = _params()
+    with pytest.raises(ValueError, match="Unknown signal"):
+        reconstruct_phase_window_map(_data(), "Voltage_V", params)
+    unsorted = TimeSeriesData(np.asarray([9.0, 8.0]), {"Current_A": np.asarray([1.0, 2.0])})
+    with pytest.raises(ValueError, match="sorted"):
+        reconstruct_phase_window_map(unsorted, "Current_A", params)
+    oversized = _params(rows=1000, cols=1001)
+    with pytest.raises(ValueError, match="exceeds"):
+        reconstruct_phase_window_map(_data(), "Current_A", oversized)
+
+
 def test_phase_canonicalization_and_scan_orientation() -> None:
     params = _params(y_phase_fraction=1.25, x_phase_fraction=-0.5, rows=1, cols=2)
     assert params.y_phase_fraction == pytest.approx(0.25)

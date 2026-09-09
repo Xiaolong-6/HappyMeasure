@@ -162,6 +162,8 @@ class PhaseWindowParams:
     window_mode: WindowMode = WindowMode.FRACTION
     window_fraction: float = 0.65
     window_duration_s: float | None = None
+    legacy_inclusive_right: bool = False
+    legacy_pixel1_phase_s: float | None = None
     scan_pattern: ScanPattern = ScanPattern.SAME_DIRECTION
     first_row_ltr: bool = True
     aggregation: Aggregation = Aggregation.MEDIAN
@@ -192,6 +194,11 @@ class PhaseWindowParams:
         self.aggregation = Aggregation(self.aggregation)
         self.scan_pattern = ScanPattern(self.scan_pattern)
         self.first_row_ltr = bool(self.first_row_ltr)
+        self.legacy_inclusive_right = bool(self.legacy_inclusive_right)
+        if self.legacy_pixel1_phase_s is not None:
+            self.legacy_pixel1_phase_s = float(self.legacy_pixel1_phase_s)
+            if not np.isfinite(self.legacy_pixel1_phase_s):
+                raise ValueError("legacy_pixel1_phase_s must be finite.")
         self.window_fraction = float(self.window_fraction)
         if self.window_mode is WindowMode.FRACTION:
             if not np.isfinite(self.window_fraction) or not 0 < self.window_fraction <= 1:

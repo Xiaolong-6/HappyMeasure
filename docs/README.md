@@ -4,6 +4,8 @@ This directory contains both user-facing release documents and machine-facing ha
 
 The optional Map Reconstruction workspace stores portable scientific sessions
 using the `.hmmap` format documented in `MAP_PROJECT_FORMAT.md`.
+Its Legacy and Phase Window registration semantics are documented in
+`PHASE_WINDOW_RECONSTRUCTION.md`.
 
 ## Human-facing quick path
 
