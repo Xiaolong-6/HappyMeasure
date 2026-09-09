@@ -342,13 +342,14 @@ def _array_image(values: np.ndarray, colors: np.ndarray, limits: tuple[float, fl
     if not np.isfinite(low) or not np.isfinite(high) or low >= high:
         raise ValueError("Report color limits must be finite and increasing.")
     if np.any(finite):
-        normalized = (array - low) / (high - low)
+        finite_values = array[finite]
+        normalized = (finite_values - low) / (high - low)
         positions = np.clip(normalized, 0.0, 1.0) * (len(colors) - 1)
         lower = np.floor(positions).astype(int)
         upper = np.minimum(lower + 1, len(colors) - 1)
-        blend = (positions - lower)[..., np.newaxis]
+        blend = (positions - lower)[:, np.newaxis]
         rgb = colors[lower] * (1.0 - blend) + colors[upper] * blend
-        rgba[finite, :3] = rgb[finite].astype(np.uint8)
+        rgba[finite, :3] = rgb.astype(np.uint8)
     height, width = array.shape
     return QtGui.QImage(
         rgba.data, width, height, rgba.strides[0], QtGui.QImage.Format.Format_RGBA8888

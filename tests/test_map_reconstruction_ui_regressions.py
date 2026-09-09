@@ -566,6 +566,101 @@ def test_pdf_report_is_created_without_mutating_reconstruction(application, tmp_
         window.close()
 
 
+def test_report_array_image_renders_partial_nan_pixels_as_neutral(application) -> None:
+    values = np.asarray([[1.0, np.nan, 3.0], [4.0, 5.0, np.nan]])
+    colors = np.asarray([[10, 20, 30], [110, 120, 130], [210, 220, 230]], dtype=float)
+
+    image = reporting._array_image(values, colors, (1.0, 5.0))
+
+    assert image.width() == 3
+    assert image.height() == 2
+    assert image.pixelColor(0, 0).getRgb()[:3] == (10, 20, 30)
+    assert image.pixelColor(2, 0).getRgb()[:3] == (110, 120, 130)
+    assert image.pixelColor(1, 1).getRgb()[:3] == (210, 220, 230)
+    assert image.pixelColor(1, 0).getRgb()[:3] == (238, 238, 238)
+    assert image.pixelColor(2, 1).getRgb()[:3] == (238, 238, 238)
+
+
+def test_pdf_report_renders_partial_nan_raw_fallback_without_mutation(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    raw_values = np.asarray([[1e-6, np.nan], [3e-6, 5e-6]])
+    counts = np.asarray([[1, 0], [2, 3]])
+    result = type(window.result)(raw_values, counts, window.result.timing, window.result.warnings)
+    state = replace(window._project_state(), flip_y=False)
+    try:
+        report_map = select_report_map(state, result, None)
+        assert report_map.title == "Raw reconstructed map"
+        assert report_map.color_limits == pytest.approx((1e-6, 5e-6))
+        for flip_y in (False, True):
+            report = Path.cwd() / f".raw_partial_nan_{flip_y}.pdf"
+            generate_pdf_report(
+                report,
+                replace(state, flip_y=flip_y),
+                window.data,
+                result,
+                None,
+                count_widget=window.count_plot,
+                trace_widget=window.raw_plot,
+            )
+            assert report.read_bytes().startswith(b"%PDF")
+            assert report.stat().st_size > 1_000
+        np.testing.assert_allclose(result.values, raw_values, equal_nan=True)
+        np.testing.assert_array_equal(result.sample_counts, counts)
+    finally:
+        for flip_y in (False, True):
+            (Path.cwd() / f".raw_partial_nan_{flip_y}.pdf").unlink(missing_ok=True)
+        window.close()
+
+
+def test_pdf_report_renders_partial_nan_processed_map_with_configured_limits(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    assert window.processed is not None
+    raw_values = np.asarray([[1e-6, np.nan], [3e-6, 5e-6]])
+    counts = np.asarray([[1, 0], [2, 3]])
+    result = type(window.result)(raw_values, counts, window.result.timing, window.result.warnings)
+    processed_values = np.asarray([[-0.5, np.nan], [0.25, 0.75]])
+    processed = type(window.processed)(
+        processed_values,
+        window.processed.baseline_used,
+        window.processed.warnings,
+        window.processed.value_label,
+        window.processed.is_dimensionless,
+    )
+    state = replace(
+        window._project_state(),
+        processing=replace(
+            window._project_state().processing,
+            color_range_mode="manual",
+            color_min=-1.0,
+            color_max=1.0,
+        ),
+    )
+    report = Path.cwd() / ".processed_partial_nan.pdf"
+    try:
+        report_map = select_report_map(state, result, processed)
+        assert report_map.title == "Processed map"
+        assert report_map.color_limits == pytest.approx((-1.0, 1.0))
+        generate_pdf_report(
+            report,
+            state,
+            window.data,
+            result,
+            processed,
+            count_widget=window.count_plot,
+            trace_widget=window.raw_plot,
+        )
+        assert report.read_bytes().startswith(b"%PDF")
+        assert report.stat().st_size > 1_000
+        np.testing.assert_allclose(result.values, raw_values, equal_nan=True)
+        np.testing.assert_array_equal(result.sample_counts, counts)
+        np.testing.assert_allclose(processed.values, processed_values, equal_nan=True)
+    finally:
+        report.unlink(missing_ok=True)
+        window.close()
+
+
 def test_pdf_report_falls_back_to_raw_map_for_unavailable_processing(
     application, tmp_path: Path
 ) -> None:

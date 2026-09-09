@@ -1,5 +1,22 @@
 # Current Test Status
 
+## 2026-09-09 - Map Reconstruction PDF partial-NaN rendering
+
+- 637 tests collected; 636 passed and 1 expected conditional skip in the full
+  validation script.
+- Full validation passed, including compileall and the 95% coverage gate:
+  combined `keith_ivt` + `map_reconstruction` coverage was **95.18%**.
+- 35 focused project/report/UI regressions passed. They now include a direct
+  `_array_image()` regression for partial-NaN maps plus raw-fallback and
+  configured-processed PDF generation with finite and NaN pixels.
+- Report rendering now indexes the LUT only with finite scientific values;
+  invalid pixels remain the neutral gray report color and source arrays are
+  not mutated.
+- Ruff, Black, mypy for `reporting.py`, and compileall passed.
+- Native Windows PDF viewer verification remains unavailable in this session;
+  the offscreen Qt font backend still renders glyphs as boxes, so native PDF
+  typography remains an operator verification step.
+
 ## 2026-09-09 - Map Reconstruction PDF orientation and color semantics
 
 - 634 tests collected; the final full validation script completed successfully.
