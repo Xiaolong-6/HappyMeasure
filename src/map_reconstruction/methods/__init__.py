@@ -7,6 +7,7 @@ from .dual_offset import (
 )
 from .phase_window import (
     convert_legacy_to_phase_window,
+    effective_window_bounds,
     reconstruct_phase_window_map,
     solve_phase_window_timing,
     window_bounds,
@@ -16,6 +17,7 @@ from .phase_window import (
 __all__ = [
     "apply_scan_orientation",
     "convert_legacy_to_phase_window",
+    "effective_window_bounds",
     "reconstruct_map",
     "reconstruct_phase_window_map",
     "solve_phase_window_timing",

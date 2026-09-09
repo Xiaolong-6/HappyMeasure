@@ -87,6 +87,31 @@ def window_bounds(timing: PhaseWindowTimingSolution, rows: int, cols: int) -> np
     return np.stack((centers - half_width, centers + half_width), axis=-1)
 
 
+def effective_window_bounds(
+    params: PhaseWindowParams, timing: PhaseWindowTimingSolution
+) -> np.ndarray:
+    """Return the exact core bounds, including explicit Legacy conversion parity."""
+
+    bounds = window_bounds(timing, params.rows, params.cols)
+    if params.legacy_inclusive_right and params.legacy_pixel1_phase_s is not None:
+        row_bases = (
+            timing.row0_s + np.arange(params.rows, dtype=float)[:, None] * timing.row_period_s
+        )
+        pixel_starts = (
+            row_bases
+            + params.legacy_pixel1_phase_s
+            + np.arange(params.cols, dtype=float)[None, :] * timing.point_period_s
+        )
+        return np.stack(
+            (
+                pixel_starts + WINDOW_LEFT_FRACTION * timing.point_period_s,
+                pixel_starts + WINDOW_RIGHT_FRACTION * timing.point_period_s,
+            ),
+            axis=-1,
+        )
+    return bounds
+
+
 def reconstruct_phase_window_map(
     data: TimeSeriesData, signal_name: str, params: PhaseWindowParams
 ) -> ReconstructionResult:
@@ -101,23 +126,7 @@ def reconstruct_phase_window_map(
             f"Map size exceeds the {MAX_RECONSTRUCTION_PIXELS:,}-pixel reconstruction limit."
         )
     timing = solve_phase_window_timing(params)
-    bounds = window_bounds(timing, params.rows, params.cols)
-    if params.legacy_inclusive_right and params.legacy_pixel1_phase_s is not None:
-        row_bases = (
-            timing.row0_s + np.arange(params.rows, dtype=float)[:, None] * timing.row_period_s
-        )
-        pixel_starts = (
-            row_bases
-            + params.legacy_pixel1_phase_s
-            + np.arange(params.cols, dtype=float)[None, :] * timing.point_period_s
-        )
-        bounds = np.stack(
-            (
-                pixel_starts + WINDOW_LEFT_FRACTION * timing.point_period_s,
-                pixel_starts + WINDOW_RIGHT_FRACTION * timing.point_period_s,
-            ),
-            axis=-1,
-        )
+    bounds = effective_window_bounds(params, timing)
     signal = data.signals[signal_name]
     values = np.full((params.rows, params.cols), np.nan, dtype=float)
     counts = np.zeros((params.rows, params.cols), dtype=int)

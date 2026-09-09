@@ -21,8 +21,8 @@ from map_reconstruction.importers.happymeasure import import_happymeasure_csv_by
 from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.methods.phase_window import (
     convert_legacy_to_phase_window,
+    effective_window_bounds,
     reconstruct_phase_window_map,
-    window_bounds,
 )
 from map_reconstruction.models import (
     DualOffsetParams,
@@ -655,13 +655,14 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if isinstance(self.params, PhaseWindowParams):
             assert isinstance(timing, PhaseWindowTimingSolution)
             rows = timing.row0_s + np.arange(self.params.rows) * timing.row_period_s
-            bounds = window_bounds(timing, self.params.rows, self.params.cols)
+            bounds = effective_window_bounds(self.params, timing)
             self.trace_view.set_phase_window_guides(
                 rows[(rows >= t_min) & (rows <= t_max)],
                 bounds,
                 self.data.time_s,
                 self.data.signals[self.signal_combo.currentText()],
                 self._raw_display_unit(),
+                self.params.legacy_inclusive_right,
             )
             return
         assert isinstance(timing, TimingSolution)
