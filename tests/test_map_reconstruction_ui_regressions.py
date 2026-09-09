@@ -121,3 +121,26 @@ def test_point_period_edit_moves_point_b_and_guide_decimation_is_bounded(applica
     assert window.point_b_spin.value() == pytest.approx(2.0)
     assert window._guide_indices(10_000).size == MAX_GUIDES_PER_FAMILY
     window.close()
+
+
+def test_processing_changes_reuse_raw_result_and_keep_trace_signed(
+    application, monkeypatch
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    assert window.result is not None
+    raw_values = window.result.values.copy()
+    _, raw_before = window.raw_curve.getData()
+
+    def unexpected_reconstruction(*_args, **_kwargs):
+        raise AssertionError("processing-only changes must not rerun reconstruction")
+
+    monkeypatch.setattr(
+        "map_reconstruction.ui.main_window.reconstruct_map", unexpected_reconstruction
+    )
+    window.transform_combo.setCurrentIndex(1)  # Absolute value
+
+    assert window.processed is not None
+    np.testing.assert_array_equal(window.result.values, raw_values)
+    np.testing.assert_array_equal(window.raw_curve.getData()[1], raw_before)
+    assert np.nanmin(window.processed.values) >= 0
+    window.close()

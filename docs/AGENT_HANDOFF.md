@@ -67,6 +67,14 @@
   (µA) consistently on trace, map, and distribution; all model and export
   arrays remain SI. `qc/distribution.py` is deliberately headless, while guide
   rendering is limited to 500 row references and 500 pixel starts per family.
+- Map value processing is implemented in the headless
+  `src/map_reconstruction/processing/` package. `ReconstructionResult.values`
+  remains raw and authoritative; `process_map()` returns immutable
+  `ProcessedMap` values, and `compute_color_limits()` only computes display
+  levels. Processing-only control changes reuse the existing reconstruction.
+  Custom transforms are evaluated by a restricted AST allowlist. Raw exports
+  remain SI and scientific-orientation arrays; processed exports are SI
+  processed arrays with a JSON configuration sidecar.
 - `src/keith_ivt/assets/happymeasure.png` and
   `src/map_reconstruction/assets/map_reconstruction.png` are the source window
   icons. Matching multi-resolution ICO files support Windows packaging; keep

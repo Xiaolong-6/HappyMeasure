@@ -5,8 +5,17 @@
 - Refined the optional Map Reconstruction Qt workspace with a light scientific
   theme, compact action header, sectioned inspector, empty states, QC summary
   rows, light PyQtGraph plots, and map/sample-count color scales. The importer,
-  dual-offset reconstruction, orientation, and exported array semantics are
-  unchanged.
+  dual-offset reconstruction, orientation, and raw exported array semantics
+  are unchanged.
+- Added an explicit Qt-free Map Values processing pipeline. Raw signed values
+  are the default; baseline subtraction, absolute/negate/custom transforms,
+  normalization, log10, and auto/percentile/manual color levels are explicit
+  choices. Color clipping and display-unit scaling never alter scientific map
+  arrays. Custom expressions use a restricted AST evaluator with no Python
+  execution or attribute access.
+- Map export now offers Raw, Processed, or Both. Processed exports remain in
+  scientific units and include a JSON sidecar with processing metadata; the
+  raw export remains the unmodified `ReconstructionResult.values` array.
 - Added distinct HappyMeasure and Map Reconstruction application icons. The
   HappyMeasure mark is also embedded in the Windows portable executable.
 - Hardened Map Reconstruction against stale or misleading output: invalid

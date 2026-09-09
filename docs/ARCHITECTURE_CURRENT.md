@@ -5,13 +5,23 @@ HappyMeasure is a simulator-first beta, with the application shell split into fo
 ## Standalone Map Reconstruction boundary
 
 `src/map_reconstruction/` is a separate optional application in the same
-repository. Its dependency direction is UI → methods/models/QC → NumPy, while
+repository. Its dependency direction is UI → methods/models/processing/QC → NumPy, while
 `importers/happymeasure.py` is the only initial coupling to HappyMeasure and
 only through the `single-v2` file format. The package must not import
 `keith_ivt` UI, sweep runners, serial drivers, hardware controllers, or
 HappyMeasure application state. Qt and PyQtGraph remain optional and are lazy
 from the `map_reconstruction` command entry point; the importer, numerical
 core, display-unit helpers, and QC calculations stay headless-testable.
+
+Map value processing lives in `src/map_reconstruction/processing/` and is a
+separate, Qt-free stage after `ReconstructionResult.values`. The raw
+reconstruction is never normalized, display-scaled, clipped, or overwritten.
+`process_map()` applies baseline subtraction, value transform, normalization,
+and optional log10 in that order; color limits are computed separately for
+display. The UI reuses an existing reconstruction when only processing or
+color settings change. Raw CSV export writes the authoritative reconstruction,
+while processed CSV export writes the scientific processed values and a JSON
+sidecar describing the configuration.
 
 ## Runtime layers
 

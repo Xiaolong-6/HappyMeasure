@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import map_reconstruction
+
 from map_reconstruction.models import (
     DualOffsetParams,
     ReconstructionResult,
@@ -72,3 +74,9 @@ def test_reconstruction_result_requires_matching_two_dimensional_arrays():
     timing = TimingSolution(1.0, 0.0, 0.1, 0.0)
     with pytest.raises(ValueError, match="matching 2-D"):
         ReconstructionResult(np.zeros(2), np.zeros((1, 2)), timing)
+
+
+def test_package_lazy_model_exports_and_missing_names() -> None:
+    assert map_reconstruction.TimeSeriesData is TimeSeriesData
+    with pytest.raises(AttributeError):
+        _ = map_reconstruction.not_an_export

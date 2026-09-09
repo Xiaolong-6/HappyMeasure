@@ -11,13 +11,16 @@ passed through the full validation script:
 
 Results:
 
-- 580 tests collected; 579 passed and 1 expected conditional skip
+- 600 tests collected; 599 passed and 1 expected conditional skip
 - combined `keith_ivt` + `map_reconstruction` coverage gate passed
 - compileall, legacy UI contracts, and the repository coverage gate passed
 - Black, Ruff, source mypy, and map-package compile checks passed
 - map UI regression tests cover synchronized signal switching, invalid-timing
   stale-state clearing, zero-valid-pixel empty state, point-period editing, and
-  guide decimation. The offscreen Qt smoke also rendered the revised layout.
+  guide decimation, plus processing-only reuse of the raw reconstruction. The
+  offscreen Qt smoke also rendered the revised layout.
+- the first full-suite attempt had one timing-sensitive PlotOptimizer failure;
+  the immediate rerun passed completely
 - no private source data, paths, metadata values, or observations were used or
   committed during this remediation
 

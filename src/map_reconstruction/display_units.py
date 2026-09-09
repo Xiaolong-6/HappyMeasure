@@ -20,14 +20,34 @@ class DisplayUnit:
         return f"{self.label} ({self.unit})" if self.unit else self.label
 
 
-def display_unit_for_signal(signal_name: str) -> DisplayUnit:
-    """Choose compact, explicit display units for standard HappyMeasure signals."""
+def display_unit_for_signal(signal_name: str, values: np.ndarray | None = None) -> DisplayUnit:
+    """Choose an engineering display unit without changing scientific values."""
 
     if signal_name == "Current_A":
-        return DisplayUnit("Current", "µA", 1e6)
+        return _engineering_unit(
+            "Current", "A", values, ("A", 1.0), ("mA", 1e3), ("µA", 1e6), ("nA", 1e9), ("pA", 1e12)
+        )
     if signal_name == "Voltage_V":
-        return DisplayUnit("Voltage", "V")
+        return _engineering_unit("Voltage", "V", values, ("V", 1.0), ("mV", 1e3), ("µV", 1e6))
     return DisplayUnit(signal_name or "Signal", "")
+
+
+def _engineering_unit(
+    label: str,
+    base_unit: str,
+    values: np.ndarray | None,
+    *candidates: tuple[str, float],
+) -> DisplayUnit:
+    if values is None:
+        # µA is a useful compatibility default for current traces; volts remain volts.
+        return DisplayUnit(label, "µA", 1e6) if base_unit == "A" else DisplayUnit(label, base_unit)
+    finite = np.asarray(values, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    magnitude = float(np.max(np.abs(finite))) if finite.size else 0.0
+    for unit, scale in candidates:
+        if magnitude * scale >= 1.0 or unit == candidates[-1][0]:
+            return DisplayUnit(label, unit, scale)
+    return DisplayUnit(label, base_unit)
 
 
 def to_display_values(values: np.ndarray, display_unit: DisplayUnit) -> np.ndarray:

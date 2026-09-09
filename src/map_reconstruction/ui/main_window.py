@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +26,17 @@ from map_reconstruction.models import (
     ReconstructionResult,
     ScanPattern,
     TimeSeriesData,
+)
+from map_reconstruction.processing import (
+    BaselineMode,
+    ColorRangeMode,
+    MapProcessingConfig,
+    NormalizationMode,
+    ProcessedMap,
+    ValueScale,
+    ValueTransform,
+    compute_color_limits,
+    process_map,
 )
 from map_reconstruction.qc.distribution import make_histogram_data
 from map_reconstruction.ui.style import (
@@ -51,6 +64,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.data: TimeSeriesData | None = None
         self.result: ReconstructionResult | None = None
         self.params: DualOffsetParams | None = None
+        self.processed: ProcessedMap | None = None
+        self.processing_config = MapProcessingConfig()
+        self._active_color_limits: tuple[float, float] | None = None
         self._loaded_filename: str | None = None
         self.anchor_lines: dict[str, pg.InfiniteLine] = {}
         self.guide_items: list[pg.InfiniteLine] = []
@@ -191,6 +207,106 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         registration_layout.addLayout(point_timing)
         controls_layout.addWidget(registration_section)
 
+        processing_section, processing_layout = self._inspector_section("MAP VALUES")
+        processing_form = QtWidgets.QFormLayout()
+        processing_form.setContentsMargins(0, 0, 0, 0)
+        processing_form.setHorizontalSpacing(12)
+        processing_form.setFieldGrowthPolicy(
+            QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
+        processing_form.setRowWrapPolicy(QtWidgets.QFormLayout.RowWrapPolicy.WrapLongRows)
+        self.transform_combo = self._enum_combo(
+            (
+                ("Raw signed", ValueTransform.RAW),
+                ("Absolute value", ValueTransform.ABSOLUTE),
+                ("Negate", ValueTransform.NEGATE),
+                ("Custom expression", ValueTransform.CUSTOM),
+            )
+        )
+        self.baseline_combo = self._enum_combo(
+            (
+                ("None", BaselineMode.NONE),
+                ("Manual", BaselineMode.MANUAL),
+                ("Mean", BaselineMode.MEAN),
+                ("Median", BaselineMode.MEDIAN),
+                ("Minimum", BaselineMode.MINIMUM),
+                ("Maximum", BaselineMode.MAXIMUM),
+                ("Percentile", BaselineMode.PERCENTILE),
+            )
+        )
+        self.normalization_combo = self._enum_combo(
+            (
+                ("None", NormalizationMode.NONE),
+                ("Max magnitude", NormalizationMode.MAX_MAGNITUDE),
+                ("Min-max", NormalizationMode.MIN_MAX),
+                ("Reference", NormalizationMode.REFERENCE),
+            )
+        )
+        self.scale_combo = self._enum_combo(
+            (("Linear", ValueScale.LINEAR), ("Log10", ValueScale.LOG10))
+        )
+        self.color_range_combo = self._enum_combo(
+            (
+                ("Auto data range", ColorRangeMode.AUTO),
+                ("Percentile", ColorRangeMode.PERCENTILE),
+                ("Manual", ColorRangeMode.MANUAL),
+            )
+        )
+        self.baseline_value_spin = self._value_spin()
+        self.baseline_percentile_spin = self._percent_spin(50.0)
+        self.custom_expression_edit = QtWidgets.QLineEdit("x")
+        self.custom_expression_edit.setPlaceholderText("e.g. abs(x) * 2")
+        self.normalization_reference_spin = self._value_spin()
+        self.percentile_low_spin = self._percent_spin(1.0)
+        self.percentile_high_spin = self._percent_spin(99.0)
+        self.color_min_spin = self._value_spin()
+        self.color_max_spin = self._value_spin()
+        self._processing_field_rows: dict[str, tuple[QtWidgets.QLabel, QtWidgets.QWidget]] = {}
+        self._add_processing_row(processing_form, "Value", self.transform_combo)
+        self._add_processing_row(processing_form, "Baseline", self.baseline_combo)
+        self._add_processing_row(processing_form, "Normalization", self.normalization_combo)
+        self._add_processing_row(processing_form, "Scale", self.scale_combo)
+        self._add_processing_row(processing_form, "Color limits", self.color_range_combo)
+        self._add_processing_row(
+            processing_form, "Baseline value", self.baseline_value_spin, "baseline_value"
+        )
+        self._add_processing_row(
+            processing_form,
+            "Baseline percentile",
+            self.baseline_percentile_spin,
+            "baseline_percentile",
+        )
+        self._add_processing_row(
+            processing_form, "f(x)", self.custom_expression_edit, "custom_expression"
+        )
+        self._add_processing_row(
+            processing_form,
+            "Normalization reference",
+            self.normalization_reference_spin,
+            "normalization_reference",
+        )
+        self._add_processing_row(
+            processing_form, "Low percentile", self.percentile_low_spin, "color_percentile"
+        )
+        self._add_processing_row(
+            processing_form, "High percentile", self.percentile_high_spin, "color_percentile"
+        )
+        self._add_processing_row(
+            processing_form, "Color minimum", self.color_min_spin, "color_manual"
+        )
+        self._add_processing_row(
+            processing_form, "Color maximum", self.color_max_spin, "color_manual"
+        )
+        processing_layout.addLayout(processing_form)
+        self.processing_summary = QtWidgets.QLabel("Raw signed values · linear")
+        self.processing_summary.setObjectName("processingSummary")
+        self.processing_summary.setWordWrap(True)
+        processing_layout.addWidget(self.processing_summary)
+        reset_processing = QtWidgets.QPushButton("Reset processing")
+        reset_processing.clicked.connect(self._reset_processing)
+        processing_layout.addWidget(reset_processing)
+        controls_layout.addWidget(processing_section)
+
         reconstruction_section, reconstruction_layout = self._inspector_section("RECONSTRUCTION")
         self.timing_label = QtWidgets.QLabel("Timing valid: —")
         self.timing_label.setObjectName("fieldLabel")
@@ -313,7 +429,30 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.point_period_spin.editingFinished.connect(self._point_period_finished)
         for spin in (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin):
             spin.editingFinished.connect(self._anchor_spin_finished)
+        for combo in (
+            self.transform_combo,
+            self.baseline_combo,
+            self.normalization_combo,
+            self.scale_combo,
+            self.color_range_combo,
+        ):
+            combo.currentIndexChanged.connect(self._processing_controls_changed)
+        for widget in (
+            self.baseline_value_spin,
+            self.baseline_percentile_spin,
+            self.custom_expression_edit,
+            self.normalization_reference_spin,
+            self.percentile_low_spin,
+            self.percentile_high_spin,
+            self.color_min_spin,
+            self.color_max_spin,
+        ):
+            if isinstance(widget, QtWidgets.QLineEdit):
+                widget.editingFinished.connect(self._processing_controls_changed)
+            else:
+                widget.editingFinished.connect(self._processing_controls_changed)
 
+        self._update_processing_fields()
         self._set_loaded_view(False)
 
     def _build_header(self, layout: QtWidgets.QVBoxLayout) -> None:
@@ -339,7 +478,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.open_button.setObjectName("primaryAction")
         self.open_button.clicked.connect(self._choose_file)
         self.export_button = QtWidgets.QPushButton("Export Map")
-        self.export_button.clicked.connect(self._export_map)
+        export_menu = QtWidgets.QMenu(self.export_button)
+        export_menu.addAction("Raw reconstructed map", self._export_raw_map)
+        export_menu.addAction("Processed map", self._export_processed_map)
+        export_menu.addAction("Both", self._export_both_maps)
+        self.export_button.setMenu(export_menu)
+        self.export_button.clicked.connect(self._export_raw_map)
         self.export_button.setEnabled(False)
         header_layout.addWidget(self.open_button)
         header_layout.addWidget(self.export_button)
@@ -388,6 +532,46 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         spin.setKeyboardTracking(False)
         spin.setMinimumWidth(84)
         return spin
+
+    @staticmethod
+    def _value_spin() -> QtWidgets.QDoubleSpinBox:
+        spin = QtWidgets.QDoubleSpinBox()
+        spin.setDecimals(12)
+        spin.setRange(-1e15, 1e15)
+        spin.setSingleStep(1.0)
+        spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons)
+        spin.setKeyboardTracking(False)
+        spin.setMinimumWidth(84)
+        return spin
+
+    @staticmethod
+    def _percent_spin(value: float) -> QtWidgets.QDoubleSpinBox:
+        spin = MapReconstructionWindow._value_spin()
+        spin.setRange(0.0, 100.0)
+        spin.setSingleStep(1.0)
+        spin.setValue(value)
+        spin.setSuffix(" %")
+        return spin
+
+    @staticmethod
+    def _enum_combo(items: tuple[tuple[str, object], ...]) -> QtWidgets.QComboBox:
+        combo = QtWidgets.QComboBox()
+        for label, value in items:
+            combo.addItem(label, value)
+        return combo
+
+    def _add_processing_row(
+        self,
+        form: QtWidgets.QFormLayout,
+        label: str,
+        widget: QtWidgets.QWidget,
+        key: str | None = None,
+    ) -> None:
+        label_widget = QtWidgets.QLabel(label)
+        label_widget.setObjectName("fieldLabel")
+        form.addRow(label_widget, widget)
+        if key is not None:
+            self._processing_field_rows[key] = (label_widget, widget)
 
     @staticmethod
     def _offset_slider() -> QtWidgets.QSlider:
@@ -566,6 +750,120 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._clear_distribution()
         self.export_button.setEnabled(loaded and self.result is not None)
 
+    def _update_processing_fields(self) -> None:
+        baseline_mode = self._processing_enum(self.baseline_combo, BaselineMode)
+        transform = self._processing_enum(self.transform_combo, ValueTransform)
+        normalization = self._processing_enum(self.normalization_combo, NormalizationMode)
+        color_range = self._processing_enum(self.color_range_combo, ColorRangeMode)
+        self._set_processing_row_visible("baseline_value", baseline_mode is BaselineMode.MANUAL)
+        self._set_processing_row_visible(
+            "baseline_percentile", baseline_mode is BaselineMode.PERCENTILE
+        )
+        self._set_processing_row_visible("custom_expression", transform is ValueTransform.CUSTOM)
+        self._set_processing_row_visible(
+            "normalization_reference", normalization is NormalizationMode.REFERENCE
+        )
+        self._set_processing_row_visible(
+            "color_percentile", color_range is ColorRangeMode.PERCENTILE
+        )
+        self._set_processing_row_visible("color_manual", color_range is ColorRangeMode.MANUAL)
+        unit = self._raw_display_unit()
+        dimensionless = (
+            transform is ValueTransform.CUSTOM
+            or normalization is not NormalizationMode.NONE
+            or self._processing_enum(self.scale_combo, ValueScale) is ValueScale.LOG10
+        )
+        color_unit = DisplayUnit(unit.label, "", 1.0) if dimensionless else unit
+        for key in ("baseline_value", "normalization_reference", "color_min", "color_max"):
+            row = self._processing_field_rows.get(key)
+            if row is not None:
+                selected_unit = color_unit if key in {"color_min", "color_max"} else unit
+                row[0].setText(
+                    {
+                        "baseline_value": "Baseline value",
+                        "normalization_reference": "Normalization reference",
+                        "color_min": "Color minimum",
+                        "color_max": "Color maximum",
+                    }[key]
+                    + (f" ({selected_unit.unit})" if selected_unit.unit else "")
+                )
+
+    def _set_processing_row_visible(self, key: str, visible: bool) -> None:
+        row = self._processing_field_rows.get(key)
+        if row is None:
+            return
+        row[0].setVisible(visible)
+        row[1].setVisible(visible)
+
+    def _raw_display_unit(self) -> DisplayUnit:
+        if self.data is None:
+            return display_unit_for_signal(self.signal_combo.currentText())
+        return display_unit_for_signal(
+            self.signal_combo.currentText(), self.data.signals.get(self.signal_combo.currentText())
+        )
+
+    def _processing_display_scale(self) -> float:
+        if self._processing_enum(self.transform_combo, ValueTransform) is ValueTransform.CUSTOM:
+            return 1.0
+        if (
+            self._processing_enum(self.normalization_combo, NormalizationMode)
+            is not NormalizationMode.NONE
+        ):
+            return 1.0
+        if self._processing_enum(self.scale_combo, ValueScale) is ValueScale.LOG10:
+            return 1.0
+        return self._raw_display_unit().scale
+
+    @staticmethod
+    def _processing_enum(combo: QtWidgets.QComboBox, enum_type: type) -> object:
+        return enum_type(combo.currentData())
+
+    def _processing_config(self) -> MapProcessingConfig:
+        raw_scale = self._raw_display_unit().scale
+        processed_scale = self._processing_display_scale()
+        return MapProcessingConfig(
+            baseline_mode=self._processing_enum(self.baseline_combo, BaselineMode),
+            baseline_value=(self.baseline_value_spin.value() / raw_scale),
+            baseline_percentile=self.baseline_percentile_spin.value(),
+            transform=self._processing_enum(self.transform_combo, ValueTransform),
+            custom_expression=self.custom_expression_edit.text().strip() or "x",
+            normalization=self._processing_enum(self.normalization_combo, NormalizationMode),
+            normalization_reference=(self.normalization_reference_spin.value() / raw_scale),
+            value_scale=self._processing_enum(self.scale_combo, ValueScale),
+            color_range_mode=self._processing_enum(self.color_range_combo, ColorRangeMode),
+            color_min=(self.color_min_spin.value() / processed_scale),
+            color_max=(self.color_max_spin.value() / processed_scale),
+            percentile_low=self.percentile_low_spin.value(),
+            percentile_high=self.percentile_high_spin.value(),
+        )
+
+    def _processing_controls_changed(self, *_args: object) -> None:
+        self._update_processing_fields()
+        if self.result is not None:
+            self._process_and_display()
+
+    def _reset_processing(self) -> None:
+        widgets = (
+            self.transform_combo,
+            self.baseline_combo,
+            self.normalization_combo,
+            self.scale_combo,
+            self.color_range_combo,
+        )
+        for combo in widgets:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(0)
+            combo.blockSignals(False)
+        self.baseline_value_spin.setValue(0.0)
+        self.baseline_percentile_spin.setValue(50.0)
+        self.custom_expression_edit.setText("x")
+        self.normalization_reference_spin.setValue(1.0)
+        self.percentile_low_spin.setValue(1.0)
+        self.percentile_high_spin.setValue(99.0)
+        self.color_min_spin.setValue(0.0)
+        self.color_max_spin.setValue(1.0)
+        self._processing_controls_changed()
+
     def _choose_file(self) -> None:
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -585,6 +883,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.data = data
         self.result = None
         self.params = None
+        self.processed = None
+        self._active_color_limits = None
         self._loaded_filename = path.name
         self._refresh_file_label()
         self.header_subtitle.setText("Loaded time-series data")
@@ -596,6 +896,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.signal_combo.blockSignals(False)
         self._set_anchor_bounds(data)
         self._set_raw_signal(preferred)
+        self._update_processing_fields()
         self._create_anchor_lines()
         self._set_loaded_view(True)
         self._reconstruct()
@@ -620,12 +921,17 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._refresh_file_label()
 
     def _current_display_unit(self) -> DisplayUnit:
-        return display_unit_for_signal(self.signal_combo.currentText())
+        if self.processed is not None and self.processed.is_dimensionless:
+            return DisplayUnit(self.processed.value_label, "", 1.0)
+        if self.processed is not None:
+            raw_unit = self._raw_display_unit()
+            return DisplayUnit(self.processed.value_label, raw_unit.unit, raw_unit.scale)
+        return self._raw_display_unit()
 
     def _set_raw_signal(self, signal_name: str) -> None:
         if self.data is None or signal_name not in self.data.signals:
             return
-        display_unit = display_unit_for_signal(signal_name)
+        display_unit = display_unit_for_signal(signal_name, self.data.signals[signal_name])
         self.raw_curve.setData(
             self.data.time_s,
             to_display_values(self.data.signals[signal_name], display_unit),
@@ -638,6 +944,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if self.data is None:
             return
         self._set_raw_signal(signal_name)
+        self._update_processing_fields()
         self._reconstruct()
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
@@ -796,9 +1103,10 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         self.qc_values["Valid pixels"].setText(f"{valid_percent:.0f} %")
         self.qc_values["Median samples/pixel"].setText(f"{median_samples:.3g}")
-        self._update_value_axis_labels()
         if not np.any(finite):
             self.result = None
+            self.processed = None
+            self._active_color_limits = None
             warnings = ["No valid pixels for current timing.", *result.warnings]
             self.qc_label.setText(" | ".join(warnings))
             self.qc_label.setVisible(True)
@@ -817,39 +1125,98 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             return
 
         self.result = result
-        self.qc_label.setText(" | ".join(result.warnings))
-        self.qc_label.setVisible(bool(result.warnings))
-        self._set_image(
-            self.map_plot,
-            self.map_image,
-            result.values,
-            display_unit=self._current_display_unit(),
-        )
+        self._process_and_display()
         self.map_stack.setCurrentIndex(1)
         self._set_image(self.count_plot, self.count_image, result.sample_counts)
         self.count_stack.setCurrentIndex(1)
-        self._update_distribution(result)
         self._update_guides(result)
-        self.export_button.setEnabled(True)
-        self.statusBar().showMessage("Map reconstructed.")
+        if self.processed is not None:
+            self.statusBar().showMessage("Map reconstructed.")
 
-    def _update_value_axis_labels(self) -> None:
-        """Keep raw, map, and distribution axes in the same display units."""
+    def _update_value_axis_labels(self, label: str | None = None) -> None:
+        """Keep raw, map, and distribution axes in the current display units."""
 
-        label = self._current_display_unit().axis_label
-        self.map_color_bar.setLabel("right", label)
+        label = label or self._current_display_unit().axis_label
+        self.map_color_bar.setLabel("right", label, enableAutoSIPrefix=False)
+        self.map_color_bar.getAxis("right").enableAutoSIPrefix(False)
         self.distribution_plot.setLabel("bottom", label, color=SECONDARY_TEXT)
-        self.raw_plot.setLabel("left", label, color=SECONDARY_TEXT)
+        self.raw_plot.setLabel("left", self._raw_display_unit().axis_label, color=SECONDARY_TEXT)
 
-    def _update_distribution(self, result: ReconstructionResult) -> None:
-        """Render finite scientific map values without display-orientation transforms."""
+    def _processed_display_unit(self, processed: ProcessedMap) -> DisplayUnit:
+        if processed.is_dimensionless:
+            return DisplayUnit(processed.value_label, "", 1.0)
+        raw_unit = self._raw_display_unit()
+        return DisplayUnit(processed.value_label, raw_unit.unit, raw_unit.scale)
 
-        histogram = make_histogram_data(result.values)
+    def _process_and_display(self) -> None:
+        if self.result is None or self.data is None:
+            return
+        try:
+            config = self._processing_config()
+            processed = process_map(
+                self.result.values,
+                config,
+                self.signal_combo.currentText(),
+            )
+            limits = compute_color_limits(processed.values, config)
+        except ValueError as exc:
+            self.processed = None
+            self._active_color_limits = None
+            self._show_empty_panel(self.map_stack, "Processing unavailable", str(exc))
+            self.map_image.clear()
+            self._clear_distribution()
+            self.qc_label.setText(str(exc))
+            self.qc_label.setVisible(True)
+            self.export_button.setEnabled(self.result is not None)
+            self.statusBar().showMessage(str(exc))
+            return
+
+        self.processing_config = config
+        self.processed = processed
+        display_unit = self._processed_display_unit(processed)
+        self.processing_summary.setText(
+            f"{processed.value_label} - {config.value_scale.value}"
+            + (f" - {len(processed.warnings)} warning(s)" if processed.warnings else "")
+        )
+        warnings = [*self.result.warnings, *processed.warnings]
+        self.qc_label.setText(" | ".join(warnings))
+        self.qc_label.setVisible(bool(warnings))
+        self._update_value_axis_labels(display_unit.axis_label)
+        if limits is None:
+            self._active_color_limits = None
+            self._show_empty_panel(
+                self.map_stack, "No finite processed values", "Adjust processing settings."
+            )
+            self.map_image.clear()
+        else:
+            display_limits = (
+                limits.minimum * display_unit.scale,
+                limits.maximum * display_unit.scale,
+            )
+            self._active_color_limits = display_limits
+            self._set_image(
+                self.map_plot,
+                self.map_image,
+                processed.values,
+                display_unit=display_unit,
+                levels=display_limits,
+            )
+            self.map_stack.setCurrentIndex(1)
+            self.map_color_bar.setLevels(display_limits)
+        self._update_distribution_processed(processed, display_unit)
+        self.export_button.setEnabled(bool(np.isfinite(processed.values).any()))
+        self.statusBar().showMessage("Map values processed.")
+
+    def _update_distribution_processed(
+        self, processed: ProcessedMap, display_unit: DisplayUnit
+    ) -> None:
+        """Render finite processed values without display-orientation transforms."""
+
+        histogram = make_histogram_data(processed.values)
         if histogram is None:
             self._clear_distribution()
             return
 
-        display_unit = self._current_display_unit()
         self.distribution_bars.setOpts(
             x0=to_display_values(histogram.edges[:-1], display_unit),
             x1=to_display_values(histogram.edges[1:], display_unit),
@@ -875,6 +1242,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         values: np.ndarray,
         *,
         display_unit: DisplayUnit | None = None,
+        levels: tuple[float, float] | None = None,
     ) -> bool:
         display = np.asarray(values, dtype=float)
         if display_unit is not None:
@@ -884,7 +1252,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if not np.isfinite(display).any():
             image.clear()
             return False
-        image.setImage(display, autoLevels=True)
+        image.setImage(display, autoLevels=levels is None, levels=levels)
         plot.enableAutoRange()
         return True
 
@@ -919,6 +1287,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
         self.result = None
         self.params = None
+        self.processed = None
+        self._active_color_limits = None
         self.timing_label.setText("Timing valid: no")
         for value in self.qc_values.values():
             value.setText("—")
@@ -972,15 +1342,15 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.count_plot.enableAutoRange()
         self.distribution_plot.enableAutoRange()
 
-    def _export_map(self) -> None:
+    def _export_raw_map(self) -> None:
         if self.result is None or self.data is None:
             QtWidgets.QMessageBox.information(
                 self, "No map", "Load a CSV and reconstruct a map first."
             )
             return
-        default = f"{self.data.source_path.stem if self.data.source_path else 'map'}_map.csv"
+        default = f"{self.data.source_path.stem if self.data.source_path else 'map'}_map_raw.csv"
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Export reconstructed map", default, "CSV files (*.csv);;All files (*.*)"
+            self, "Export raw reconstructed map", default, "CSV files (*.csv);;All files (*.*)"
         )
         if not path:
             return
@@ -989,7 +1359,66 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except OSError as exc:
             QtWidgets.QMessageBox.critical(self, "Export failed", str(exc))
             return
-        self.statusBar().showMessage(f"Exported map to {path}")
+        self.statusBar().showMessage(f"Exported raw map to {path}")
+
+    def _export_processed_map(self) -> None:
+        if (
+            self.data is None
+            or self.processed is None
+            or not np.isfinite(self.processed.values).any()
+        ):
+            QtWidgets.QMessageBox.information(
+                self,
+                "No processed map",
+                "Apply valid processing settings to a reconstructed map first.",
+            )
+            return
+        default = (
+            f"{self.data.source_path.stem if self.data.source_path else 'map'}_map_processed.csv"
+        )
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export processed map", default, "CSV files (*.csv);;All files (*.*)"
+        )
+        if not path:
+            return
+        try:
+            np.savetxt(path, self.processed.values, delimiter=",", fmt="%.12g")
+            sidecar = Path(path).with_suffix(".json")
+            sidecar.write_text(
+                json.dumps(self._processed_export_metadata(), indent=2), encoding="utf-8"
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            QtWidgets.QMessageBox.critical(self, "Export failed", str(exc))
+            return
+        self.statusBar().showMessage(f"Exported processed map to {path}")
+
+    def _export_both_maps(self) -> None:
+        self._export_raw_map()
+        if self.result is not None:
+            self._export_processed_map()
+
+    def _processed_export_metadata(self) -> dict[str, object]:
+        config = self.processing_config
+        config_payload = {
+            key: (value.value if hasattr(value, "value") else value)
+            for key, value in asdict(config).items()
+        }
+        raw_unit = self._raw_display_unit()
+        return {
+            "source_signal": self.signal_combo.currentText(),
+            "baseline_used_si": self.processed.baseline_used if self.processed else None,
+            "processing": config_payload,
+            "processing_warnings": list(self.processed.warnings) if self.processed else [],
+            "value_label": self.processed.value_label if self.processed else "",
+            "raw_physical_unit": raw_unit.unit,
+            "dimensionless": bool(self.processed.is_dimensionless) if self.processed else False,
+            "display_color_limits": self._active_color_limits,
+        }
+
+    def _export_map(self) -> None:
+        """Backward-compatible raw-export entry point for older UI automation."""
+
+        self._export_raw_map()
 
 
 def run_app(path: Path | None = None) -> int:
