@@ -112,6 +112,7 @@ def test_project_archive_has_schema_and_preserves_raw_csv_bytes(tmp_path: Path) 
     assert payload["source"]["sha256"] == hashlib.sha256(raw).hexdigest()
     assert payload["source"]["original_filename"] == "measurement.csv"
     assert "C:" not in json.dumps(payload)
+    assert payload["registration"]["point_offset"] == 2
 
 
 def test_phase_window_v2_project_round_trip_preserves_explicit_registration(tmp_path: Path) -> None:
@@ -131,7 +132,19 @@ def test_phase_window_v2_project_round_trip_preserves_explicit_registration(tmp_
     loaded = load_project(project)
 
     assert loaded.project_metadata["schema"] == PROJECT_SCHEMA_V2
-    assert loaded.state == state
+    assert loaded.state == replace(state, point_offset=0)
+    registration = loaded.project_metadata["registration"]
+    assert {
+        "y_phase_fraction",
+        "x_period_offset",
+        "x_phase_fraction",
+        "window_mode",
+        "window_fraction",
+        "window_duration_s",
+    }.issubset(registration)
+    assert "point_offset" not in registration
+    assert "legacy_inclusive_right" not in registration
+    assert "legacy_pixel1_phase_s" not in registration
 
 
 def test_project_round_trip_restores_scientific_state_and_processing(tmp_path: Path) -> None:
@@ -252,6 +265,28 @@ def test_parameter_summary_uses_compact_anchor_names_and_partial_placeholders() 
     assert "Row period: —" in summary
     assert "Point period: —" in summary
     assert "C:\\Users" not in summary
+
+
+def test_phase_window_parameter_summary_uses_only_canonical_controls() -> None:
+    state = replace(
+        _state(),
+        method="dual_offset_phase_window",
+        y_phase_fraction=0.274,
+        x_period_offset=2,
+        x_phase_fraction=0.320,
+        window_mode="fixed_duration",
+        window_duration_s=0.18,
+    )
+    summary = format_parameter_summary(state, result=_result())
+
+    assert "Method: Dual Offset — Phase Window" in summary
+    assert "Y phase: 27.4 % (27.4 ms)" in summary
+    assert "X offset: 2" in summary
+    assert "X phase: 32.0 % (8.0 ms)" in summary
+    assert "Window mode: Fixed duration" in summary
+    assert "Window width: 0.1800 s" in summary
+    assert "Point offset:" not in summary
+    assert "Point-train slack / row:" in summary
 
 
 def test_parameter_summary_shows_only_active_processing_values_and_si_units() -> None:

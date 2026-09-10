@@ -26,9 +26,11 @@ def application():
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
-def _window_with_valid_reconstruction(application) -> MapReconstructionWindow:
+def _window_with_valid_reconstruction(
+    application, *, phase_conversion_safe: bool = False
+) -> MapReconstructionWindow:
     window = MapReconstructionWindow()
-    time = np.linspace(0.0, 10.0, 10_001)
+    time = np.arange(0.013, 10.0, 0.01) if phase_conversion_safe else np.linspace(0.0, 10.0, 10_001)
     current = 1e-6 * np.sin(time)
     voltage = np.cos(time)
     window.data = TimeSeriesData(time_s=time, signals={"Current_A": current, "Voltage_V": voltage})
@@ -309,6 +311,11 @@ def test_timing_controls_use_native_buttons_and_explain_anchor_semantics(applica
     assert window.point_a_spin.decimals() == 3
     assert window.point_b_spin.decimals() == 3
     assert window.point_period_spin.decimals() == 4
+    for spin in (window.y_phase_spin, window.x_phase_spin):
+        assert spin.decimals() == 1
+        assert spin.singleStep() == pytest.approx(0.1)
+        assert spin.maximum() == pytest.approx(99.9)
+        assert spin.buttonSymbols() is QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows
     assert "T_row = (YB - YA) / Rows apart" in window.rows_apart_spin.toolTip()
     assert "T_point = (XB - XA) / Points apart" in window.points_apart_spin.toolTip()
     labels = {label.text(): label for label in window.inspector.findChildren(QtWidgets.QLabel)}
@@ -725,16 +732,47 @@ def test_phase_window_selector_updates_bands_markers_and_sampling_qc(application
         window.close()
 
 
-def test_explicit_legacy_conversion_preserves_current_reconstruction(application) -> None:
+def test_method_selector_hides_full_legacy_rows_for_phase_window(application) -> None:
     window = _window_with_valid_reconstruction(application)
-    assert window.result is not None
-    values = window.result.values.copy()
-    counts = window.result.sample_counts.copy()
+    try:
+        assert window.inspector.point_timing_form.isRowVisible(
+            window.inspector.point_offset_control
+        )
+        assert not window.inspector.row_timing_form.isRowVisible(window.y_phase_spin)
+        assert not window.inspector.point_timing_form.isRowVisible(window.x_phase_spin)
+        window.method_combo.setCurrentIndex(
+            window.method_combo.findData("dual_offset_phase_window")
+        )
+        assert not window.inspector.point_timing_form.isRowVisible(
+            window.inspector.point_offset_control
+        )
+        assert window.inspector.row_timing_form.isRowVisible(window.y_phase_spin)
+        assert window.inspector.point_timing_form.isRowVisible(window.x_phase_spin)
+    finally:
+        window.close()
+
+
+def test_explicit_legacy_conversion_refuses_endpoint_mismatch(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    try:
+        window.inspector.convert_phase_button.click()
+        assert window.method_combo.currentData() == "dual_offset"
+        assert "could not reproduce" in window.inspector.qc_label.text()
+    finally:
+        window.close()
+
+
+def test_converted_phase_window_edits_move_overlay_bounds(application) -> None:
+    window = _window_with_valid_reconstruction(application, phase_conversion_safe=True)
     try:
         window.inspector.convert_phase_button.click()
         assert window.method_combo.currentData() == "dual_offset_phase_window"
-        assert window.result is not None
-        np.testing.assert_allclose(window.result.values, values, equal_nan=True)
-        np.testing.assert_array_equal(window.result.sample_counts, counts)
+        original = tuple(window.trace_view.phase_window_items[0].getRegion())
+        window.x_phase_spin.setValue(window.x_phase_spin.value() + 0.1)
+        shifted = tuple(window.trace_view.phase_window_items[0].getRegion())
+        assert shifted != original
+        window.window_fraction_spin.setValue(50.0)
+        narrower = tuple(window.trace_view.phase_window_items[0].getRegion())
+        assert narrower[1] - narrower[0] < shifted[1] - shifted[0]
     finally:
         window.close()

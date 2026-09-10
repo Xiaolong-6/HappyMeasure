@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
 from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.methods.phase_window import (
     convert_legacy_to_phase_window,
+    effective_window_bounds,
     reconstruct_phase_window_map,
     solve_phase_window_timing,
     window_bounds,
@@ -173,3 +176,30 @@ def test_legacy_conversion_reproduces_legacy_windows_and_values(
     np.testing.assert_allclose(phase_window.values, legacy.values, equal_nan=True)
     np.testing.assert_array_equal(phase_window.sample_counts, legacy.sample_counts)
     assert converted.timing.window_width_s == pytest.approx(0.65)
+
+
+def test_converted_phase_window_remains_fully_editable() -> None:
+    legacy = DualOffsetParams(
+        rows=2,
+        cols=4,
+        row_a_s=10.0,
+        row_b_s=30.0,
+        rows_apart=2,
+        row_offset=0,
+        point_a_s=2.0,
+        point_b_s=5.0,
+        points_apart=3,
+        point_offset=0,
+    )
+    conversion = convert_legacy_to_phase_window(legacy)
+    original = effective_window_bounds(conversion.params, conversion.timing)
+
+    shifted = replace(conversion.params, x_phase_fraction=0.55)
+    shifted_bounds = effective_window_bounds(shifted, solve_phase_window_timing(shifted))
+    assert not np.array_equal(shifted_bounds, original)
+
+    narrower = replace(conversion.params, window_fraction=0.50)
+    narrower_bounds = effective_window_bounds(narrower, solve_phase_window_timing(narrower))
+    assert np.all(
+        narrower_bounds[..., 1] - narrower_bounds[..., 0] < original[..., 1] - original[..., 0]
+    )

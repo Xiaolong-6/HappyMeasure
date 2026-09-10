@@ -196,7 +196,6 @@ class TraceView(QtWidgets.QStackedWidget):
         time_s: np.ndarray,
         values: np.ndarray,
         display_unit: DisplayUnit,
-        inclusive_right: bool = False,
     ) -> None:
         """Render decimated core bounds and exactly their selected samples."""
 
@@ -223,7 +222,7 @@ class TraceView(QtWidgets.QStackedWidget):
             self.plot.addItem(band)
             self.phase_window_items.append(band)
             first = int(np.searchsorted(time_s, left, side="left"))
-            last = int(np.searchsorted(time_s, right, side="right" if inclusive_right else "left"))
+            last = int(np.searchsorted(time_s, right, side="left"))
             selected_times.append(time_s[first:last])
             selected_values.append(values[first:last])
         if selected_times:

@@ -90,26 +90,9 @@ def window_bounds(timing: PhaseWindowTimingSolution, rows: int, cols: int) -> np
 def effective_window_bounds(
     params: PhaseWindowParams, timing: PhaseWindowTimingSolution
 ) -> np.ndarray:
-    """Return the exact core bounds, including explicit Legacy conversion parity."""
+    """Return the canonical ``[start, end)`` bounds used by the core."""
 
-    bounds = window_bounds(timing, params.rows, params.cols)
-    if params.legacy_inclusive_right and params.legacy_pixel1_phase_s is not None:
-        row_bases = (
-            timing.row0_s + np.arange(params.rows, dtype=float)[:, None] * timing.row_period_s
-        )
-        pixel_starts = (
-            row_bases
-            + params.legacy_pixel1_phase_s
-            + np.arange(params.cols, dtype=float)[None, :] * timing.point_period_s
-        )
-        return np.stack(
-            (
-                pixel_starts + WINDOW_LEFT_FRACTION * timing.point_period_s,
-                pixel_starts + WINDOW_RIGHT_FRACTION * timing.point_period_s,
-            ),
-            axis=-1,
-        )
-    return bounds
+    return window_bounds(timing, params.rows, params.cols)
 
 
 def reconstruct_phase_window_map(
@@ -134,11 +117,7 @@ def reconstruct_phase_window_map(
         for column in range(params.cols):
             left, right = bounds[row, column]
             first = int(np.searchsorted(data.time_s, left, side="left"))
-            last = int(
-                np.searchsorted(
-                    data.time_s, right, side="right" if params.legacy_inclusive_right else "left"
-                )
-            )
+            last = int(np.searchsorted(data.time_s, right, side="left"))
             samples = signal[first:last]
             counts[row, column] = samples.size
             if samples.size:
@@ -185,10 +164,6 @@ def convert_legacy_to_phase_window(params: DualOffsetParams) -> PhaseWindowConve
         x_phase_fraction=x_phase,
         window_mode=WindowMode.FRACTION,
         window_fraction=WINDOW_RIGHT_FRACTION - WINDOW_LEFT_FRACTION,
-        # Retain the frozen Legacy endpoint semantics only for an explicit
-        # conversion. New Phase Window configurations always use [start, end).
-        legacy_inclusive_right=True,
-        legacy_pixel1_phase_s=legacy.pixel1_phase_s,
         scan_pattern=params.scan_pattern,
         first_row_ltr=params.first_row_ltr,
         aggregation=Aggregation.MEDIAN if params.use_median else Aggregation.MEAN,

@@ -579,9 +579,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.window_fraction_spin.setValue(conversion.params.window_fraction * 100.0)
         finally:
             del blockers
-        self.inspector.set_legacy_phase_compatibility(
-            conversion.params.legacy_inclusive_right, conversion.params.legacy_pixel1_phase_s
-        )
         self.inspector._update_phase_window_fields()
         self._reconstruct()
         self.statusBar().showMessage(
@@ -662,7 +659,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 self.data.time_s,
                 self.data.signals[self.signal_combo.currentText()],
                 self._raw_display_unit(),
-                self.params.legacy_inclusive_right,
             )
             return
         assert isinstance(timing, TimingSolution)
@@ -695,13 +691,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _project_state(self) -> ProjectState:
         config = self._processing_config()
-        phase_params = (
-            self.inspector.current_params()
-            if self.rows_spin.value() > 0
-            and self.cols_spin.value() > 0
-            and self.method_combo.currentData() == "dual_offset_phase_window"
-            else None
-        )
         return ProjectState(
             original_filename=self._loaded_filename or "measurement.csv",
             signal=self.signal_combo.currentText(),
@@ -729,16 +718,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             window_duration_s=(
                 self.window_duration_spin.value()
                 if WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
-                else None
-            ),
-            legacy_inclusive_right=(
-                phase_params.legacy_inclusive_right
-                if isinstance(phase_params, PhaseWindowParams)
-                else False
-            ),
-            legacy_pixel1_phase_s=(
-                phase_params.legacy_pixel1_phase_s
-                if isinstance(phase_params, PhaseWindowParams)
                 else None
             ),
         )

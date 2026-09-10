@@ -36,6 +36,7 @@ Projects remain compatible:
 
 - `map-reconstruction-project-v1` always opens as `Dual Offset (Legacy)`.
 - `map-reconstruction-project-v2` records Phase Window parameters explicitly.
-- Conversion from Legacy is an explicit UI action. It verifies values and
-  counts before applying; its compatibility metadata preserves the frozen
-  Legacy endpoint inclusion only for that converted project.
+- Conversion from Legacy is an explicit UI action. It is accepted only when
+  canonical Phase Window parameters reproduce the current Legacy values and
+  sample counts. If Legacy endpoint inclusion or nearest-sample fallback
+  prevents exact parity, conversion is refused and the project remains Legacy.

@@ -111,8 +111,6 @@ class ProjectState:
     window_mode: WindowMode = WindowMode.FRACTION
     window_fraction: float = 0.65
     window_duration_s: float | None = None
-    legacy_inclusive_right: bool = False
-    legacy_pixel1_phase_s: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "original_filename", _filename(self.original_filename))
@@ -173,17 +171,6 @@ class ProjectState:
             "window_fraction",
             _finite_float(self.window_fraction, "registration.window_fraction"),
         )
-        if self.legacy_pixel1_phase_s is not None:
-            object.__setattr__(
-                self,
-                "legacy_pixel1_phase_s",
-                _finite_float(self.legacy_pixel1_phase_s, "registration.legacy_pixel1_phase_s"),
-            )
-        object.__setattr__(
-            self,
-            "legacy_inclusive_right",
-            _boolean(self.legacy_inclusive_right, "registration.legacy_inclusive_right"),
-        )
         if not isinstance(self.processing, MapProcessingConfig):
             raise ValueError("Invalid project field processing.")
         if bool(self.rows) != bool(self.columns):
@@ -224,8 +211,6 @@ class ProjectState:
                     window_mode=self.window_mode,
                     window_fraction=self.window_fraction,
                     window_duration_s=self.window_duration_s,
-                    legacy_inclusive_right=self.legacy_inclusive_right,
-                    legacy_pixel1_phase_s=self.legacy_pixel1_phase_s,
                     scan_pattern=self.scan_pattern,
                     first_row_ltr=self.first_row_ltr,
                     aggregation=Aggregation(self.aggregation),
@@ -270,7 +255,6 @@ class ProjectState:
                 "point_a_s": self.point_a_s,
                 "point_b_s": self.point_b_s,
                 "points_apart": self.points_apart,
-                "point_offset": self.point_offset,
                 **(
                     {
                         "y_phase_fraction": self.y_phase_fraction,
@@ -279,11 +263,9 @@ class ProjectState:
                         "window_mode": self.window_mode.value,
                         "window_fraction": self.window_fraction,
                         "window_duration_s": self.window_duration_s,
-                        "legacy_inclusive_right": self.legacy_inclusive_right,
-                        "legacy_pixel1_phase_s": self.legacy_pixel1_phase_s,
                     }
                     if self.method == "dual_offset_phase_window"
-                    else {}
+                    else {"point_offset": self.point_offset}
                 ),
             },
             "processing": processing,
@@ -360,19 +342,6 @@ class ProjectState:
             ),
             window_duration_s=(
                 registration.get("window_duration_s")
-                if method == "dual_offset_phase_window"
-                else None
-            ),
-            legacy_inclusive_right=(
-                _boolean(
-                    registration.get("legacy_inclusive_right", False),
-                    "registration.legacy_inclusive_right",
-                )
-                if method == "dual_offset_phase_window"
-                else False
-            ),
-            legacy_pixel1_phase_s=(
-                registration.get("legacy_pixel1_phase_s")
                 if method == "dual_offset_phase_window"
                 else None
             ),

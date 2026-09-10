@@ -52,8 +52,6 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self._has_data = False
         self._syncing = False
         self._anchors_user_edited = False
-        self._legacy_inclusive_right = False
-        self._legacy_pixel1_phase_s: float | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -177,8 +175,8 @@ class ReconstructionInspector(QtWidgets.QWidget):
         )
         self.point_offset_spin = self._int_spin(0, 0, 100000)
         self.x_period_offset_spin = self._int_spin(0, 0, 100000)
-        self.y_phase_spin = self._percent_spin(0.0)
-        self.x_phase_spin = self._percent_spin(0.0)
+        self.y_phase_spin = self._phase_spin(0.0)
+        self.x_phase_spin = self._phase_spin(0.0)
         self.window_mode_combo = self._enum_combo(
             (
                 ("Fraction of period", WindowMode.FRACTION),
@@ -191,7 +189,8 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.point_offset_slider = self._offset_slider()
         row_offset_control = self._paired_offset(self.row_offset_spin, self.row_offset_slider)
         point_offset_control = self._paired_offset(self.point_offset_spin, self.point_offset_slider)
-        row_timing = self._form_layout()
+        self.row_timing_form = self._form_layout()
+        row_timing = self.row_timing_form
         registration_layout.addWidget(self._subsection_header("ROW TIMING"))
         self._add_form_row(
             row_timing,
@@ -215,7 +214,8 @@ class ReconstructionInspector(QtWidgets.QWidget):
         )
         registration_layout.addLayout(row_timing)
         registration_layout.addSpacing(7)
-        point_timing = self._form_layout()
+        self.point_timing_form = self._form_layout()
+        point_timing = self.point_timing_form
         registration_layout.addWidget(self._subsection_header("POINT TIMING"))
         self._add_form_row(
             point_timing,
@@ -231,7 +231,8 @@ class ReconstructionInspector(QtWidgets.QWidget):
             "Number of pixel intervals separating XA and XB. T_point = (XB - XA) / Points apart.",
         )
         self._add_form_row(point_timing, "Point period", self.point_period_spin)
-        self._add_form_row(point_timing, "Point offset", point_offset_control)
+        self.point_offset_control = point_offset_control
+        self._add_form_row(point_timing, "Point offset", self.point_offset_control)
         self._add_form_row(
             point_timing,
             "X offset",
@@ -537,10 +538,24 @@ class ReconstructionInspector(QtWidgets.QWidget):
 
     @staticmethod
     def _percent_spin(value: float) -> QtWidgets.QDoubleSpinBox:
-        spin = ReconstructionInspector._value_spin()
+        spin = QtWidgets.QDoubleSpinBox()
+        spin.setDecimals(1)
         spin.setRange(0.0, 100.0)
         spin.setValue(value)
+        spin.setSingleStep(0.1)
         spin.setSuffix(" %")
+        spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        spin.setKeyboardTracking(False)
+        spin.setFixedWidth(128)
+        return spin
+
+    @staticmethod
+    def _phase_spin(value: float) -> QtWidgets.QDoubleSpinBox:
+        """Return a compact phase editor whose visible range is ``[0, 100)``."""
+
+        spin = ReconstructionInspector._percent_spin(value)
+        spin.setMaximum(99.9)
+        spin.setToolTip("Phase wraps at 100%; use the arrows for 0.1% adjustment.")
         return spin
 
     @staticmethod
@@ -688,8 +703,6 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self._set_combo_value(self.window_mode_combo, state.window_mode)
             self.window_fraction_spin.setValue(state.window_fraction * 100.0)
             self.window_duration_spin.setValue(state.window_duration_s or 0.0)
-            self._legacy_inclusive_right = state.legacy_inclusive_right
-            self._legacy_pixel1_phase_s = state.legacy_pixel1_phase_s
             config = state.processing
             self._set_combo_value(self.transform_combo, config.transform)
             self._set_combo_value(self.baseline_combo, config.baseline_mode)
@@ -839,8 +852,10 @@ class ReconstructionInspector(QtWidgets.QWidget):
         phase_window = self.method_combo.currentData() == "dual_offset_phase_window"
         self.convert_phase_button.setVisible(not phase_window)
         self.phase_window_section.setVisible(phase_window)
-        for widget in (self.y_phase_spin, self.x_period_offset_spin, self.x_phase_spin):
-            widget.setVisible(phase_window)
+        self.row_timing_form.setRowVisible(self.y_phase_spin, phase_window)
+        self.point_timing_form.setRowVisible(self.point_offset_control, not phase_window)
+        self.point_timing_form.setRowVisible(self.x_period_offset_spin, phase_window)
+        self.point_timing_form.setRowVisible(self.x_phase_spin, phase_window)
         fixed = WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
         self.window_fraction_spin.setVisible(phase_window and not fixed)
         self.window_duration_spin.setVisible(phase_window and fixed)
@@ -896,8 +911,6 @@ class ReconstructionInspector(QtWidgets.QWidget):
                 window_mode=self.window_mode_combo.currentData(),
                 window_fraction=self.window_fraction_spin.value() / 100.0,
                 window_duration_s=self.window_duration_spin.value(),
-                legacy_inclusive_right=self._legacy_inclusive_right,
-                legacy_pixel1_phase_s=self._legacy_pixel1_phase_s,
                 scan_pattern=ScanPattern(self.scan_combo.currentData()),
                 first_row_ltr=self.first_row_check.isChecked(),
                 aggregation=(
@@ -938,14 +951,6 @@ class ReconstructionInspector(QtWidgets.QWidget):
             percentile_low=self.percentile_low_spin.value(),
             percentile_high=self.percentile_high_spin.value(),
         )
-
-    def set_legacy_phase_compatibility(
-        self, enabled: bool, pixel1_phase_s: float | None = None
-    ) -> None:
-        """Persist the exact endpoint convention only for explicit conversion."""
-
-        self._legacy_inclusive_right = bool(enabled)
-        self._legacy_pixel1_phase_s = pixel1_phase_s if enabled else None
 
     def processing_enum(self, enum_type: type[EnumT]) -> EnumT:
         return self._enum_value(self.transform_combo, enum_type)  # type: ignore[arg-type]
