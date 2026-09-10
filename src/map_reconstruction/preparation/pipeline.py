@@ -10,6 +10,7 @@ from .models import (
     DarkCorrectionMode,
     ManualRegionFit,
     OutputConvention,
+    PhotocurrentPolarity,
     PreparedSignal,
     RollingTrend,
     SignalPreparationConfig,
@@ -30,15 +31,6 @@ def _apply_convention(
     return baseline - values
 
 
-def _fit_polynomial(times: np.ndarray, values: np.ndarray, degree: int, label: str) -> np.ndarray:
-    if times.size < degree + 1:
-        raise ValueError(f"{label} requires at least {degree + 1} valid dark regions.")
-    if degree == 0:
-        return np.full(values.shape, float(np.median(values)), dtype=float)
-    coefficients = np.polyfit(times, values, degree)
-    return np.polyval(coefficients, times)
-
-
 def _manual_baseline(
     time: np.ndarray, values: np.ndarray, config: SignalPreparationConfig
 ) -> tuple[np.ndarray, list[str], int]:
@@ -51,9 +43,11 @@ def _manual_baseline(
             warnings.append(f"Dark region {index} contains no eligible samples and was skipped.")
             continue
         estimates.append((region.center_s, float(np.median(values[mask]))))
-    degree = {ManualRegionFit.CONSTANT: 0, ManualRegionFit.LINEAR: 1, ManualRegionFit.QUADRATIC: 2}[
-        config.manual_region_fit
-    ]
+    degree = {
+        ManualRegionFit.CONSTANT: 0,
+        ManualRegionFit.LINEAR: 1,
+        ManualRegionFit.QUADRATIC: 2,
+    }[config.manual_region_fit]
     if len(estimates) < degree + 1:
         raise ValueError(
             f"{config.manual_region_fit.value.title()} dark fit requires at least {degree + 1} valid regions."
@@ -69,6 +63,20 @@ def _manual_baseline(
     return baseline, warnings, len(estimates)
 
 
+def _rolling_dark_quantile(config: SignalPreparationConfig) -> float:
+    """Return the envelope quantile implied by the photocurrent direction.
+
+    Negative photocurrent means illumination moves the measured signal downward,
+    so dark current is estimated from the upper envelope. Positive photocurrent
+    uses the corresponding lower envelope. ``rolling_quantile`` therefore
+    describes the confidence away from the illuminated tail for either sign.
+    """
+
+    if config.response_direction is PhotocurrentPolarity.NEGATIVE:
+        return config.rolling_quantile
+    return 1.0 - config.rolling_quantile
+
+
 def _rolling_baseline(
     time: np.ndarray, values: np.ndarray, config: SignalPreparationConfig
 ) -> tuple[np.ndarray, list[str], int]:
@@ -80,13 +88,14 @@ def _rolling_baseline(
     anchor_t: list[float] = []
     anchor_b: list[float] = []
     warnings: list[str] = []
+    effective_quantile = _rolling_dark_quantile(config)
     for left, right in zip(edges[:-1], edges[1:]):
         mask = (time >= left) & ((time < right) if right < stop else (time <= right)) & eligible
         if not np.any(mask):
             warnings.append(f"No eligible dark candidates in time bin {left:g}–{right:g} s.")
             continue
         anchor_t.append(float(np.median(time[mask])))
-        anchor_b.append(float(np.quantile(values[mask], config.rolling_quantile)))
+        anchor_b.append(float(np.quantile(values[mask], effective_quantile)))
     if not anchor_t:
         raise ValueError("Rolling quantile produced no eligible dark-current candidates.")
     t_anchor = np.asarray(anchor_t, dtype=float)
@@ -112,7 +121,7 @@ def prepare_signal(
     """Prepare one imported trace without mutating ``data``.
 
     ``None`` mode is a strict identity copy: no baseline and no sign conversion
-    are applied.  Active modes produce a finite baseline and apply the explicit
+    are applied. Active modes produce a finite baseline and apply the explicit
     output convention selected by the operator.
     """
 
@@ -141,4 +150,11 @@ def prepare_signal(
         "baseline_start": float(baseline[0]),
         "baseline_end": float(baseline[-1]),
     }
+    if config.dark_correction_mode is DarkCorrectionMode.ROLLING_QUANTILE:
+        metadata.update(
+            {
+                "response_direction": config.response_direction.value,
+                "effective_dark_quantile": _rolling_dark_quantile(config),
+            }
+        )
     return PreparedSignal(time, prepared, signal, baseline, tuple(warnings), metadata)
