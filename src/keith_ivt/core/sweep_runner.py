@@ -42,13 +42,7 @@ def wait_until_deadline(
     monotonic: Callable[[], float] | None = None,
     sleep: Callable[[float], None] | None = None,
 ) -> bool:
-    """Wait for a Constant Time deadline and report a pause request.
-
-    The wait is bounded in small slices so Stop and Pause remain responsive even
-    when the requested interval is long. A pause return lets the caller rebase
-    its deadline after the operator resumes instead of trying to catch up on
-    every interval that elapsed while paused.
-    """
+    """Wait for a Constant Time deadline and report a pause request."""
     clock = time.monotonic if monotonic is None else monotonic
     sleeper = time.sleep if sleep is None else sleep
     while True:
@@ -96,8 +90,13 @@ class SweepRunner:
             raise ValueError(
                 "MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path."
             )
-        values = source_values_for_config(config)
         acquisition = resolve_time_acquisition(config)
+        values = (
+            []
+            if config.sweep_kind is SweepKind.CONSTANT_TIME
+            and acquisition.as_fast_as_possible
+            else source_values_for_config(config)
+        )
         points: list[SweepPoint] = []
         t0: float | None = None
         stopped_by_operator = False
@@ -127,8 +126,9 @@ class SweepRunner:
                 self.instrument.set_source(config.source_scpi, config.constant_value)
                 t0 = time.monotonic()
                 next_deadline = t0
-                total = 0 if is_continuous_time else len(values)
-                while not _should_stop() and (is_continuous_time or index < total):
+                fast_finite = acquisition.as_fast_as_possible and not is_continuous_time
+                total = 0 if (is_continuous_time or fast_finite) else len(values)
+                while not _should_stop() and (is_continuous_time or fast_finite or index < total):
                     was_paused = False
                     while should_pause is not None and should_pause():
                         was_paused = True
@@ -139,6 +139,13 @@ class SweepRunner:
                         break
                     if was_paused:
                         next_deadline = time.monotonic()
+                        if fast_finite:
+                            # Paused time is not acquisition time. Move the
+                            # duration origin forward by the pause duration via
+                            # a fresh origin at resume while preserving elapsed
+                            # time already acquired.
+                            elapsed_before_pause = points[-1].elapsed_s if points else 0.0
+                            t0 = next_deadline - elapsed_before_pause
                     if acquisition.source_write_each_sample:
                         self.instrument.set_source(config.source_scpi, config.constant_value)
                     _interruptible_sleep(acquisition.software_delay_s, _should_stop)
@@ -167,12 +174,11 @@ class SweepRunner:
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, total)
-                    if not is_continuous_time and index >= total:
+                    if fast_finite and point.elapsed_s >= config.duration_s:
+                        break
+                    if not is_continuous_time and not fast_finite and index >= total:
                         break
                     if acquisition.as_fast_as_possible:
-                        # No artificial interval: the next :READ? starts as soon
-                        # as the host/instrument path is ready. Pause/Stop are
-                        # still checked at the top of every iteration.
                         continue
                     next_deadline += max(0.0, config.interval_s)
                     now = time.monotonic()
@@ -233,7 +239,6 @@ class SweepRunner:
         last_actual_range_A: float | None,
         should_stop: StopCallback | None,
     ) -> tuple[StableRead, int, float | None]:
-        """Read repeatedly at one source setpoint until current range settles."""
         max_attempts = max(
             MIN_RANGE_STABILIZATION_ATTEMPTS,
             int(config.discard_after_range_change) + 5,
