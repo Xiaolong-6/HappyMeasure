@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from keith_ivt.ui.app_state_bridge import AppStateBridgeMixin
 from keith_ivt.ui.data_actions import DataActionMixin
+from keith_ivt.ui.diagnostics_panel import DiagnosticsUiMixin
 from keith_ivt.ui.fast_acquisition import FastAcquisitionMixin
 from keith_ivt.ui.hardware_controller import HardwareControllerMixin
 from keith_ivt.ui.navigation import NavigationMixin
@@ -38,6 +39,7 @@ class AppChromeMixin(
     OperatorBarMixin,
     UiScaffoldMixin,
     WidgetHelperMixin,
+    DiagnosticsUiMixin,
     PanelBuilderMixin,
     PresetRestorePanelMixin,
 ):
