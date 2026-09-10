@@ -279,11 +279,15 @@ def validate_config(config: SweepConfig) -> None:
         if not math.isfinite(float(config.constant_value)):
             raise ValueError("Constant value must be finite.")
         if not config.continuous_time:
-            if not math.isfinite(float(config.duration_s)) or config.duration_s <= 0:
-                raise ValueError("Duration must be positive and finite.")
+            if not math.isfinite(float(config.duration_s)):
+                raise ValueError("Duration must be finite.")
+            if config.duration_s <= 0:
+                raise ValueError("Duration must be positive.")
         if not config.fast_acquisition:
-            if not math.isfinite(float(config.interval_s)) or config.interval_s <= 0:
-                raise ValueError("Interval must be positive and finite.")
+            if not math.isfinite(float(config.interval_s)):
+                raise ValueError("Interval must be finite.")
+            if config.interval_s <= 0:
+                raise ValueError("Interval must be positive.")
             if not config.continuous_time:
                 source_values_for_config(config)
             min_interval = minimum_allowed_interval_seconds(

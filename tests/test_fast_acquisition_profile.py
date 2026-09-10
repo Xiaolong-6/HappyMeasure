@@ -121,6 +121,11 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
     assert ":SYST:AZER:STAT ONCE" in commands
     assert "*WAI" in commands
     assert ":SYST:AZER:STAT OFF" in commands
+    autozero_sequence = [":SYST:AZER:STAT ONCE", "*WAI", ":SYST:AZER:STAT OFF"]
+    assert any(
+        commands[offset : offset + 3] == autozero_sequence
+        for offset in range(len(commands) - 2)
+    )
     assert ":TRIG:DEL 0" in commands
     assert ":FORM:ELEM CURR" in commands
     assert not any("BAUD" in command.upper() for command in commands)
@@ -189,6 +194,40 @@ class _FastMeter:
 
     def get_current_range(self) -> float:
         return 1e-3
+
+
+def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    writes: list[str] = []
+    reads: list[str] = []
+    meter.write = writes.append  # type: ignore[method-assign]
+
+    def fake_query(command: str) -> str:
+        reads.append(command)
+        if command == ":READ?":
+            return "0.25,-4.2E-4"
+        raise AssertionError(f"Unexpected query: {command}")
+
+    meter.query = fake_query  # type: ignore[method-assign]
+    config = _time_config(
+        custom_acquisition=True,
+        nplc=0.1,
+        delay_s=0.0,
+        duration_s=0.35,
+        interval_s=0.1,
+        zero_refresh_before_run=False,
+        measurement_only_read=False,
+        range_telemetry=True,
+        source_write_each_sample=True,
+    )
+    result = SweepRunner(meter).run(config)
+
+    assert len(result.points) == 4
+    assert reads == [":READ?"] * 4
+    source_writes = [command for command in writes if command.startswith(":SOUR:VOLT ")]
+    # One pre-run source set plus exactly one write per acquired sample: the
+    # runner owns scheduling, so the driver read path must not add its own.
+    assert len(source_writes) == len(result.points) + 1
 
 
 def test_fast_finite_time_sweep_is_duration_based_and_has_no_interval_wait(monkeypatch) -> None:

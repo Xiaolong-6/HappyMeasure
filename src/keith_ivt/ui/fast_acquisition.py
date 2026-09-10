@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
+from typing import Any
 
 from keith_ivt.acquisition import FAST_BENCHMARK_NOTE, FAST_NPLC
 from keith_ivt.models import SweepKind
@@ -50,7 +51,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._custom_acquisition_snapshot: dict[str, object] | None = None
         self._last_acquisition_profile = PROFILE_STANDARD
 
-    def _acquisition_profile_config_kwargs(self, sweep_kind: SweepKind) -> dict[str, object]:
+    def _acquisition_profile_config_kwargs(self, sweep_kind: SweepKind) -> dict[str, Any]:
         self._ensure_acquisition_vars()
         profile = (
             self.acquisition_profile.get()
@@ -75,7 +76,8 @@ class FastAcquisitionMixin(UiMixinTyping):
         }
 
     def _update_dynamic_sweep_fields(self) -> None:
-        super()._update_dynamic_sweep_fields()
+        # Sibling SweepConfigMixin provides this at runtime via the MRO.
+        super()._update_dynamic_sweep_fields()  # type: ignore[misc]
         if self.sweep_kind.get() != SweepKind.CONSTANT_TIME.value:
             self._restore_pre_fast_common_values()
             return

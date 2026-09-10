@@ -232,13 +232,11 @@ class Keithley2400Serial(SourceMeter):
         return value
 
     def set_current_autorange(self, enabled: bool) -> None:
+        # A setter stays a single write: range snapshots belong to
+        # configure_for_sweep, set_current_range, and get_current_range so the
+        # historical command sequence — and the Fast hot path — gain no query.
         self.write(f":SENS:CURR:RANG:AUTO {'ON' if enabled else 'OFF'}")
         self._cached_autorange = bool(enabled)
-        if not enabled:
-            try:
-                self._cached_measure_range = float(self.query(":SENS:CURR:RANG?"))
-            except Exception:
-                pass
 
     def get_current_range(self) -> float:
         if not self._range_telemetry:
