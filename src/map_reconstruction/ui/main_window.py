@@ -162,6 +162,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             compatibility_shadow = QtWidgets.QWidget(self.inspector)
             compatibility_shadow.setObjectName(object_name)
             compatibility_shadow.hide()
+        # File/export actions are surfaced once in the workflow header; keep
+        # the legacy widgets as compatibility handles but remove duplicate
+        # large buttons from the stage sidebar.
+        self.inspector.open_button.hide()
+        self.inspector.open_project_button.hide()
+        self.inspector.export_button.hide()
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.inspector)
