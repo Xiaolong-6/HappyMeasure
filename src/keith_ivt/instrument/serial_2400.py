@@ -37,7 +37,6 @@ class Keithley2400Serial(SourceMeter):
         self._ser: Optional["serial.Serial"] = None
         self._measurement_only_read = False
         self._range_telemetry = True
-        self._source_write_each_sample = False
         self._cached_source_cmd = "VOLT"
         self._cached_source_value = 0.0
         self._cached_autorange = True
@@ -124,7 +123,6 @@ class Keithley2400Serial(SourceMeter):
         acquisition = resolve_time_acquisition(config)
         self._measurement_only_read = bool(acquisition.measurement_only_read)
         self._range_telemetry = bool(acquisition.range_telemetry)
-        self._source_write_each_sample = bool(acquisition.source_write_each_sample)
         self._cached_source_cmd = src
         self._cached_source_value = float(config.constant_value)
         self._cached_autorange = bool(config.auto_measure_range)
@@ -166,19 +164,17 @@ class Keithley2400Serial(SourceMeter):
             self.write(f":DISP:ENAB {'ON' if acquisition.display_during_run else 'OFF'}")
             if acquisition.zero_refresh_before_run:
                 self.write(":SYST:AZER:STAT ONCE")
+                self.write("*WAI")
             self.write(f":SYST:AZER:STAT {'ON' if acquisition.autozero_during_run else 'OFF'}")
 
-        if (
-            config.sweep_kind is SweepKind.CONSTANT_TIME
-            and acquisition.measurement_only_read
-        ):
+        if config.sweep_kind is SweepKind.CONSTANT_TIME and acquisition.measurement_only_read:
             self.write(f":FORM:ELEM {meas}")
         else:
             self.write(f":FORM:ELEM {src},{meas}")
 
-        # When fast/custom disables live range telemetry, take at most one setup
-        # snapshot. Subsequent runner status checks return cached values and do
-        # not add serial round trips to the hot path.
+        # Telemetry-off mode deliberately snapshots range only at setup. The
+        # runner can still call its existing range-state API, but those calls
+        # hit the cache rather than adding AUTO?/RANGE? serial queries per point.
         if not self._range_telemetry and config.auto_measure_range:
             try:
                 self._cached_measure_range = float(self.query(f":SENS:{meas}:RANG?"))
@@ -191,8 +187,6 @@ class Keithley2400Serial(SourceMeter):
         self.write(f":SOUR:{source_cmd} {value:.12g}")
 
     def read_source_and_measure(self) -> tuple[float, float]:
-        if self._source_write_each_sample:
-            self.write(f":SOUR:{self._cached_source_cmd} {self._cached_source_value:.12g}")
         raw = self.query(":READ?")
         parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
         numbers = [float(p) for p in parts]
@@ -210,8 +204,6 @@ class Keithley2400Serial(SourceMeter):
     def _restore_fast_acquisition_settings(self) -> None:
         if not self._restore_fast_settings:
             return
-        # Best-effort operator-friendly restoration. Safety output state is
-        # handled independently by OutputOffGuard / context-manager cleanup.
         for command in (
             ":SENS:AVER:STAT OFF",
             ":SYST:AZER:STAT ON",
@@ -224,7 +216,6 @@ class Keithley2400Serial(SourceMeter):
         self._restore_fast_settings = False
         self._measurement_only_read = False
         self._range_telemetry = True
-        self._source_write_each_sample = False
 
     def output_off(self) -> None:
         OutputOffGuard().turn_off(
