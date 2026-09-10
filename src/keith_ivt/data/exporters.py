@@ -7,7 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Protocol
 
-from keith_ivt.models import SweepResult
+from keith_ivt.acquisition import resolve_time_acquisition
+from keith_ivt.models import SweepKind, SweepResult
 
 
 class _CsvWriter(Protocol):
@@ -26,19 +27,63 @@ def _point_fingerprint(result: SweepResult) -> str:
 
 
 def _acquisition_metadata(cfg) -> dict[str, Any]:
+    """Return the *effective* acquisition state that was actually executed.
+
+    Standard keeps historical defaults (measurement_only_read=False,
+    range_telemetry=True, ...), so the persisted metadata must describe
+    the resolved settings, not the raw hidden Custom/Fast variables that
+    Standard otherwise carries.
+    """
+
+    try:
+        resolved = resolve_time_acquisition(cfg)
+    except Exception:
+        # Fallback for non-Constant-Time or malformed configs: keep historical
+        # direct mapping so older single-field tests remain valid.
+        return {
+            "acquisition_profile": (
+                "Fast"
+                if bool(getattr(cfg, "fast_acquisition", False))
+                else "Custom"
+                if bool(getattr(cfg, "custom_acquisition", False))
+                else "Standard"
+            ),
+            "fast_acquisition": bool(getattr(cfg, "fast_acquisition", False)),
+            "custom_acquisition": bool(getattr(cfg, "custom_acquisition", False)),
+            "zero_refresh_before_run": bool(getattr(cfg, "zero_refresh_before_run", True)),
+            "autozero_during_run": bool(getattr(cfg, "autozero_during_run", False)),
+            "digital_filter": bool(getattr(cfg, "digital_filter", False)),
+            "digital_filter_count": int(getattr(cfg, "digital_filter_count", 2)),
+            "concurrent_measurement": bool(getattr(cfg, "concurrent_measurement", False)),
+            "display_during_run": bool(getattr(cfg, "display_during_run", True)),
+            "measurement_only_read": bool(getattr(cfg, "measurement_only_read", True)),
+            "range_telemetry": bool(getattr(cfg, "range_telemetry", False)),
+            "source_write_each_sample": bool(
+                getattr(cfg, "source_write_each_sample", False)
+            ),
+            "trigger_delay_s": float(getattr(cfg, "trigger_delay_s", 0.0)),
+        }
+    profile = (
+        "Fast"
+        if bool(getattr(cfg, "fast_acquisition", False))
+        else "Custom"
+        if bool(getattr(cfg, "custom_acquisition", False))
+        else "Standard"
+    )
     return {
+        "acquisition_profile": profile,
         "fast_acquisition": bool(getattr(cfg, "fast_acquisition", False)),
         "custom_acquisition": bool(getattr(cfg, "custom_acquisition", False)),
-        "zero_refresh_before_run": bool(getattr(cfg, "zero_refresh_before_run", True)),
-        "autozero_during_run": bool(getattr(cfg, "autozero_during_run", False)),
-        "digital_filter": bool(getattr(cfg, "digital_filter", False)),
-        "digital_filter_count": int(getattr(cfg, "digital_filter_count", 2)),
-        "concurrent_measurement": bool(getattr(cfg, "concurrent_measurement", False)),
-        "display_during_run": bool(getattr(cfg, "display_during_run", True)),
-        "measurement_only_read": bool(getattr(cfg, "measurement_only_read", True)),
-        "range_telemetry": bool(getattr(cfg, "range_telemetry", False)),
-        "source_write_each_sample": bool(getattr(cfg, "source_write_each_sample", False)),
-        "trigger_delay_s": float(getattr(cfg, "trigger_delay_s", 0.0)),
+        "zero_refresh_before_run": bool(resolved.zero_refresh_before_run),
+        "autozero_during_run": bool(resolved.autozero_during_run),
+        "digital_filter": bool(resolved.digital_filter),
+        "digital_filter_count": int(resolved.digital_filter_count),
+        "concurrent_measurement": bool(resolved.concurrent_measurement),
+        "display_during_run": bool(resolved.display_during_run),
+        "measurement_only_read": bool(resolved.measurement_only_read),
+        "range_telemetry": bool(resolved.range_telemetry),
+        "source_write_each_sample": bool(resolved.source_write_each_sample),
+        "trigger_delay_s": float(resolved.trigger_delay_s),
     }
 
 
@@ -213,8 +258,18 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
     first = results[0]
     same_mode = all(r.config.mode == first.config.mode for r in results)
     first_axis = [p.source_value for p in first.points]
-    same_axis = all([p.source_value for p in r.points] == first_axis for r in results)
-    table_format = "wide-v2" if same_mode and same_axis else "long-v2"
+    first_elapsed = [p.elapsed_s for p in first.points]
+    same_source_axis = all(
+        [p.source_value for p in r.points] == first_axis for r in results
+    )
+    same_elapsed_axis = all(
+        [p.elapsed_s for p in r.points] == first_elapsed for r in results
+    )
+    # Wide format reuses the first trace's elapsed column. For Constant
+    # Time that is a data corruption risk when two traces share the same
+    # source values but have different acquisition timestamps.
+    use_wide = same_mode and same_source_axis and same_elapsed_axis
+    table_format = "wide-v2" if use_wide else "long-v2"
 
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -231,7 +286,7 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
         _write_trace_metadata_table(writer, results)
 
         writer.writerow(["# section", "data"])
-        if same_mode and same_axis:
+        if use_wide:
             x_header, y_header = first.config.csv_headers
             labels = []
             for i, r in enumerate(results, start=1):

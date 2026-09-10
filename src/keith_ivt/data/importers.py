@@ -73,6 +73,13 @@ def _sense_mode_from_text(value: Any) -> SenseMode:
     )
 
 
+def _warnings_from_metadata(metadata: dict[str, Any]) -> list[str]:
+    raw = metadata.get("acquisition_warnings", [])
+    if isinstance(raw, list):
+        return [str(x) for x in raw]
+    return []
+
+
 def _inferred_step(points: list[SweepPoint]) -> float:
     if len(points) < 2:
         return 1.0
@@ -230,7 +237,13 @@ def load_csv(path: str | Path) -> list[SweepResult]:
                         compliance=cfg.compliance,
                         device_name=cfg.device_name,
                     )
-                results.append(SweepResult(config=cfg, points=points))
+                results.append(
+                    SweepResult(
+                        config=cfg,
+                        points=points,
+                        warnings=_warnings_from_metadata(trace_meta),
+                    )
+                )
         return results
 
     if combined_format == "long-v2" or (header and header[0] == "trace_index"):
@@ -257,7 +270,13 @@ def load_csv(path: str | Path) -> list[SweepResult]:
                 meta_by_index.get(idx, {}),
                 fallback_name=names.get(idx, f"Imported_{idx}"),
             )
-            results.append(SweepResult(config=cfg, points=points))
+            results.append(
+                SweepResult(
+                    config=cfg,
+                    points=points,
+                    warnings=_warnings_from_metadata(meta_by_index.get(idx, {})),
+                )
+            )
         return results
 
     x_col = 1 if len(header) >= 3 and header[0] == "Elapsed_s" else 0
@@ -283,4 +302,8 @@ def load_csv(path: str | Path) -> list[SweepResult]:
             compliance=cfg.compliance,
             device_name=path.stem,
         )
-    return [SweepResult(config=cfg, points=points)]
+    return [
+        SweepResult(
+            config=cfg, points=points, warnings=_warnings_from_metadata(metadata)
+        )
+    ]
