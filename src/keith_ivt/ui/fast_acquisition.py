@@ -75,6 +75,11 @@ class FastAcquisitionMixin(UiMixinTyping):
         }
 
     def _update_dynamic_sweep_fields(self) -> None:
+        if not hasattr(self, "dynamic_box") or not self.dynamic_box.winfo_exists():
+            # Same liveness contract as the base implementation: never build
+            # Fast controls into a Sweep page that no longer exists (for
+            # example after navigating away or while applying a preset).
+            return
         # Sibling SweepConfigMixin provides this at runtime via the MRO.
         super()._update_dynamic_sweep_fields()  # type: ignore[misc]
         if self.sweep_kind.get() != SweepKind.CONSTANT_TIME.value:

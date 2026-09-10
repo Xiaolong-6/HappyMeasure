@@ -38,7 +38,9 @@ def test_default_preset_contains_only_hardware_and_visible_step_state() -> None:
         "auto_measure_range",
         "measure_range",
         "parameters",
+        "acquisition",
     }
+    assert preset["sweep"]["acquisition"]["profile"] == "Standard"
     assert set(preset["sweep"]["parameters"]) == {"start", "stop", "step"}
 
 
@@ -266,6 +268,102 @@ def test_legacy_manual_output_and_numeric_boole_migrate() -> None:
     assert normalized["sweep"]["auto_source_range"] is False
     assert normalized["sweep"]["auto_measure_range"] is False
     assert normalized["sweep"]["debug_model"] == "Linear resistor 1 kOhm"
+
+
+def test_v2_snapshot_without_acquisition_normalizes_to_standard() -> None:
+    normalized = normalize_preset(
+        {
+            "schema_version": 2,
+            "hardware": {},
+            "sweep": {"kind": "TIME"},
+        }
+    )
+
+    assert normalized["schema_version"] == PRESET_SCHEMA_VERSION
+    assert normalized["sweep"]["acquisition"]["profile"] == "Standard"
+    assert normalized["sweep"]["acquisition"]["range_telemetry"] is True
+    assert normalized["sweep"]["acquisition"]["measurement_only_read"] is False
+
+
+def test_v3_fast_acquisition_round_trip() -> None:
+    acquisition = {
+        "profile": "Fast",
+        "zero_refresh_before_run": True,
+        "autozero_during_run": False,
+        "digital_filter": False,
+        "digital_filter_count": 2,
+        "concurrent_measurement": False,
+        "display_during_run": True,
+        "measurement_only_read": True,
+        "range_telemetry": False,
+        "source_write_each_sample": False,
+        "trigger_delay_s": 0.0,
+    }
+    normalized = normalize_preset(
+        {
+            "schema_version": PRESET_SCHEMA_VERSION,
+            "hardware": {},
+            "sweep": {"kind": "TIME", "acquisition": dict(acquisition)},
+        }
+    )
+
+    assert normalized["sweep"]["acquisition"] == acquisition
+
+
+def test_v3_custom_acquisition_preserves_all_advanced_fields() -> None:
+    acquisition = {
+        "profile": "Custom",
+        "zero_refresh_before_run": False,
+        "autozero_during_run": True,
+        "digital_filter": True,
+        "digital_filter_count": 5,
+        "concurrent_measurement": True,
+        "display_during_run": False,
+        "measurement_only_read": False,
+        "range_telemetry": True,
+        "source_write_each_sample": True,
+        "trigger_delay_s": 0.004,
+    }
+    normalized = normalize_preset(
+        {
+            "schema_version": PRESET_SCHEMA_VERSION,
+            "hardware": {},
+            "sweep": {"kind": "TIME", "acquisition": dict(acquisition)},
+        }
+    )
+
+    assert normalized["sweep"]["acquisition"] == acquisition
+
+
+def test_v3_acquisition_sanitizes_invalid_values() -> None:
+    normalized = normalize_preset(
+        {
+            "schema_version": PRESET_SCHEMA_VERSION,
+            "hardware": {},
+            "sweep": {
+                "kind": "TIME",
+                "acquisition": {
+                    "profile": "UltraFast",
+                    "digital_filter_count": 0,
+                    "trigger_delay_s": -1.0,
+                    "range_telemetry": "yes",
+                },
+            },
+        }
+    )
+
+    acquisition = normalized["sweep"]["acquisition"]
+    assert acquisition["profile"] == "Standard"
+    assert acquisition["digital_filter_count"] == 2
+    assert acquisition["trigger_delay_s"] == 0.0
+    assert acquisition["range_telemetry"] is True
+
+
+def test_legacy_flat_preset_normalizes_to_standard_acquisition() -> None:
+    normalized = normalize_preset({"default_mode": "VOLT"})
+
+    assert normalized["schema_version"] == PRESET_SCHEMA_VERSION
+    assert normalized["sweep"]["acquisition"]["profile"] == "Standard"
 
 
 def test_descending_step_preset_preserves_negative_step() -> None:

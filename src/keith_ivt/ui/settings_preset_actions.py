@@ -7,6 +7,8 @@ from tkinter import ttk
 
 from keith_ivt.data.presets import (
     PRESET_SCHEMA_VERSION,
+    clean_acquisition_state,
+    default_acquisition_state,
     delete_preset,
     load_presets,
     normalize_preset,
@@ -537,6 +539,49 @@ class SettingsPresetMixin(UiMixinTyping):
             self.refresh_preset_list()
             self.log_event(f"Preset deleted: {name}")
 
+    def _current_acquisition_snapshot(self, kind: str) -> dict:
+        """Capture the acquisition profile truthfully for the active sweep kind."""
+        try:
+            self._ensure_acquisition_vars()
+            profile = self.acquisition_profile.get()
+        except Exception:
+            return default_acquisition_state()
+        if kind != "TIME" or profile not in {"Standard", "Fast", "Custom"}:
+            return default_acquisition_state()
+        try:
+            return {
+                "profile": profile,
+                "zero_refresh_before_run": bool(self.zero_refresh_before_run.get()),
+                "autozero_during_run": bool(self.autozero_during_run.get()),
+                "digital_filter": bool(self.digital_filter.get()),
+                "digital_filter_count": int(self.digital_filter_count.get()),
+                "concurrent_measurement": bool(self.concurrent_measurement.get()),
+                "display_during_run": bool(self.display_during_run.get()),
+                "measurement_only_read": bool(self.measurement_only_read.get()),
+                "range_telemetry": bool(self.range_telemetry.get()),
+                "source_write_each_sample": bool(self.source_write_each_sample.get()),
+                "trigger_delay_s": float(self.trigger_delay_s.get()),
+            }
+        except Exception:
+            return default_acquisition_state()
+
+    def _apply_acquisition_snapshot(self, raw) -> None:
+        """Restore a validated acquisition block without rebuilding pages."""
+        state = clean_acquisition_state(raw)
+        self._ensure_acquisition_vars()
+        self.acquisition_profile.set(state["profile"])
+        self.zero_refresh_before_run.set(state["zero_refresh_before_run"])
+        self.autozero_during_run.set(state["autozero_during_run"])
+        self.digital_filter.set(state["digital_filter"])
+        self.digital_filter_count.set(state["digital_filter_count"])
+        self.concurrent_measurement.set(state["concurrent_measurement"])
+        self.display_during_run.set(state["display_during_run"])
+        self.measurement_only_read.set(state["measurement_only_read"])
+        self.range_telemetry.set(state["range_telemetry"])
+        self.source_write_each_sample.set(state["source_write_each_sample"])
+        self.trigger_delay_s.set(state["trigger_delay_s"])
+        self._apply_acquisition_profile_state()
+
     def _current_preset_snapshot(self) -> dict:
         """Capture only the editable Hardware page and visible Sweep state."""
         self._restore_all_numeric_entry_defaults()
@@ -577,6 +622,7 @@ class SettingsPresetMixin(UiMixinTyping):
         else:
             parameters = {}
         sweep["parameters"] = parameters
+        sweep["acquisition"] = self._current_acquisition_snapshot(kind)
 
         return {
             "schema_version": PRESET_SCHEMA_VERSION,
@@ -645,6 +691,7 @@ class SettingsPresetMixin(UiMixinTyping):
             elif kind == "ADAPTIVE":
                 self.adaptive_segments.set(parameters["segments"])
                 self.adaptive_remove_duplicates.set(bool(parameters["remove_duplicates"]))
+            self._apply_acquisition_snapshot(sweep.get("acquisition"))
         finally:
             self._applying_preset = False
 

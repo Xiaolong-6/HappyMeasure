@@ -179,9 +179,12 @@ class NavigationMixin(UiMixinTyping):
         builders[name](self.current_content)
         self._bind_content_mousewheel_recursive(self.current_content)
         self._update_content_window_height(name)
-        self._update_dynamic_sweep_fields()
-        self._update_range_state()
-        self._set_sweep_fields_state()
+
+        if name == "Sweep":
+            # _build_sweep_panel() already rebuilds the dynamic and range
+            # controls; only refresh the enabled state for the live page.
+            # Sweep widgets must never be touched once their page is gone.
+            self._set_sweep_fields_state()
 
     def _update_content_window_height(self, name: str | None = None) -> None:
         """Let full-page panels such as Log/About occupy the visible canvas height."""
