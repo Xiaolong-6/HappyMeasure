@@ -37,6 +37,16 @@ and metadata serialization out of the composition root. This split is a UI
 responsibility boundary only; it does not add a reconstruction method or
 change the importer/method APIs.
 
+The workspace presents three explicit stages in a `QStackedWidget`:
+`SignalPreparationPage` owns the selected source signal and time-domain
+baseline preparation, `ReconstructionInspector` owns geometry, registration
+and reconstruction/QC, and `MapAnalysisPage` provides the post-map analysis
+context. The headless `map_reconstruction.preparation` package produces an
+immutable `PreparedSignal`; reconstruction consumes that trace through a small
+`TimeSeriesData` adapter without mutating imported source arrays. Active
+preparation settings are persisted explicitly as schema-v3 project metadata;
+v1/v2 archives load as identity preparation for numerical parity.
+
 Map Reconstruction project persistence is deliberately headless at its core:
 `project_io.py` owns the versioned `.hmmap` ZIP/JSON contract, original raw CSV
 bytes, and SHA-256 verification, while `reporting.py` owns text summaries and

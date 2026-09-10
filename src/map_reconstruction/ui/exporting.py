@@ -48,6 +48,48 @@ def export_raw(window: Any) -> None:
     window.statusBar().showMessage(f"Exported raw map to {path}")
 
 
+def export_prepared(window: Any) -> None:
+    """Export the selected raw/prepared time trace without changing source data."""
+
+    if window.data is None or window.prepared is None:
+        QtWidgets.QMessageBox.information(
+            window, "No prepared signal", "Prepare a source signal first."
+        )
+        return
+    default = f"{_source_stem(window)}_prepared.csv"
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(
+        window, "Export prepared time-series", default, "CSV files (*.csv);;All files (*.*)"
+    )
+    if not path:
+        return
+    columns = [
+        window.prepared.time_s,
+        window.data.signals[window.prepared.source_signal],
+        window.prepared.values,
+    ]
+    header = [
+        "Elapsed_s",
+        f"Raw_{window.prepared.source_signal}",
+        f"Prepared_{window.prepared.source_signal}",
+    ]
+    if window.prepared.baseline is not None:
+        columns.insert(2, window.prepared.baseline)
+        header.insert(2, f"Baseline_{window.prepared.source_signal}")
+    try:
+        np.savetxt(
+            path,
+            np.column_stack(columns),
+            delimiter=",",
+            header=",".join(header),
+            comments="",
+            fmt="%.12g",
+        )
+    except OSError as exc:
+        QtWidgets.QMessageBox.critical(window, "Export failed", str(exc))
+        return
+    window.statusBar().showMessage(f"Exported prepared trace to {path}")
+
+
 def processed_export_metadata(window: Any) -> dict[str, object]:
     """Build the sidecar without conflating source and display units."""
 

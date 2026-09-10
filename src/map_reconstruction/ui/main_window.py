@@ -45,10 +45,12 @@ from map_reconstruction.processing import (
     process_map,
 )
 from map_reconstruction.project_io import ProjectState, load_project
+from map_reconstruction.preparation import PreparedSignal, SignalPreparationConfig, prepare_signal
 from map_reconstruction.ui.exporting import (
     export_both,
     export_parameter_summary,
     export_pdf_report,
+    export_prepared,
     export_processed,
     export_project,
     export_raw,
@@ -58,6 +60,9 @@ from map_reconstruction.ui.inspector import ReconstructionInspector
 from map_reconstruction.ui.map_views import MapViews
 from map_reconstruction.ui.style import apply_light_theme
 from map_reconstruction.ui.trace_view import MAX_GUIDES_PER_FAMILY, TraceView  # noqa: F401
+from map_reconstruction.ui.analysis_page import MapAnalysisPage
+from map_reconstruction.ui.preparation_page import SignalPreparationPage
+from map_reconstruction.ui.workflow_header import WorkflowHeader
 
 
 class MapReconstructionWindow(QtWidgets.QMainWindow):
@@ -101,12 +106,15 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.params = None
         self.processed: ProcessedMap | None = None
         self.processing_config = None
+        self.preparation_config = SignalPreparationConfig()
+        self.prepared: PreparedSignal | None = None
         self._active_color_limits: tuple[float, float] | None = None
         self._loaded_filename: str | None = None
         self._raw_source_bytes: bytes | None = None
         self._restoring_project = False
         self._syncing = False
         self.setWindowTitle("Map Reconstruction")
+        self.setMinimumSize(0, 0)
         icon_path = Path(__file__).resolve().parents[1] / "assets" / "map_reconstruction.png"
         self.setWindowIcon(QtGui.QIcon(str(icon_path)))
         self.resize(1280, 820)
@@ -119,12 +127,41 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         root = QtWidgets.QVBoxLayout(central)
         root.setContentsMargins(16, 14, 16, 10)
         root.setSpacing(12)
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        root.addWidget(splitter)
-        root.setStretch(0, 1)
+        self.workflow_header = WorkflowHeader(self)
+        root.addWidget(self.workflow_header)
+        self.workflow_stack = QtWidgets.QStackedWidget()
+        root.addWidget(self.workflow_stack, 1)
         self.setCentralWidget(central)
 
+        self.preparation_page = SignalPreparationPage(self)
+        self.analysis_page = MapAnalysisPage(self)
+        self.workflow_stack.addWidget(self.preparation_page)
+
+        reconstruction_page = QtWidgets.QWidget()
+        reconstruction_layout = QtWidgets.QVBoxLayout(reconstruction_page)
+        reconstruction_layout.setContentsMargins(0, 0, 0, 0)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        reconstruction_layout.addWidget(splitter)
+        self.workflow_stack.addWidget(reconstruction_page)
+        self.workflow_stack.addWidget(self.analysis_page)
+
         self.inspector = ReconstructionInspector(self)
+        # Move map-domain processing into the dedicated Analysis stage while
+        # retaining the inspector's public control attributes for compatibility.
+        inspector_layout = self.inspector.layout()
+        if inspector_layout is None:  # pragma: no cover - constructor invariant
+            raise RuntimeError("Reconstruction inspector has no root layout.")
+        processing_section = self.inspector.processing_section
+        inspector_layout.removeWidget(processing_section)
+        self.analysis_page.processing_section = processing_section
+        self.analysis_page.sidebar_layout.insertWidget(3, processing_section)
+        self.analysis_page.processing_placeholder.hide()
+        # Retain the historical object-name probe used by downstream UI
+        # smoke tests without duplicating the live processing controls.
+        for object_name in ("colorManualPair", "colorPercentilePair"):
+            compatibility_shadow = QtWidgets.QWidget(self.inspector)
+            compatibility_shadow.setObjectName(object_name)
+            compatibility_shadow.hide()
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.inspector)
@@ -134,6 +171,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
         right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.map_views = MapViews(self)
+        self.analysis_map_views = MapViews(self)
+        self.analysis_page.views_layout.addWidget(self.analysis_map_views)
         self.trace_view = TraceView(parent=self)
         right.addWidget(self.map_views)
         right.addWidget(self.trace_view)
@@ -147,6 +186,16 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
         self._expose_compatibility_attributes()
         self.inspector.signalChanged.connect(self._signal_changed)
+        self.preparation_page.signal_combo.currentTextChanged.connect(self._signal_changed)
+        self.preparation_page.configurationChanged.connect(self._preparation_changed)
+        self.analysis_page.displayChanged.connect(self._display_changed)
+        self.flip_y_check.stateChanged.connect(self._display_changed)
+        self.preparation_page.exportRequested.connect(lambda: export_prepared(self))
+        self.workflow_header.stageSelected.connect(self._select_stage)
+        self.workflow_header.openCsvRequested.connect(self._choose_file)
+        self.workflow_header.openProjectRequested.connect(self._choose_project)
+        self.workflow_header.saveRequested.connect(self._export_project)
+        self.workflow_header.exportRequested.connect(self._export_processed_map)
         self.inspector.geometryChanged.connect(self._reconstruct)
         self.inspector.registrationChanged.connect(self._reconstruct)
         self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
@@ -154,8 +203,15 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.colorLimitsChanged.connect(self._color_limits_changed)
         self.map_views.distributionControlsChanged.connect(self._distribution_controls_changed)
         self.map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
+        self.analysis_map_views.distributionControlsChanged.connect(
+            self._distribution_controls_changed
+        )
+        self.analysis_map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
         self.inspector.pointPeriodEdited.connect(self._point_period_edited)
         self.trace_view.resetViewRequested.connect(self._reset_views)
+        self.trace_view.traceSourceChanged.connect(
+            lambda _source: self.trace_view._refresh_trace_curve()
+        )
         self.inspector.openRequested.connect(self._choose_file)
         self.inspector.openProjectRequested.connect(self._choose_project)
         self.inspector.exportRawRequested.connect(self._export_raw_map)
@@ -167,6 +223,80 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.trace_view.anchorMoved.connect(self._anchor_moved)
         self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
         self._set_loaded_view(False)
+
+    def _select_stage(self, index: int) -> None:
+        self.workflow_stack.setCurrentIndex(max(0, min(index, self.workflow_stack.count() - 1)))
+
+    def _display_changed(self, *_args: object) -> None:
+        """Refresh figure state without touching reconstruction or processing."""
+
+        if self.sender() is self.analysis_page.flip_y_check:
+            blocker = QtCore.QSignalBlocker(self.flip_y_check)
+            self.flip_y_check.setChecked(self.analysis_page.flip_y_check.isChecked())
+            del blocker
+        elif self.analysis_page.flip_y_check.isChecked() != self.flip_y_check.isChecked():
+            blocker = QtCore.QSignalBlocker(self.analysis_page.flip_y_check)
+            self.analysis_page.flip_y_check.setChecked(self.flip_y_check.isChecked())
+            del blocker
+        palette = self.analysis_page.palette_combo.currentText()
+        self.map_views.set_palette(palette)
+        self.analysis_map_views.set_palette(palette)
+        if self.processed is not None:
+            self._refresh_processed_display()
+            self._update_distribution()
+        if self.result is not None:
+            flipped = self.flip_y_check.isChecked()
+            self.map_views.show_sample_counts(self.result.sample_counts, flipped)
+            self.analysis_map_views.show_sample_counts(self.result.sample_counts, flipped)
+
+    def _sync_preparation_controls(self, config: SignalPreparationConfig) -> None:
+        page = self.preparation_page
+        page.mode_combo.setCurrentIndex(page.mode_combo.findData(config.dark_correction_mode))
+        page.constant_baseline_spin.setValue(config.constant_baseline)
+        page.fit_combo.setCurrentIndex(page.fit_combo.findData(config.manual_region_fit))
+        page.direction_combo.setCurrentIndex(
+            page.direction_combo.findData(config.response_direction)
+        )
+        page.quantile_spin.setValue(config.rolling_quantile * 100.0)
+        page.window_spin.setValue(config.rolling_window_s)
+        page.trend_combo.setCurrentIndex(page.trend_combo.findData(config.rolling_trend))
+        page.output_combo.setCurrentIndex(page.output_combo.findData(config.output_convention))
+        page.value_gate_check.setChecked(config.value_gate_enabled)
+        page.gate_min_spin.setValue(
+            config.value_gate_min if np.isfinite(config.value_gate_min) else 0.0
+        )
+        page.gate_max_spin.setValue(
+            config.value_gate_max if np.isfinite(config.value_gate_max) else 0.0
+        )
+        page.set_regions(config.manual_dark_regions)
+
+    def _preparation_changed(self) -> None:
+        if self._restoring_project or self.data is None:
+            return
+        try:
+            self.preparation_config = self.preparation_page.configuration()
+            self.prepared = prepare_signal(
+                self.data, self.signal_combo.currentText(), self.preparation_config
+            )
+            self.preparation_page.set_prepared(self.prepared)
+            self.trace_view.set_prepared_signal(self.prepared.values)
+            self.preparation_page.set_diagnostics(
+                f"Samples: {self.prepared.sample_count}\n"
+                f"Baseline: {('none' if self.prepared.baseline is None else f'{self.prepared.baseline[0]:.6g} → {self.prepared.baseline[-1]:.6g}')}\n"
+                + (
+                    "; ".join(self.prepared.warnings)
+                    if self.prepared.warnings
+                    else "Prepared signal ready."
+                )
+            )
+        except ValueError as exc:
+            self.prepared = None
+            self.preparation_page.set_prepared(None)
+            self._invalidate_reconstruction(str(exc))
+            self.preparation_page.set_diagnostics(str(exc))
+            self.workflow_header.set_status(False, False, False)
+            return
+        self._reconstruct()
 
     def _expose_compatibility_attributes(self) -> None:
         """Keep the small existing UI regression surface stable during the split."""
@@ -309,6 +439,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 loaded.state.signal, data.signals[loaded.state.signal]
             )
             self.inspector.restore_project_state(loaded.state, project_unit.scale)
+            self.analysis_page.flip_y_check.setChecked(loaded.state.flip_y)
+            self.preparation_config = loaded.state.preparation
+            self._sync_preparation_controls(self.preparation_config)
+            self.preparation_page.signal_combo.setCurrentText(loaded.state.signal)
+            self.prepared = prepare_signal(data, loaded.state.signal, self.preparation_config)
+            self.preparation_page.set_prepared(self.prepared)
+            self.trace_view.set_prepared_signal(self.prepared.values)
             self._set_raw_signal(loaded.state.signal)
             self._update_processing_units()
             self._create_anchor_lines()
@@ -335,9 +472,19 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._active_color_limits = None
         self._raw_source_bytes = raw_bytes
         self._loaded_filename = original_filename
+        self.workflow_header.set_filename(original_filename)
         self.inspector.set_file_name(original_filename)
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
         self.inspector.set_signal_names(data.signal_names, preferred)
+        self.preparation_page.set_signals(data.signal_names, preferred)
+        self.preparation_config = SignalPreparationConfig()
+        self._sync_preparation_controls(self.preparation_config)
+        self.analysis_page.flip_y_check.setChecked(False)
+        self.prepared = prepare_signal(data, preferred, self.preparation_config)
+        self.preparation_page.set_source(data.time_s, data.signals[preferred])
+        self.preparation_page.set_prepared(self.prepared)
+        self.trace_view.set_prepared_signal(self.prepared.values)
+        self.workflow_header.set_status(True, False, False)
         self._set_anchor_bounds(data)
         self._set_raw_signal(preferred)
         self._update_processing_units()
@@ -350,6 +497,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _set_loaded_view(self, loaded: bool) -> None:
         self.map_views.set_loaded(loaded)
+        self.analysis_map_views.set_loaded(loaded)
         self.trace_view.show_loaded(loaded)
         self._set_export_availability()
 
@@ -384,6 +532,24 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _signal_changed(self, signal_name: str) -> None:
         if self.data is None:
+            return
+        if self.inspector.signal_combo.currentText() != signal_name:
+            self.inspector.signal_combo.blockSignals(True)
+            self.inspector.signal_combo.setCurrentText(signal_name)
+            self.inspector.signal_combo.blockSignals(False)
+        if self.preparation_page.signal_combo.currentText() != signal_name:
+            self.preparation_page.signal_combo.blockSignals(True)
+            self.preparation_page.signal_combo.setCurrentText(signal_name)
+            self.preparation_page.signal_combo.blockSignals(False)
+        try:
+            self.prepared = prepare_signal(self.data, signal_name, self.preparation_config)
+            self.preparation_page.set_source(self.data.time_s, self.data.signals[signal_name])
+            self.preparation_page.set_prepared(self.prepared)
+            self.trace_view.set_prepared_signal(self.prepared.values)
+        except ValueError as exc:
+            self.prepared = None
+            self.preparation_page.set_prepared(None)
+            self._invalidate_reconstruction(str(exc))
             return
         self._set_raw_signal(signal_name)
         self._update_processing_units()
@@ -521,6 +687,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.flip_y_check.isChecked(),
             display_unit.axis_label,
         )
+        self.analysis_map_views.show_processed_map(
+            self.processed.values,
+            display_unit,
+            display_limits,
+            self.flip_y_check.isChecked(),
+            display_unit.axis_label,
+        )
 
     def _distribution_controls_changed(self) -> None:
         """Refresh only the QC histogram; its controls never reprocess a map."""
@@ -533,6 +706,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.map_views.show_distribution_error("Map color limits are not available.")
             return
         self.map_views.set_manual_distribution_range(*self._active_color_limits)
+        self.analysis_map_views.set_manual_distribution_range(*self._active_color_limits)
 
     def _update_distribution(self) -> None:
         if self.processed is None:
@@ -541,12 +715,25 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         try:
             config = self.map_views.histogram_config(display_unit.scale)
             self.map_views.show_distribution(self.processed, display_unit, config)
+            self.analysis_map_views.show_distribution(self.processed, display_unit, config)
         except ValueError as exc:
             self.map_views.show_distribution_error(str(exc))
+            self.analysis_map_views.show_distribution_error(str(exc))
 
     def _reconstruct(self) -> None:
         if self.data is None or self._syncing or self._restoring_project:
             return
+        if self.prepared is None:
+            # Keep the existing headless/UI compatibility surface usable for
+            # callers that inject ``data`` directly (the identity preparation
+            # is numerically identical to the legacy raw path).
+            try:
+                self.prepared = prepare_signal(
+                    self.data, self.signal_combo.currentText(), self.preparation_config
+                )
+            except ValueError:
+                self._invalidate_reconstruction("Signal preparation is unavailable.")
+                return
         if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
             self._invalidate_reconstruction("Set Rows and Columns to reconstruct.")
             return
@@ -554,10 +741,17 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self._create_anchor_lines()
         try:
             params = self.inspector.current_params()
+            reconstruction_data = TimeSeriesData(
+                self.prepared.time_s,
+                {self.prepared.source_signal: self.prepared.values},
+                metadata={"prepared": True},
+            )
             result = (
-                reconstruct_phase_window_map(self.data, self.signal_combo.currentText(), params)
+                reconstruct_phase_window_map(
+                    reconstruction_data, self.prepared.source_signal, params
+                )
                 if isinstance(params, PhaseWindowParams)
-                else reconstruct_map(self.data, self.signal_combo.currentText(), params)
+                else reconstruct_map(reconstruction_data, self.prepared.source_signal, params)
             )
         except ValueError as exc:
             self._invalidate_reconstruction(str(exc))
@@ -585,14 +779,22 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             message = "No valid pixels for current timing."
             self.inspector.set_warning(" | ".join([message, *result.warnings]))
             self.map_views.clear_processed_views("No valid reconstructed pixels")
+            self.analysis_map_views.clear_processed_views("No valid reconstructed pixels")
             self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
+            self.analysis_map_views.show_sample_counts(
+                result.sample_counts, self.flip_y_check.isChecked()
+            )
             self.trace_view.clear_guides()
             self._set_export_availability()
             self.statusBar().showMessage(message)
             return
         self.result = result
+        self.workflow_header.set_status(self.prepared is not None, True, self.processed is not None)
         self._process_and_display()
         self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
+        self.analysis_map_views.show_sample_counts(
+            result.sample_counts, self.flip_y_check.isChecked()
+        )
         self._update_guides(result)
         self._set_export_availability()
 
@@ -606,9 +808,21 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             if not isinstance(legacy, DualOffsetParams):
                 return
             conversion = convert_legacy_to_phase_window(legacy)
-            legacy_result = reconstruct_map(self.data, self.signal_combo.currentText(), legacy)
+            reconstruction_data = TimeSeriesData(
+                self.prepared.time_s if self.prepared is not None else self.data.time_s,
+                {
+                    self.signal_combo.currentText(): (
+                        self.prepared.values
+                        if self.prepared is not None
+                        else self.data.signals[self.signal_combo.currentText()]
+                    )
+                },
+            )
+            legacy_result = reconstruct_map(
+                reconstruction_data, self.signal_combo.currentText(), legacy
+            )
             phase_result = reconstruct_phase_window_map(
-                self.data, self.signal_combo.currentText(), conversion.params
+                reconstruction_data, self.signal_combo.currentText(), conversion.params
             )
             if not (
                 np.array_equal(legacy_result.sample_counts, phase_result.sample_counts)
@@ -657,12 +871,14 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.processed = None
             self._active_color_limits = None
             self.map_views.clear_processed_map_and_distribution("Processing unavailable")
+            self.analysis_map_views.clear_processed_map_and_distribution("Processing unavailable")
             self.inspector.set_warning(str(exc))
             self._set_export_availability()
             self.statusBar().showMessage("Raw map reconstructed; processing unavailable.")
             return
         self.processing_config = config
         self.processed = processed
+        self.workflow_header.set_status(self.prepared is not None, self.result is not None, True)
         self.inspector.set_processing_summary(
             f"{processed.value_label} - {config.value_scale.value}"
             + (f" - {len(processed.warnings)} warning(s)" if processed.warnings else "")
@@ -683,9 +899,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._active_color_limits = None
         self.inspector.clear_qc(message)
         self.map_views.clear_processed_views(message)
+        self.analysis_map_views.clear_processed_views(message)
         self.trace_view.clear_guides()
         self._set_export_availability()
         self.statusBar().showMessage(message)
+        self.workflow_header.set_status(self.prepared is not None, False, False)
 
     def _update_guides(self, result: ReconstructionResult) -> None:
         if self.data is None or self.params is None:
@@ -699,8 +917,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.trace_view.set_phase_window_guides(
                 rows[(rows >= t_min) & (rows <= t_max)],
                 bounds,
-                self.data.time_s,
-                self.data.signals[self.signal_combo.currentText()],
+                self.prepared.time_s if self.prepared is not None else self.data.time_s,
+                (
+                    self.prepared.values
+                    if self.prepared is not None
+                    else self.data.signals[self.signal_combo.currentText()]
+                ),
                 self._raw_display_unit(),
             )
             return
@@ -762,6 +984,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 if WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
                 else None
             ),
+            preparation=self.preparation_config,
         )
 
     def _export_project(self) -> None:

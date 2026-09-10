@@ -31,6 +31,10 @@ class MapViews(QtWidgets.QWidget):
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setMinimumSize(0, 0)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored
+        )
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -236,7 +240,7 @@ class MapViews(QtWidgets.QWidget):
     def _distribution_value_spin() -> QtWidgets.QDoubleSpinBox:
         spin = QtWidgets.QDoubleSpinBox()
         spin.setDecimals(6)
-        spin.setRange(-1e15, 1e15)
+        spin.setRange(-1e9, 1e9)
         spin.setSingleStep(0.1)
         spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows)
         spin.setKeyboardTracking(False)
@@ -327,6 +331,23 @@ class MapViews(QtWidgets.QWidget):
             self.map_color_bar.setLevels(levels)
         self.map_stack.setCurrentIndex(1)
         return True
+
+    def set_palette(self, palette: str) -> None:
+        """Change only the map rendering palette; scientific arrays are untouched."""
+
+        names = {
+            "Viridis": "viridis",
+            "Plasma": "plasma",
+            "Inferno": "inferno",
+            "Magma": "magma",
+            "Cividis": "CET-L17",
+            "Grayscale": "gray",
+        }
+        try:
+            color_map = pg.colormap.get(names.get(palette, "viridis"))
+        except Exception:  # pragma: no cover - backend-specific colormap registry
+            return
+        self.map_color_bar.setColorMap(color_map)
 
     def show_sample_counts(self, values: np.ndarray, flip_y: bool) -> None:
         display = np.asarray(values, dtype=float)

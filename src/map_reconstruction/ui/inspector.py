@@ -64,6 +64,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.setSpacing(9)
 
         data_section, data_layout = self._inspector_section("DATA")
+        self.data_section = data_section
         data_actions = QtWidgets.QHBoxLayout()
         data_actions.setContentsMargins(0, 0, 0, 0)
         data_actions.setSpacing(6)
@@ -123,6 +124,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.addWidget(data_section)
 
         geometry_section, geometry_layout = self._inspector_section("GEOMETRY")
+        self.geometry_section = geometry_section
         geometry_form = self._form_layout()
         self.rows_spin = self._int_spin(0, 0, 10000)
         self.cols_spin = self._int_spin(0, 0, 10000)
@@ -149,6 +151,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.addWidget(geometry_section)
 
         registration_section, registration_layout = self._inspector_section("REGISTRATION")
+        self.registration_section = registration_section
         method_row = QtWidgets.QHBoxLayout()
         method_label = QtWidgets.QLabel("Method")
         method_label.setObjectName("fieldLabel")
@@ -281,6 +284,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.addWidget(registration_section)
 
         processing_section, processing_layout = self._inspector_section("MAP VALUES")
+        self.processing_section = processing_section
         processing_form = self._form_layout()
         self.transform_combo = self._enum_combo(
             (
@@ -384,6 +388,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         root.addWidget(processing_section)
 
         reconstruction_section, reconstruction_layout = self._inspector_section("RECONSTRUCTION")
+        self.reconstruction_section = reconstruction_section
         self.timing_label = QtWidgets.QLabel("Timing valid: —")
         self.timing_label.setObjectName("fieldLabel")
         reconstruction_layout.addWidget(self.timing_label)
@@ -430,7 +435,6 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.cols_spin,
             self.scan_combo,
             self.first_row_check,
-            self.flip_y_check,
             self.aggregation_combo,
             self.rows_apart_spin,
             self.row_offset_spin,

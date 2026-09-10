@@ -25,6 +25,23 @@ QMainWindow {{
 QLabel#sectionHeader, QLabel#fieldLabel, QLabel#fileLabel {{
     color: {SECONDARY_TEXT};
 }}
+QLabel#appTitle, QLabel#pageTitle {{
+    color: {PRIMARY_TEXT};
+    font-weight: 600;
+}}
+QLabel#appTitle {{ font-size: 15px; }}
+QLabel#pageTitle {{ font-size: 13px; }}
+QLabel#mutedText, QLabel#workflowFile, QLabel#workflowStatus {{
+    color: {SECONDARY_TEXT};
+}}
+QFrame#stageSidebar {{
+    background: {PANEL};
+    border: 1px solid {BORDER};
+    border-radius: 7px;
+    min-width: 300px;
+    max-width: 340px;
+}}
+QLabel#analysisControls, QLabel#preparationDiagnostics {{ color: {SECONDARY_TEXT}; }}
 QLabel#sectionHeader {{
     font-size: 10px;
     font-weight: 700;

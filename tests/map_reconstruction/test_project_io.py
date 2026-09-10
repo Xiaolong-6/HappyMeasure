@@ -28,6 +28,13 @@ from map_reconstruction.project_io import (
     load_project,
     save_project,
 )
+from map_reconstruction.preparation import (
+    DarkCorrectionMode,
+    DarkRegion,
+    ManualRegionFit,
+    OutputConvention,
+    SignalPreparationConfig,
+)
 from map_reconstruction.reporting import (
     fit_size_keep_aspect,
     format_parameter_summary,
@@ -145,6 +152,23 @@ def test_phase_window_v2_project_round_trip_preserves_explicit_registration(tmp_
     assert "point_offset" not in registration
     assert "legacy_inclusive_right" not in registration
     assert "legacy_pixel1_phase_s" not in registration
+
+
+def test_active_preparation_uses_v3_and_round_trips(tmp_path: Path) -> None:
+    state = replace(
+        _state(),
+        preparation=SignalPreparationConfig(
+            dark_correction_mode=DarkCorrectionMode.MANUAL_REGIONS,
+            manual_dark_regions=(DarkRegion(0.0, 0.1),),
+            manual_region_fit=ManualRegionFit.CONSTANT,
+            output_convention=OutputConvention.DARK_MINUS_MEASURED,
+        ),
+    )
+    project = tmp_path / "prepared.hmmap"
+    save_project(project, state, _raw_csv())
+    loaded = load_project(project)
+    assert loaded.project_metadata["schema"] == "map-reconstruction-project-v3"
+    assert loaded.state.preparation == state.preparation
 
 
 def test_project_round_trip_restores_scientific_state_and_processing(tmp_path: Path) -> None:
