@@ -202,6 +202,9 @@ class _FastMeter:
         self.clock = clock
         self.source_sets: list[float] = []
         self.reads = 0
+        self.capabilities = DriverCapabilities(
+            name="test", vendor="test", model_family="test", supports_fast_acquisition=True
+        )
 
     def reset(self) -> None:
         pass
@@ -232,6 +235,9 @@ class _FastMeter:
 
 def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> None:
     meter = Keithley2400Serial("COM_FAKE")
+    meter.capabilities = DriverCapabilities(  # type: ignore[attr-defined]
+        name="test", vendor="test", model_family="test", supports_fast_acquisition=True
+    )
     writes: list[str] = []
     reads: list[str] = []
     meter.write = writes.append  # type: ignore[method-assign]
@@ -268,7 +274,10 @@ def test_fast_support_identity_matrix() -> None:
     assert supports_fast_acquisition_for_idn(
         "KEITHLEY INSTRUMENTS INC.,MODEL 2401,4612952,B02"
     )
-    assert supports_fast_acquisition_for_idn("Keithley Instruments Inc., Model 2400")
+    # Only MODEL 2401 is validated for Fast in this release; other 2400-series
+    # remain Standard-only until explicitly re-validated.
+    assert not supports_fast_acquisition_for_idn("Keithley Instruments Inc., Model 2400")
+    assert not supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2410,123")
     assert supports_fast_acquisition_for_idn("SIMULATED Keithley 2400")
     assert not supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2450")
     assert not supports_fast_acquisition_for_idn("Generic IV instrument")

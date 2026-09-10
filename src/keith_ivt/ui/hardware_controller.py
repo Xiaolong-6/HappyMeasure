@@ -86,20 +86,19 @@ class HardwareControllerMixin(UiMixinTyping):
                 "smu-iv",
                 fast_acquisition=True,
             )
-        if "KEITHLEY" in text and (
-            "2400" in text
-            or "2401" in text
-            or "2410" in text
-            or "2420" in text
-            or "2430" in text
-            or "2440" in text
-        ):
+        # Only MODEL 2401 is validated for Fast today; other 2400-series
+        # remain Standard-only until re-validated.
+        if "KEITHLEY" in text and "2401" in text:
             return self._full_cap(
-                "Keithley 2400-series SMU",
+                "Keithley 2401 SMU",
                 "Keithley",
                 "2400-series-smu",
                 fast_acquisition=True,
             )
+        if "KEITHLEY" in text and (
+            "2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text
+        ):
+            return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
         if "KEITHLEY" in text and "2450" in text:
             return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu")
         # Conservative fallback: IV only until a real driver advertises more.

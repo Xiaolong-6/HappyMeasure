@@ -61,16 +61,15 @@ class DriverCapabilities:
 def supports_fast_acquisition_for_idn(idn: str) -> bool:
     """Return whether Fast acquisition is validated for an *IDN? identity.
 
-    Validated today: the Keithley 2400-series family and the debug simulator
-    profile. Unvalidated families (2450, generic instruments) stay Standard-only.
+    Validated today: MODEL 2401 and the debug simulator profile. Other
+    2400-series family members remain Standard-only until explicitly
+    re-validated.
     """
 
     text = str(idn or "").upper()
     if "SIMULATED" in text:
         return True
-    if "KEITHLEY" in text and any(
-        family in text for family in ("2400", "2401", "2410", "2420", "2430", "2440")
-    ):
+    if "KEITHLEY" in text and "2401" in text:
         return True
     return False
 

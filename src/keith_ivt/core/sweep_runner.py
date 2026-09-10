@@ -28,13 +28,14 @@ StableRead = tuple[float, float] | None
 def _fast_capability_ok(instrument: Any) -> bool:
     """Return whether Fast/Custom overrides may run on this instrument.
 
-    Instruments that advertise capabilities must validate Fast support;
-    legacy drivers without capability info keep the historical behavior.
+    Instruments that advertise capabilities must validate Fast support.
+    Legacy drivers without capability info cannot be validated and must
+    refuse Fast/Custom overrides for the hardened release contract.
     """
 
     capabilities = getattr(instrument, "capabilities", None)
     if capabilities is None:
-        return True
+        return False
     return bool(getattr(capabilities, "supports_fast_acquisition", False))
 
 

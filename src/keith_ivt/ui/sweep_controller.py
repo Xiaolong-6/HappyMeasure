@@ -62,21 +62,22 @@ class SweepControllerMixin(UiMixinTyping):
         self._y_data.clear()
         self._live_points.clear()
         self._live_config = config
-        self._current_range_control.update_state(
-            CurrentRangeState(
-                autorange=bool(config.auto_measure_range),
-                actual_range_A=(
-                    config.measure_range
-                    if (not config.auto_measure_range and config.measure_range > 0)
-                    else None
-                ),
-                fixed_range_A=(
-                    config.measure_range
-                    if (not config.auto_measure_range and config.measure_range > 0)
-                    else None
-                ),
+        if config.measure_scpi == "CURR":
+            self._current_range_control.update_state(
+                CurrentRangeState(
+                    autorange=bool(config.auto_measure_range),
+                    actual_range_A=(
+                        config.measure_range
+                        if (not config.auto_measure_range and config.measure_range > 0)
+                        else None
+                    ),
+                    fixed_range_A=(
+                        config.measure_range
+                        if (not config.auto_measure_range and config.measure_range > 0)
+                        else None
+                    ),
+                )
             )
-        )
         self._reset_live_measurement_status()
         try:
             self._measurement_xy.clear()
@@ -105,6 +106,14 @@ class SweepControllerMixin(UiMixinTyping):
                 with self._make_instrument(config) as inst:
                     stop_event = getattr(self, "_stop_event", None)
                     pause_event = getattr(self, "_pause_event", None)
+                    # Live current-range control is only valid for I-measure.
+                    # Current-source / V-measure uses a separate voltage range
+                    # subsystem that will be introduced later.
+                    current_range_control = (
+                        getattr(self, "_current_range_control", None)
+                        if config.measure_scpi == "CURR"
+                        else None
+                    )
                     result = MeasurementService.run_source_meter(
                         inst,
                         config,
@@ -117,7 +126,7 @@ class SweepControllerMixin(UiMixinTyping):
                         should_pause=(
                             pause_event.is_set if pause_event is not None else lambda: self._paused
                         ),
-                        current_range_control=getattr(self, "_current_range_control", None),
+                        current_range_control=current_range_control,
                     )
             self._queue.put(("complete", result))
         except Exception as exc:

@@ -8,7 +8,7 @@ import keith_ivt.core.sweep_runner as sweep_runner
 import keith_ivt.services.measurement_service as measurement_service
 from keith_ivt.core.current_range import CurrentRangeControl
 from keith_ivt.core.sweep_runner import SweepRunner
-from keith_ivt.drivers.base import DriverReadback, MeasureMode, SourceMode
+from keith_ivt.drivers.base import DriverCapabilities, DriverReadback, MeasureMode, SourceMode
 from keith_ivt.services.measurement_service import MeasurementService
 from keith_ivt.models import SweepConfig, SweepKind, SweepMode
 from keith_ivt.sweeps.plan import SweepExecutionKind, make_plan
@@ -49,6 +49,12 @@ class _TimedMeter:
         self.read_count = 0
         self.source_value = 0.0
         self.events: list[str] = []
+        self.capabilities = DriverCapabilities(
+            name="test",
+            vendor="test",
+            model_family="test",
+            supports_fast_acquisition=True,
+        )
 
     def reset(self) -> None:
         self.events.append("reset")

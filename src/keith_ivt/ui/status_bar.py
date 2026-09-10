@@ -232,6 +232,17 @@ class StatusBarMixin(UiMixinTyping):
             return None
 
     def _current_range_status_fragment(self) -> str:
+        # Live current-range control only applies to current measurement.
+        # For voltage measure, the status bar should not claim Irange.
+        try:
+            live_cfg = getattr(self, "_live_config", None)
+            if live_cfg is not None:
+                if getattr(live_cfg, "measure_scpi", "CURR") != "CURR":
+                    return "Vrange N/A"
+            elif str(self.mode.get()) == SweepMode.CURRENT_SOURCE.value:
+                return "Vrange N/A"
+        except Exception:
+            pass
         state = self._current_range_snapshot()
         if state is not None:
             return state.status_fragment()
@@ -520,6 +531,33 @@ class StatusBarMixin(UiMixinTyping):
     def _refresh_front_panel_range_widgets(self) -> None:
         if not hasattr(self, "_front_panel_range_mode_value"):
             return
+        # Voltage-measure mode has no live current-range control.
+        try:
+            live_cfg = getattr(self, "_live_config", None)
+            if live_cfg is not None:
+                if getattr(live_cfg, "measure_scpi", "CURR") != "CURR":
+                    self._front_panel_range_mode_value.configure(text="N/A")
+                    self._front_panel_range_actual_value.configure(text="N/A")
+                    if hasattr(self, "_front_panel_range_warning"):
+                        self._front_panel_range_warning.configure(
+                            text="Live current-range control unavailable in voltage-measure mode."
+                        )
+                    if hasattr(self, "_front_panel_lock_btn"):
+                        try:
+                            self._front_panel_lock_btn.configure(state="disabled")
+                        except Exception:
+                            pass
+                    return
+            elif str(self.mode.get()) == SweepMode.CURRENT_SOURCE.value:
+                self._front_panel_range_mode_value.configure(text="N/A")
+                self._front_panel_range_actual_value.configure(text="N/A")
+                if hasattr(self, "_front_panel_range_warning"):
+                    self._front_panel_range_warning.configure(
+                        text="Voltage range configured; live current-range control unavailable."
+                    )
+                return
+        except Exception:
+            pass
         range_state = self._current_range_snapshot()
         telemetry_enabled = bool(getattr(self, "range_telemetry", self.auto_measure_range).get())
         if range_state is not None:
@@ -560,6 +598,21 @@ class StatusBarMixin(UiMixinTyping):
                 self._front_panel_range_warning.configure(
                     text="Fixed range is active; readings remain continuous unless overload occurs."
                 )
+        # Fast Auto with telemetry off: snapshot may be stale, so lock is unsafe.
+        if hasattr(self, "_front_panel_lock_btn"):
+            try:
+                if not telemetry_enabled and mode == "AUTO":
+                    self._front_panel_lock_btn.configure(state="disabled")
+                    if hasattr(self, "_front_panel_range_warning"):
+                        self._front_panel_range_warning.configure(
+                            text="Live autorange transitions are not monitored in Fast. Select a fixed measurement range before the run for quantitative work."
+                        )
+                else:
+                    # Re-enable when not in the Fast Auto case; the top-level
+                    # voltage-measure early return already handled that branch.
+                    self._front_panel_lock_btn.configure(state="normal")
+            except Exception:
+                pass
         try:
             fixed_value = float(self.measure_range.get())
         except Exception:
