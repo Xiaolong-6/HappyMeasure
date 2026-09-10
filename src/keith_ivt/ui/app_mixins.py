@@ -1,9 +1,9 @@
 """Grouped UI mixins for the HappyMeasure application shell.
 
 The alpha UI is still intentionally mixin-based because the original Tk app was
-split from a monolithic prototype.  This module reduces the public inheritance
+split from a monolithic prototype. This module reduces the public inheritance
 surface of :class:`SimpleKeithIVtApp` by grouping related mixins into a few
-cohesive layers.  Keep feature implementations in their focused modules; use
+cohesive layers. Keep feature implementations in their focused modules; use
 these groups only as composition boundaries.
 """
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from keith_ivt.ui.app_state_bridge import AppStateBridgeMixin
 from keith_ivt.ui.data_actions import DataActionMixin
+from keith_ivt.ui.fast_acquisition import FastAcquisitionMixin
 from keith_ivt.ui.hardware_controller import HardwareControllerMixin
 from keith_ivt.ui.navigation import NavigationMixin
 from keith_ivt.ui.operator_bar import OperatorBarMixin
@@ -45,6 +46,7 @@ class AppChromeMixin(
 
 class AppWorkflowMixin(
     AppStateBridgeMixin,
+    FastAcquisitionMixin,
     SweepConfigMixin,
     HardwareControllerMixin,
     SweepControllerMixin,

@@ -1,5 +1,55 @@
 # Current Test Status
 
+## 2026-09-10 - Fast Acquisition merge blockers (final)
+
+### HappyMeasure validation
+
+- Synced with latest main via `merge origin/main` (no conflicts); all
+  Three-Stage Map Reconstruction files are byte-identical to main, and the
+  Fast branch owns only `keith_ivt` acquisition/core/driver/UI paths plus its
+  two Fast test modules.
+- Focused Fast/Standard/Custom/runner/driver/metadata set: **161 passed**
+  (fast profile + persistence, sweep safety, fault injection, sweep-controller
+  recovery, pre-hardware safety, mock-VISA command sequence, import/export
+  store, models/adaptive, hysteresis, delay timing, core coverage gaps,
+  simulator behavior, continuous-time timing, pause/adaptive, presets,
+  settings compatibility, plus the HappyMeasure CSV importer sanity check).
+- Blocker #1 (AutoZero order): driver already sends
+  `:SYST:AZER:STAT ONCE` → `*WAI` → `:SYST:AZER:STAT OFF`; the regression now
+  asserts the exact contiguous subsequence, not just membership.
+- Blocker #2 (source-write-once): `SweepRunner` owns per-sample source writes
+  and `read_source_and_measure()` only reads; new regression runs Custom
+  Constant Time with `source_write_each_sample=True` through the real driver
+  class and proves 4 samples → 4 `:READ?` and exactly 5 `:SOUR:VOLT` writes
+  (one pre-run set + one per sample: not zero, not two).
+- Also repaired two main-era regressions the branch had broken: restored the
+  historical `Duration must be finite.` / `Interval must be finite.` /
+  `Interval must be positive.` / `Duration must be positive.` validation
+  messages while keeping Fast interval exemption, and removed a surplus
+  `:SENS:CURR:RANG?` query from `set_current_autorange` so the setter stays a
+  single write.
+- Fast hot path verified: source set once, then `:READ?` only; no per-sample
+  range queries (cache-only with telemetry off); no baud change; `:FORM:ELEM
+  CURR` with cached source value for V-source/I-measure; Standard keeps
+  two-field readback and live telemetry; Step sweeps unchanged; Custom knobs
+  honored exactly once with Custom → Fast → Custom snapshot restore.
+- CSV provenance round-trips all acquisition flags; old files without the new
+  fields load with historical defaults. Map importer sanity passes; no Map
+  Reconstruction scientific file was modified.
+- Ruff passes, Black passes, mypy passes (9 changed modules; two pre-existing
+  branch-only findings annotated without runtime effect), and `compileall`
+  passes for the touched sources and tests.
+- Tk state smoke passes headless (Standard/Fast/Custom switching, Fast preset
+  vars, Custom snapshot restore, non-Time fallback). Full-app visual layout
+  check was not performed in this session.
+- Real hardware: not tested. The ~14-16 ms/sample rate remains a
+  benchmark note, not a guarantee.
+
+### Map Reconstruction validation
+
+- Not rerun beyond the HappyMeasure CSV importer sanity check; merge
+  resolution left every Map Reconstruction scientific file identical to main.
+
 ## 2026-09-10 - Three-stage project merge-gate validation (final)
 
 ### Map Reconstruction validation

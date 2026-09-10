@@ -25,50 +25,61 @@ def _point_fingerprint(result: SweepResult) -> str:
     return h.hexdigest()[:16]
 
 
-def result_metadata(result: SweepResult) -> dict:
-    """Serializable metadata shared by single, combined, and imported files.
+def _acquisition_metadata(cfg) -> dict[str, Any]:
+    return {
+        "fast_acquisition": bool(getattr(cfg, "fast_acquisition", False)),
+        "custom_acquisition": bool(getattr(cfg, "custom_acquisition", False)),
+        "zero_refresh_before_run": bool(getattr(cfg, "zero_refresh_before_run", True)),
+        "autozero_during_run": bool(getattr(cfg, "autozero_during_run", False)),
+        "digital_filter": bool(getattr(cfg, "digital_filter", False)),
+        "digital_filter_count": int(getattr(cfg, "digital_filter_count", 2)),
+        "concurrent_measurement": bool(getattr(cfg, "concurrent_measurement", False)),
+        "display_during_run": bool(getattr(cfg, "display_during_run", True)),
+        "measurement_only_read": bool(getattr(cfg, "measurement_only_read", True)),
+        "range_telemetry": bool(getattr(cfg, "range_telemetry", False)),
+        "source_write_each_sample": bool(getattr(cfg, "source_write_each_sample", False)),
+        "trigger_delay_s": float(getattr(cfg, "trigger_delay_s", 0.0)),
+    }
 
-    The fingerprint fields intentionally include the numeric data, not only the
-    visible device name/start/stop values.  Import-overlap detection uses them
-    to avoid treating two different sweeps with the same user-facing metadata as
-    the same trace.
-    """
+
+def result_metadata(result: SweepResult) -> dict:
+    """Serializable metadata shared by single, combined, and imported files."""
     first_timestamp = ""
     if result.points:
         first_timestamp = getattr(result.points[0], "timestamp", "") or ""
     data_fingerprint = _point_fingerprint(result)
     cfg = result.config
+    acquisition = _acquisition_metadata(cfg)
+    fingerprint_payload = {
+        "device_name": cfg.device_name,
+        "operator": cfg.operator,
+        "mode": cfg.mode.value,
+        "sweep_kind": cfg.sweep_kind.value,
+        "hysteresis": getattr(cfg, "hysteresis", False),
+        "start": cfg.start,
+        "stop": cfg.stop,
+        "step": cfg.step,
+        "constant_value": cfg.constant_value,
+        "duration_s": cfg.duration_s,
+        "interval_s": cfg.interval_s,
+        "continuous_time": cfg.continuous_time,
+        "compliance": cfg.compliance,
+        "nplc": cfg.nplc,
+        "delay_s": cfg.delay_s,
+        "terminal": cfg.terminal.value,
+        "sense_mode": cfg.sense_mode.value,
+        "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
+        "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
+        "source_range": cfg.source_range,
+        "measure_range": cfg.measure_range,
+        "range_settle_delay_ms": cfg.range_settle_delay_ms,
+        "discard_after_range_change": cfg.discard_after_range_change,
+        "adaptive_segments": cfg.adaptive_segments,
+        "adaptive_remove_duplicates": cfg.adaptive_remove_duplicates,
+        **acquisition,
+    }
     config_fingerprint = hashlib.sha256(
-        json.dumps(
-            {
-                "device_name": cfg.device_name,
-                "operator": cfg.operator,
-                "mode": cfg.mode.value,
-                "sweep_kind": cfg.sweep_kind.value,
-                "hysteresis": getattr(cfg, "hysteresis", False),
-                "start": cfg.start,
-                "stop": cfg.stop,
-                "step": cfg.step,
-                "constant_value": cfg.constant_value,
-                "duration_s": cfg.duration_s,
-                "interval_s": cfg.interval_s,
-                "continuous_time": cfg.continuous_time,
-                "compliance": cfg.compliance,
-                "nplc": cfg.nplc,
-                "delay_s": cfg.delay_s,
-                "terminal": cfg.terminal.value,
-                "sense_mode": cfg.sense_mode.value,
-                "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
-                "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
-                "source_range": cfg.source_range,
-                "measure_range": cfg.measure_range,
-                "range_settle_delay_ms": cfg.range_settle_delay_ms,
-                "discard_after_range_change": cfg.discard_after_range_change,
-                "adaptive_segments": cfg.adaptive_segments,
-                "adaptive_remove_duplicates": cfg.adaptive_remove_duplicates,
-            },
-            sort_keys=True,
-        ).encode("utf-8")
+        json.dumps(fingerprint_payload, sort_keys=True).encode("utf-8")
     ).hexdigest()[:16]
     return {
         "schema": "HappyMeasure CSV v2",
@@ -107,6 +118,7 @@ def result_metadata(result: SweepResult) -> dict:
         "adaptive_segments": cfg.adaptive_segments,
         "adaptive_remove_duplicates": cfg.adaptive_remove_duplicates,
         "debug_model": cfg.debug_model,
+        **acquisition,
         "data_fingerprint": data_fingerprint,
         "config_fingerprint": config_fingerprint,
         "trace_uid": f"{config_fingerprint}-{data_fingerprint}",
@@ -189,14 +201,7 @@ def _write_trace_metadata_table(writer: _CsvWriter, results: list[SweepResult]) 
 
 
 def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
-    """Save multiple device traces in a human-readable CSV.
-
-    The file starts with an explicit trace metadata table, then a data section.
-    If all traces share a source axis and source mode, the data section is wide
-    (one measured column per trace).  Otherwise it falls back to a long table.
-    Both variants keep machine-readable ``# device_metadata`` lines for robust
-    import while staying understandable in Excel/Origin.
-    """
+    """Save multiple device traces in a human-readable CSV."""
     results = list(results)
     if not results:
         raise ValueError("No sweep results to save.")
