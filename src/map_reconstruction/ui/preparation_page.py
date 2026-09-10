@@ -111,6 +111,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.export_button.clicked.connect(self.exportRequested)
         self.region_list = QtWidgets.QListWidget()
         self._regions: list[DarkRegion] = []
+        self._region_items: list[pg.LinearRegionItem] = []
         self.region_list.setMaximumHeight(100)
         side_layout.addWidget(self.add_region_button)
         side_layout.addWidget(self.clear_regions_button)
@@ -195,21 +196,53 @@ class SignalPreparationPage(QtWidgets.QWidget):
         start = self._regions[-1].end_s if self._regions else 0.0
         region = DarkRegion(start, start + max(self.window_spin.value(), 1.0))
         self._regions.append(region)
-        self.region_list.addItem(
-            f"Region {len(self._regions)}   {region.start_s:g} – {region.end_s:g} s"
+        self._create_region_item(region)
+        self._refresh_region_list()
+        self.configurationChanged.emit()
+
+    def _create_region_item(self, region: DarkRegion) -> None:
+        item = pg.LinearRegionItem(
+            values=(region.start_s, region.end_s),
+            movable=True,
+            brush=pg.mkBrush(37, 99, 235, 35),
+            pen=pg.mkPen("#2563EB", width=1),
         )
-        self.configurationChanged.emit()
+        item.sigRegionChangeFinished.connect(self._regions_drag_finished)
+        self.trace_plot.addItem(item)
+        self._region_items.append(item)
 
-    def _clear_regions(self) -> None:
-        self._regions.clear()
-        self.region_list.clear()
-        self.configurationChanged.emit()
-
-    def set_regions(self, regions: tuple[DarkRegion, ...]) -> None:
-        self._regions = list(regions)
+    def _refresh_region_list(self) -> None:
         self.region_list.clear()
         for index, region in enumerate(self._regions, start=1):
             self.region_list.addItem(f"Region {index}   {region.start_s:g} – {region.end_s:g} s")
+
+    def _regions_drag_finished(self) -> None:
+        updated: list[DarkRegion] = []
+        for item in self._region_items:
+            left, right = item.getRegion()
+            if right > left:
+                updated.append(DarkRegion(float(left), float(right)))
+        self._regions = updated
+        self._refresh_region_list()
+        self.configurationChanged.emit()
+
+    def _remove_region_items(self) -> None:
+        for item in self._region_items:
+            self.trace_plot.removeItem(item)
+        self._region_items.clear()
+
+    def _clear_regions(self) -> None:
+        self._regions.clear()
+        self._remove_region_items()
+        self._refresh_region_list()
+        self.configurationChanged.emit()
+
+    def set_regions(self, regions: tuple[DarkRegion, ...]) -> None:
+        self._remove_region_items()
+        self._regions = list(regions)
+        for region in self._regions:
+            self._create_region_item(region)
+        self._refresh_region_list()
 
     def set_source(self, time_s: np.ndarray, values: np.ndarray) -> None:
         self.raw_curve.setData(time_s, values)
