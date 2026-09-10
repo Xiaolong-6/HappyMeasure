@@ -844,10 +844,11 @@ def test_compact_inspector_has_no_horizontal_scrollbar_at_practical_width(applic
     window = MapReconstructionWindow()
     try:
         window.resize(1024, 650)
+        window.workflow_stack.setCurrentIndex(1)
         window.show()
         application.processEvents()
-        scroll = window.findChild(QtWidgets.QScrollArea)
-        assert scroll is not None
+        scrolls = window.findChildren(QtWidgets.QScrollArea)
+        scroll = next(s for s in scrolls if s.widget() is window.inspector)
         assert scroll.width() >= 340
         assert scroll.horizontalScrollBar().maximum() == 0
     finally:
