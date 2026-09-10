@@ -1,4 +1,9 @@
-"""Composition root for the standalone Map Reconstruction application."""
+"""Integration-safe coordinator for the staged Map Reconstruction workspace.
+
+The pre-three-stage composition root is retained in ``_main_window_base`` so
+this module can concentrate the cross-stage state contracts introduced by
+Signal Preparation without duplicating the mature reconstruction UI code.
+"""
 
 from __future__ import annotations
 
@@ -6,286 +11,104 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
 
-try:
-    import pyqtgraph as _pyqtgraph  # type: ignore[import-not-found, import-untyped]  # noqa: F401
-    from PySide6 import QtCore, QtGui, QtWidgets  # type: ignore[import-not-found]
-except ImportError as exc:  # pragma: no cover - optional GUI dependency
-    raise ImportError("PySide6 and pyqtgraph are required for the Map Reconstruction UI") from exc
-
-from map_reconstruction.display_units import (
-    DisplayUnit,
-    display_unit_for_signal,
-)
+from map_reconstruction.display_units import display_unit_for_signal
 from map_reconstruction.importers.happymeasure import import_happymeasure_csv_bytes
 from map_reconstruction.methods.dual_offset import reconstruct_map
-from map_reconstruction.methods.phase_window import (
-    convert_legacy_to_phase_window,
-    effective_window_bounds,
-    reconstruct_phase_window_map,
+from map_reconstruction.models import TimeSeriesData
+from map_reconstruction.preparation import SignalPreparationConfig, prepare_signal
+from map_reconstruction.project_io import load_project
+from map_reconstruction.ui._main_window_base import (
+    MAX_GUIDES_PER_FAMILY,
+    MapReconstructionWindow as _BaseWindow,
 )
-from map_reconstruction.models import (
-    Aggregation,
-    DualOffsetParams,
-    PhaseWindowParams,
-    PhaseWindowTimingSolution,
-    ReconstructionResult,
-    ScanPattern,
-    TimeSeriesData,
-    TimingSolution,
-    WindowMode,
-)
-from map_reconstruction.processing import (
-    MapProcessingConfig,
-    NormalizationMode,
-    ProcessedMap,
-    ValueScale,
-    ValueTransform,
-    compute_color_limits,
-    process_map,
-)
-from map_reconstruction.project_io import ProjectState, load_project
 from map_reconstruction.ui.exporting import (
     export_both,
     export_parameter_summary,
     export_pdf_report,
-    export_processed,
-    export_project,
+    export_prepared,
     export_raw,
-    processed_export_metadata,
 )
-from map_reconstruction.ui.inspector import ReconstructionInspector
 from map_reconstruction.ui.map_views import MapViews
-from map_reconstruction.ui.style import apply_light_theme
-from map_reconstruction.ui.trace_view import MAX_GUIDES_PER_FAMILY, TraceView  # noqa: F401
 
 
-class MapReconstructionWindow(QtWidgets.QMainWindow):
-    """Coordinate file lifecycle, reconstruction, processing, and view updates."""
-
-    params: DualOffsetParams | PhaseWindowParams | None
-    processing_config: MapProcessingConfig | None
-    signal_combo: QtWidgets.QComboBox
-    scan_combo: QtWidgets.QComboBox
-    flip_y_check: QtWidgets.QCheckBox
-    first_row_check: QtWidgets.QCheckBox
-    aggregation_combo: QtWidgets.QComboBox
-    rows_spin: QtWidgets.QSpinBox
-    cols_spin: QtWidgets.QSpinBox
-    row_a_spin: QtWidgets.QDoubleSpinBox
-    row_b_spin: QtWidgets.QDoubleSpinBox
-    rows_apart_spin: QtWidgets.QSpinBox
-    row_offset_spin: QtWidgets.QSpinBox
-    point_a_spin: QtWidgets.QDoubleSpinBox
-    point_b_spin: QtWidgets.QDoubleSpinBox
-    points_apart_spin: QtWidgets.QSpinBox
-    point_offset_spin: QtWidgets.QSpinBox
-    method_combo: QtWidgets.QComboBox
-    x_period_offset_spin: QtWidgets.QSpinBox
-    y_phase_spin: QtWidgets.QDoubleSpinBox
-    x_phase_spin: QtWidgets.QDoubleSpinBox
-    window_mode_combo: QtWidgets.QComboBox
-    window_fraction_spin: QtWidgets.QDoubleSpinBox
-    window_duration_spin: QtWidgets.QDoubleSpinBox
-    transform_combo: QtWidgets.QComboBox
-    normalization_combo: QtWidgets.QComboBox
-    scale_combo: QtWidgets.QComboBox
+class MapReconstructionWindow(_BaseWindow):
+    """Repair cross-stage state ownership while preserving the established UI."""
 
     def __init__(self, initial_path: Path | None = None) -> None:
-        super().__init__()
-        application = QtWidgets.QApplication.instance()
-        if isinstance(application, QtWidgets.QApplication):
-            apply_light_theme(application)
-        self.data: TimeSeriesData | None = None
-        self.result: ReconstructionResult | None = None
-        self.params = None
-        self.processed: ProcessedMap | None = None
-        self.processing_config = None
-        self._active_color_limits: tuple[float, float] | None = None
-        self._loaded_filename: str | None = None
-        self._raw_source_bytes: bytes | None = None
-        self._restoring_project = False
-        self._syncing = False
-        self.setWindowTitle("Map Reconstruction")
-        icon_path = Path(__file__).resolve().parents[1] / "assets" / "map_reconstruction.png"
-        self.setWindowIcon(QtGui.QIcon(str(icon_path)))
-        self.resize(1280, 820)
-        self._build_ui()
+        # Let the base class construct the established workspace, but defer any
+        # requested initial load until this subclass is fully initialized.
+        super().__init__(None)
+        self._preparation_error: str | None = None
+        header = self.workflow_header
+        header.exportPreparedRequested.connect(lambda: export_prepared(self))
+        header.exportRawRequested.connect(lambda: export_raw(self))
+        header.exportBothRequested.connect(lambda: export_both(self))
+        header.exportSummaryRequested.connect(lambda: export_parameter_summary(self))
+        header.exportPdfRequested.connect(lambda: export_pdf_report(self))
         if initial_path is not None:
             self.load_file(initial_path)
 
-    def _build_ui(self) -> None:
-        central = QtWidgets.QWidget()
-        root = QtWidgets.QVBoxLayout(central)
-        root.setContentsMargins(16, 14, 16, 10)
-        root.setSpacing(12)
-        splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        root.addWidget(splitter)
-        root.setStretch(0, 1)
-        self.setCentralWidget(central)
+    def _sync_preparation_controls(self, config: SignalPreparationConfig) -> None:
+        page = self.preparation_page
+        if self.data is not None:
+            signal = page.signal_combo.currentText() or self.signal_combo.currentText()
+            if signal in self.data.signals:
+                page.set_display_unit(display_unit_for_signal(signal, self.data.signals[signal]))
+        page.set_configuration(config)
 
-        self.inspector = ReconstructionInspector(self)
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.inspector)
-        scroll.setMinimumWidth(340)
-        scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        splitter.addWidget(scroll)
-
-        right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
-        self.map_views = MapViews(self)
-        self.trace_view = TraceView(parent=self)
-        right.addWidget(self.map_views)
-        right.addWidget(self.trace_view)
-        right.setStretchFactor(0, 45)
-        right.setStretchFactor(1, 55)
-        right.setSizes([360, 440])
-        splitter.addWidget(right)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([340, 840])
-
-        self._expose_compatibility_attributes()
-        self.inspector.signalChanged.connect(self._signal_changed)
-        self.inspector.geometryChanged.connect(self._reconstruct)
-        self.inspector.registrationChanged.connect(self._reconstruct)
-        self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
-        self.inspector.processingChanged.connect(self._processing_controls_changed)
-        self.inspector.colorLimitsChanged.connect(self._color_limits_changed)
-        self.map_views.distributionControlsChanged.connect(self._distribution_controls_changed)
-        self.map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
-        self.inspector.pointPeriodEdited.connect(self._point_period_edited)
-        self.trace_view.resetViewRequested.connect(self._reset_views)
-        self.inspector.openRequested.connect(self._choose_file)
-        self.inspector.openProjectRequested.connect(self._choose_project)
-        self.inspector.exportRawRequested.connect(self._export_raw_map)
-        self.inspector.exportProcessedRequested.connect(self._export_processed_map)
-        self.inspector.exportBothRequested.connect(self._export_both_maps)
-        self.inspector.exportProjectRequested.connect(self._export_project)
-        self.inspector.exportSummaryRequested.connect(self._export_parameter_summary)
-        self.inspector.exportPdfRequested.connect(self._export_pdf_report)
-        self.trace_view.anchorMoved.connect(self._anchor_moved)
-        self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
-        self._set_loaded_view(False)
-
-    def _expose_compatibility_attributes(self) -> None:
-        """Keep the small existing UI regression surface stable during the split."""
-
-        inspector_names = (
-            "file_label",
-            "open_button",
-            "open_project_button",
-            "export_button",
-            "raw_export_action",
-            "processed_export_action",
-            "both_export_action",
-            "project_export_action",
-            "summary_export_action",
-            "pdf_export_action",
-            "signal_combo",
-            "rows_spin",
-            "cols_spin",
-            "scan_combo",
-            "first_row_check",
-            "flip_y_check",
-            "aggregation_combo",
-            "row_a_spin",
-            "row_b_spin",
-            "rows_apart_spin",
-            "row_offset_spin",
-            "point_a_spin",
-            "point_b_spin",
-            "points_apart_spin",
-            "point_period_spin",
-            "point_offset_spin",
-            "method_combo",
-            "x_period_offset_spin",
-            "y_phase_spin",
-            "x_phase_spin",
-            "window_mode_combo",
-            "window_fraction_spin",
-            "window_duration_spin",
-            "transform_combo",
-            "baseline_combo",
-            "normalization_combo",
-            "scale_combo",
-            "color_range_combo",
-            "baseline_value_spin",
-            "baseline_percentile_spin",
-            "custom_expression_edit",
-            "normalization_reference_spin",
-            "percentile_low_spin",
-            "percentile_high_spin",
-            "color_min_spin",
-            "color_max_spin",
-            "processing_summary",
-            "timing_label",
-            "qc_values",
-            "qc_label",
-        )
-        for name in inspector_names:
-            setattr(self, name, getattr(self.inspector, name))
-        view_names = (
-            "map_stack",
-            "map_plot",
-            "map_image",
-            "map_color_bar",
-            "count_stack",
-            "count_plot",
-            "count_image",
-            "count_color_bar",
-            "qc_tabs",
-            "distribution_stack",
-            "distribution_plot",
-            "distribution_bars",
-            "mean_line",
-            "median_line",
-            "distribution_stats",
-            "raw_plot",
-            "raw_curve",
-            "raw_guide_key",
-        )
-        for name in view_names:
-            source = self.map_views if hasattr(self.map_views, name) else self.trace_view
-            setattr(self, name, getattr(source, name))
-
-    @property
-    def guide_items(self):
-        return self.trace_view.guide_items
-
-    @property
-    def anchor_lines(self):
-        return self.trace_view.anchor_lines
-
-    @staticmethod
-    def _guide_indices(count: int) -> np.ndarray:
-        return TraceView.guide_indices(count)
-
-    def _choose_file(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Open HappyMeasure single-v2 CSV", "", "CSV files (*.csv);;All files (*.*)"
-        )
-        if path:
-            self.load_file(Path(path))
-
-    def _choose_project(self) -> None:
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Open Map Reconstruction project",
-            "",
-            "Map Reconstruction Project (*.hmmap)",
-        )
-        if path:
-            self.load_project_file(Path(path))
-
-    def load_file(self, path: Path) -> None:
-        try:
-            raw_bytes = path.read_bytes()
-            data = import_happymeasure_csv_bytes(raw_bytes, path.name, source_path=path)
-        except (OSError, ValueError) as exc:
-            QtWidgets.QMessageBox.critical(self, "Could not open CSV", str(exc))
+    def _show_prepared_diagnostics(self) -> None:
+        if self.prepared is None:
+            self.preparation_page.set_diagnostics(
+                self._preparation_error or "Signal preparation is unavailable."
+            )
             return
-        self._load_data(data, raw_bytes, path.name)
+        baseline_text = (
+            "none"
+            if self.prepared.baseline is None
+            else f"{self.prepared.baseline[0]:.6g} → {self.prepared.baseline[-1]:.6g} SI"
+        )
+        detail = (
+            "; ".join(self.prepared.warnings)
+            if self.prepared.warnings
+            else "Prepared signal ready."
+        )
+        self.preparation_page.set_diagnostics(
+            f"Samples: {self.prepared.sample_count}\nBaseline: {baseline_text}\n{detail}"
+        )
+
+    def _invalidate_preparation(self, message: str) -> None:
+        self._preparation_error = message
+        self.prepared = None
+        self.preparation_page.set_prepared(None)
+        self.trace_view.set_prepared_signal(None)
+        self.preparation_page.set_diagnostics(message)
+        self._invalidate_reconstruction(message)
+        self.workflow_header.set_status(False, False, False)
+
+    def _preparation_changed(self) -> None:
+        if self._restoring_project or self.data is None:
+            return
+        try:
+            config = self.preparation_page.configuration()
+        except ValueError as exc:
+            self._invalidate_preparation(str(exc))
+            return
+        # The current widget snapshot becomes authoritative even when the
+        # scientific pipeline rejects it (for example, too few manual regions).
+        self.preparation_config = config
+        try:
+            prepared = prepare_signal(self.data, self.signal_combo.currentText(), config)
+        except ValueError as exc:
+            self._invalidate_preparation(str(exc))
+            return
+        self._preparation_error = None
+        self.prepared = prepared
+        self.preparation_page.set_prepared(prepared)
+        self.trace_view.set_prepared_signal(prepared.values)
+        self._show_prepared_diagnostics()
+        self._reconstruct()
 
     def load_project_file(self, path: Path) -> None:
         try:
@@ -300,6 +123,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
             return
+
+        preparation_error: str | None = None
         self._restoring_project = True
         try:
             self._load_data(
@@ -309,11 +134,47 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 loaded.state.signal, data.signals[loaded.state.signal]
             )
             self.inspector.restore_project_state(loaded.state, project_unit.scale)
+            blockers = [
+                QtCore.QSignalBlocker(self.analysis_page.flip_y_check),
+                QtCore.QSignalBlocker(self.preparation_page.signal_combo),
+            ]
+            try:
+                self.analysis_page.flip_y_check.setChecked(loaded.state.flip_y)
+                self.preparation_page.signal_combo.setCurrentText(loaded.state.signal)
+            finally:
+                del blockers
+            self.preparation_config = loaded.state.preparation
+            self.preparation_page.set_display_unit(project_unit)
+            self.preparation_page.set_source(data.time_s, data.signals[loaded.state.signal])
+            self._sync_preparation_controls(self.preparation_config)
+            try:
+                self.prepared = prepare_signal(data, loaded.state.signal, self.preparation_config)
+            except ValueError as exc:
+                preparation_error = str(exc)
+                self._preparation_error = preparation_error
+                self.prepared = None
+                self.preparation_page.set_prepared(None)
+                self.trace_view.set_prepared_signal(None)
+            else:
+                self._preparation_error = None
+                self.preparation_page.set_prepared(self.prepared)
+                self.trace_view.set_prepared_signal(self.prepared.values)
             self._set_raw_signal(loaded.state.signal)
             self._update_processing_units()
             self._create_anchor_lines()
+            self._show_prepared_diagnostics()
         finally:
             self._restoring_project = False
+
+        if preparation_error is not None:
+            self._invalidate_reconstruction(
+                f"Project opened, but signal preparation is invalid: {preparation_error}"
+            )
+            self.preparation_page.set_diagnostics(
+                "Project state restored. Fix Signal Preparation before reconstruction.\n"
+                + preparation_error
+            )
+            return
         if loaded.state.is_geometry_set:
             self._reconstruct()
         else:
@@ -328,453 +189,169 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         *,
         reconstruct: bool = True,
     ) -> None:
-        self.data = data
-        self.result = None
-        self.params = None
-        self.processed = None
-        self._active_color_limits = None
-        self._raw_source_bytes = raw_bytes
-        self._loaded_filename = original_filename
-        self.inspector.set_file_name(original_filename)
+        # Perform the base reset atomically with preparation callbacks suppressed.
+        old_restoring = self._restoring_project
+        self._restoring_project = True
+        try:
+            super()._load_data(data, raw_bytes, original_filename, reconstruct=False)
+        finally:
+            self._restoring_project = old_restoring
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
-        self.inspector.set_signal_names(data.signal_names, preferred)
-        self._set_anchor_bounds(data)
-        self._set_raw_signal(preferred)
-        self._update_processing_units()
-        self._create_anchor_lines()
-        self._set_loaded_view(True)
+        self._preparation_error = None
+        unit = display_unit_for_signal(preferred, data.signals[preferred])
+        self.preparation_page.set_display_unit(unit)
+        self.preparation_page.set_source(data.time_s, data.signals[preferred])
+        self.preparation_config = SignalPreparationConfig()
+        self._sync_preparation_controls(self.preparation_config)
+        self.prepared = prepare_signal(data, preferred, self.preparation_config)
+        self.preparation_page.set_prepared(self.prepared)
+        self.trace_view.set_prepared_signal(self.prepared.values)
+        self._show_prepared_diagnostics()
+        self.workflow_header.set_status(True, False, False)
+        self._set_export_availability()
         if reconstruct:
             self._reconstruct()
         if reconstruct and (self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0):
             self.statusBar().showMessage("Set Rows and Columns to reconstruct.")
 
-    def _set_loaded_view(self, loaded: bool) -> None:
-        self.map_views.set_loaded(loaded)
-        self.trace_view.show_loaded(loaded)
-        self._set_export_availability()
+    def _signal_changed(self, signal_name: str) -> None:
+        if self.data is None or signal_name not in self.data.signals:
+            return
+        for combo in (self.inspector.signal_combo, self.preparation_page.signal_combo):
+            if combo.currentText() != signal_name:
+                blocker = QtCore.QSignalBlocker(combo)
+                combo.setCurrentText(signal_name)
+                del blocker
+        unit = display_unit_for_signal(signal_name, self.data.signals[signal_name])
+        self.preparation_page.set_display_unit(unit)
+        self.preparation_page.set_source(self.data.time_s, self.data.signals[signal_name])
+        # Re-render the same scientific config in the new signal's display units.
+        self.preparation_page.set_configuration(self.preparation_config)
+        try:
+            self.prepared = prepare_signal(self.data, signal_name, self.preparation_config)
+        except ValueError as exc:
+            self._set_raw_signal(signal_name)
+            self._update_processing_units()
+            self._invalidate_preparation(str(exc))
+            return
+        self._preparation_error = None
+        self.preparation_page.set_prepared(self.prepared)
+        self.trace_view.set_prepared_signal(self.prepared.values)
+        self._show_prepared_diagnostics()
+        self._set_raw_signal(signal_name)
+        self._update_processing_units()
+        self._reconstruct()
 
     def _set_export_availability(self) -> None:
+        super()._set_export_availability()
         raw_available = self.result is not None
         processed_available = bool(
             self.processed is not None and np.isfinite(self.processed.values).any()
         )
         source_available = self.data is not None and bool(self._raw_source_bytes)
-        self.inspector.set_export_availability(raw_available, processed_available, source_available)
-
-    def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
-        lower, upper = float(data.time_s[0]), float(data.time_s[-1])
-        self.inspector.set_anchor_bounds(data)
-        self.trace_view.set_anchor_bounds(lower, upper)
-
-    def _create_anchor_lines(self) -> None:
-        self.trace_view.set_anchors(
-            {
-                "row_a_s": self.row_a_spin.value(),
-                "row_b_s": self.row_b_spin.value(),
-                "point_a_s": self.point_a_spin.value(),
-                "point_b_s": self.point_b_spin.value(),
-            }
+        self.workflow_header.set_action_availability(
+            source_available, self.prepared is not None, raw_available, processed_available
         )
 
-    def _set_raw_signal(self, signal_name: str) -> None:
-        if self.data is None or signal_name not in self.data.signals:
-            return
-        unit = display_unit_for_signal(signal_name, self.data.signals[signal_name])
-        self.trace_view.set_signal(self.data.time_s, self.data.signals[signal_name], unit)
-
-    def _signal_changed(self, signal_name: str) -> None:
-        if self.data is None:
-            return
-        self._set_raw_signal(signal_name)
-        self._update_processing_units()
-        self._reconstruct()
-
-    def _anchor_moved(self, name: str, value: float) -> None:
-        self.inspector.mark_anchors_user_edited()
-        self._syncing = True
-        getattr(self, name.replace("_s", "") + "_spin").setValue(value)
-        self._syncing = False
-
-    def _anchor_finished(self, _name: str, _value: float) -> None:
-        self._sync_point_period_from_anchors()
-        self._reconstruct()
-
-    def _sync_point_period_from_anchors(self) -> None:
-        self.inspector._sync_point_period_from_anchors()
-
-    def _anchor_spin_finished(self) -> None:
-        self.inspector._anchor_spin_finished()
-
-    def _point_period_finished(self) -> None:
-        self.inspector._point_period_finished()
-
-    def _point_period_edited(self, point_b: float) -> None:
-        if self.data is None:
-            return
-        if not self.point_b_spin.minimum() <= point_b <= self.point_b_spin.maximum():
-            self._invalidate_reconstruction(
-                "Point period places Point B outside the loaded time range."
-            )
-            return
-        self.inspector.set_point_b_value(point_b)
-        self.trace_view.set_anchor_value("point_b_s", point_b)
-        self._reconstruct()
-
-    def _current_display_unit(self) -> DisplayUnit:
-        if self.processed is not None and self.processed.is_dimensionless:
-            return DisplayUnit(self.processed.value_label, "", 1.0)
-        raw = self._raw_display_unit()
-        return (
-            DisplayUnit(self.processed.value_label, raw.unit, raw.scale) if self.processed else raw
+    @staticmethod
+    def _copy_distribution_controls(source: MapViews, target: MapViews) -> None:
+        widgets = (
+            target.distribution_range_combo,
+            target.distribution_bin_combo,
+            target.distribution_min_spin,
+            target.distribution_max_spin,
+            target.distribution_count_spin,
+            target.distribution_width_spin,
         )
-
-    def _raw_display_unit(self) -> DisplayUnit:
-        if self.data is None:
-            return display_unit_for_signal(self.signal_combo.currentText())
-        return display_unit_for_signal(
-            self.signal_combo.currentText(), self.data.signals.get(self.signal_combo.currentText())
-        )
-
-    def _processing_display_scale(self) -> float:
-        transform = ValueTransform(self.transform_combo.currentData())
-        normalization = NormalizationMode(self.normalization_combo.currentData())
-        scale = ValueScale(self.scale_combo.currentData())
-        if transform is ValueTransform.CUSTOM or normalization is not NormalizationMode.NONE:
-            return 1.0
-        if scale is ValueScale.LOG10:
-            return 1.0
-        return self._raw_display_unit().scale
-
-    def _normalization_reference_scale(self) -> float:
-        transform = ValueTransform(self.transform_combo.currentData())
-        return (
-            self._raw_display_unit().scale
-            if transform in (ValueTransform.RAW, ValueTransform.ABSOLUTE, ValueTransform.NEGATE)
-            else 1.0
-        )
-
-    def _processing_config(self):
-        return self.inspector.current_processing_config(
-            self._raw_display_unit().scale,
-            self._normalization_reference_scale(),
-            self._processing_display_scale(),
-        )
-
-    def _update_processing_units(self) -> None:
-        raw = self._raw_display_unit()
-        transform = ValueTransform(self.transform_combo.currentData())
-        dimensionless = (
-            transform is ValueTransform.CUSTOM
-            or NormalizationMode(self.normalization_combo.currentData())
-            is not NormalizationMode.NONE
-            or ValueScale(self.scale_combo.currentData()) is ValueScale.LOG10
-        )
-        normalization_reference = (
-            raw
-            if transform in (ValueTransform.RAW, ValueTransform.ABSOLUTE, ValueTransform.NEGATE)
-            else DisplayUnit(raw.label, "", 1.0)
-        )
-        self.inspector.set_processing_units(
-            raw,
-            normalization_reference,
-            DisplayUnit(raw.label, "", 1.0) if dimensionless else raw,
-        )
-
-    def _processing_controls_changed(self) -> None:
-        self._update_processing_units()
-        if self.result is not None:
-            self._process_and_display()
-
-    def _color_limits_changed(self) -> None:
-        """Remap colors only; the processed scientific array remains untouched."""
-
-        config = self._processing_config()
-        self.processing_config = config
-        if self.processed is not None:
-            self._refresh_processed_display(config)
-
-    def _refresh_processed_display(self, config: MapProcessingConfig | None = None) -> None:
-        if self.processed is None:
-            return
-        config = config or self._processing_config()
-        self.processing_config = config
-        display_unit = self._current_display_unit()
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
         try:
-            limits = compute_color_limits(self.processed.values, config)
-        except ValueError as exc:
-            self._active_color_limits = None
-            self.map_views.show_empty_map("Invalid color limits", str(exc))
-            self.inspector.set_warning(str(exc))
-            return
-        if limits is None:
-            self._active_color_limits = None
-            self.map_views.show_empty_map(
-                "No finite processed values", "Adjust processing settings."
+            target.distribution_range_combo.setCurrentIndex(
+                target.distribution_range_combo.findData(
+                    source.distribution_range_combo.currentData()
+                )
             )
-            return
-        display_limits = (limits.minimum * display_unit.scale, limits.maximum * display_unit.scale)
-        self._active_color_limits = display_limits
-        self.map_views.show_processed_map(
-            self.processed.values,
-            display_unit,
-            display_limits,
-            self.flip_y_check.isChecked(),
-            display_unit.axis_label,
-        )
+            target.distribution_bin_combo.setCurrentIndex(
+                target.distribution_bin_combo.findData(source.distribution_bin_combo.currentData())
+            )
+            target.distribution_min_spin.setValue(source.distribution_min_spin.value())
+            target.distribution_max_spin.setValue(source.distribution_max_spin.value())
+            target.distribution_count_spin.setValue(source.distribution_count_spin.value())
+            target.distribution_width_spin.setValue(source.distribution_width_spin.value())
+            target._update_distribution_control_visibility()
+        finally:
+            del blockers
 
     def _distribution_controls_changed(self) -> None:
-        """Refresh only the QC histogram; its controls never reprocess a map."""
-
+        sender = self.sender()
+        source = sender if isinstance(sender, MapViews) else self.map_views
+        target = self.analysis_map_views if source is self.map_views else self.map_views
+        self._copy_distribution_controls(source, target)
         if self.processed is not None:
-            self._update_distribution()
+            self._update_distribution(source)
 
     def _use_map_limits_for_distribution(self) -> None:
         if self._active_color_limits is None:
-            self.map_views.show_distribution_error("Map color limits are not available.")
+            for views in (self.map_views, self.analysis_map_views):
+                views.show_distribution_error("Map color limits are not available.")
             return
-        self.map_views.set_manual_distribution_range(*self._active_color_limits)
+        sender = self.sender()
+        source = sender if isinstance(sender, MapViews) else self.map_views
+        source.set_manual_distribution_range(*self._active_color_limits)
 
-    def _update_distribution(self) -> None:
+    def _update_distribution(self, source: MapViews | None = None) -> None:
         if self.processed is None:
             return
+        source = source or self.map_views
         display_unit = self._current_display_unit()
         try:
-            config = self.map_views.histogram_config(display_unit.scale)
+            config = source.histogram_config(display_unit.scale)
             self.map_views.show_distribution(self.processed, display_unit, config)
+            self.analysis_map_views.show_distribution(self.processed, display_unit, config)
         except ValueError as exc:
             self.map_views.show_distribution_error(str(exc))
+            self.analysis_map_views.show_distribution_error(str(exc))
+
+    def _convert_legacy_to_phase_window(self) -> None:
+        if self.prepared is None:
+            message = (
+                self._preparation_error or "Fix Signal Preparation before converting registration."
+            )
+            self.inspector.set_warning(message)
+            self.statusBar().showMessage(message)
+            return
+        super()._convert_legacy_to_phase_window()
 
     def _reconstruct(self) -> None:
         if self.data is None or self._syncing or self._restoring_project:
             return
-        if self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0:
-            self._invalidate_reconstruction("Set Rows and Columns to reconstruct.")
-            return
-        if self.inspector.initialize_geometry_aware_anchors(self.data):
-            self._create_anchor_lines()
-        try:
-            params = self.inspector.current_params()
-            result = (
-                reconstruct_phase_window_map(self.data, self.signal_combo.currentText(), params)
-                if isinstance(params, PhaseWindowParams)
-                else reconstruct_map(self.data, self.signal_combo.currentText(), params)
-            )
-        except ValueError as exc:
-            self._invalidate_reconstruction(str(exc))
-            return
-        self.params = params
-        finite = np.isfinite(result.values)
-        self.inspector.set_timing_solution(
-            result.timing.row_period_s,
-            result.timing.point_period_s,
-            result.timing.row_period_s - params.cols * result.timing.point_period_s,
-            phase_window=isinstance(params, PhaseWindowParams),
-        )
-        nonzero_counts = result.sample_counts[finite]
-        self.inspector.set_qc(
-            100.0 * float(np.mean(finite)),
-            float(np.median(nonzero_counts)) if np.any(finite) else 0.0,
-            100.0 * float(np.mean(result.sample_counts == 0)),
-            100.0 * float(np.mean(result.sample_counts == 1)),
-            float(np.percentile(nonzero_counts, 10.0)) if np.any(finite) else 0.0,
-        )
-        if not np.any(finite):
-            self.result = None
-            self.processed = None
-            self._active_color_limits = None
-            message = "No valid pixels for current timing."
-            self.inspector.set_warning(" | ".join([message, *result.warnings]))
-            self.map_views.clear_processed_views("No valid reconstructed pixels")
-            self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
-            self.trace_view.clear_guides()
-            self._set_export_availability()
-            self.statusBar().showMessage(message)
-            return
-        self.result = result
-        self._process_and_display()
-        self.map_views.show_sample_counts(result.sample_counts, self.flip_y_check.isChecked())
-        self._update_guides(result)
-        self._set_export_availability()
-
-    def _convert_legacy_to_phase_window(self) -> None:
-        """Explicitly convert only if the current raw reconstruction is identical."""
-
-        if self.data is None:
-            return
-        try:
-            legacy = self.inspector.current_params()
-            if not isinstance(legacy, DualOffsetParams):
-                return
-            conversion = convert_legacy_to_phase_window(legacy)
-            legacy_result = reconstruct_map(self.data, self.signal_combo.currentText(), legacy)
-            phase_result = reconstruct_phase_window_map(
-                self.data, self.signal_combo.currentText(), conversion.params
-            )
-            if not (
-                np.array_equal(legacy_result.sample_counts, phase_result.sample_counts)
-                and np.allclose(legacy_result.values, phase_result.values, equal_nan=True)
+        if self.prepared is None:
+            # Loaded workspaces never revive an older config after preparation
+            # validation failed. Preserve only the historical direct-injection
+            # test path where no source archive exists and preparation is identity.
+            if (
+                self._raw_source_bytes is None
+                and self._preparation_error is None
+                and self.preparation_config.is_identity
             ):
-                raise ValueError("Conversion could not reproduce the current Legacy pixel windows.")
-        except ValueError as exc:
-            self.inspector.set_warning(str(exc))
-            self.statusBar().showMessage("Legacy conversion was not applied.")
-            return
-        widgets = (
-            self.method_combo,
-            self.y_phase_spin,
-            self.x_period_offset_spin,
-            self.x_phase_spin,
-            self.window_mode_combo,
-            self.window_fraction_spin,
-        )
-        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
-        try:
-            self.method_combo.setCurrentIndex(
-                self.method_combo.findData("dual_offset_phase_window")
-            )
-            self.y_phase_spin.setValue(conversion.params.y_phase_fraction * 100.0)
-            self.x_period_offset_spin.setValue(conversion.params.x_period_offset)
-            self.x_phase_spin.setValue(conversion.params.x_phase_fraction * 100.0)
-            self.window_mode_combo.setCurrentIndex(
-                self.window_mode_combo.findData(conversion.params.window_mode)
-            )
-            self.window_fraction_spin.setValue(conversion.params.window_fraction * 100.0)
-        finally:
-            del blockers
-        self.inspector._update_phase_window_fields()
-        self._reconstruct()
-        self.statusBar().showMessage(
-            "Converted Legacy timing to Phase Window without changing pixels."
-        )
+                try:
+                    self.prepared = prepare_signal(
+                        self.data, self.signal_combo.currentText(), self.preparation_config
+                    )
+                except ValueError as exc:
+                    self._invalidate_reconstruction(str(exc))
+                    return
+            else:
+                self._invalidate_reconstruction(
+                    self._preparation_error or "Signal preparation is unavailable."
+                )
+                return
+        super()._reconstruct()
 
-    def _process_and_display(self) -> None:
-        if self.result is None or self.data is None:
-            return
-        try:
-            config = self._processing_config()
-            processed = process_map(self.result.values, config, self.signal_combo.currentText())
-        except ValueError as exc:
-            self.processed = None
-            self._active_color_limits = None
-            self.map_views.clear_processed_map_and_distribution("Processing unavailable")
-            self.inspector.set_warning(str(exc))
-            self._set_export_availability()
-            self.statusBar().showMessage("Raw map reconstructed; processing unavailable.")
-            return
-        self.processing_config = config
-        self.processed = processed
-        self.inspector.set_processing_summary(
-            f"{processed.value_label} - {config.value_scale.value}"
-            + (f" - {len(processed.warnings)} warning(s)" if processed.warnings else "")
-        )
-        self.inspector.set_warning(" | ".join([*self.result.warnings, *processed.warnings]))
-        self._refresh_processed_display()
-        self._update_distribution()
-        self._set_export_availability()
-        if np.isfinite(processed.values).any():
-            self.statusBar().showMessage("Map reconstructed.")
-        else:
-            self.statusBar().showMessage("Raw map reconstructed; no finite processed values.")
-
-    def _invalidate_reconstruction(self, message: str) -> None:
-        self.result = None
-        self.params = None
-        self.processed = None
-        self._active_color_limits = None
-        self.inspector.clear_qc(message)
-        self.map_views.clear_processed_views(message)
-        self.trace_view.clear_guides()
-        self._set_export_availability()
-        self.statusBar().showMessage(message)
-
-    def _update_guides(self, result: ReconstructionResult) -> None:
-        if self.data is None or self.params is None:
-            return
-        timing = result.timing
-        t_min, t_max = float(self.data.time_s[0]), float(self.data.time_s[-1])
-        if isinstance(self.params, PhaseWindowParams):
-            assert isinstance(timing, PhaseWindowTimingSolution)
-            rows = timing.row0_s + np.arange(self.params.rows) * timing.row_period_s
-            bounds = effective_window_bounds(self.params, timing)
-            self.trace_view.set_phase_window_guides(
-                rows[(rows >= t_min) & (rows <= t_max)],
-                bounds,
-                self.data.time_s,
-                self.data.signals[self.signal_combo.currentText()],
-                self._raw_display_unit(),
-            )
-            return
-        assert isinstance(timing, TimingSolution)
-        rows = timing.row_ref0_s + np.arange(self.params.rows) * timing.row_period_s
-        row_index = int(np.floor((self.params.point_a_s - timing.row_ref0_s) / timing.row_period_s))
-        row_base = timing.row_ref0_s + row_index * timing.row_period_s
-        pixels = (
-            row_base + timing.pixel1_phase_s + np.arange(self.params.cols) * timing.point_period_s
-        )
-        self.trace_view.set_guides(
-            rows[(rows >= t_min) & (rows <= t_max)],
-            pixels[(pixels >= t_min) & (pixels <= t_max)],
-        )
-
-    def _reset_views(self) -> None:
-        self.trace_view.reset_view()
-
-    def _export_raw_map(self) -> None:
-        export_raw(self)
-
-    def _processed_export_metadata(self) -> dict[str, object]:
-        return processed_export_metadata(self)
-
-    def _export_processed_map(self) -> None:
-        export_processed(self)
-
-    def _export_both_maps(self) -> None:
-        export_both(self)
-
-    def _project_state(self) -> ProjectState:
-        config = self._processing_config()
-        return ProjectState(
-            original_filename=self._loaded_filename or "measurement.csv",
-            signal=self.signal_combo.currentText(),
-            rows=self.rows_spin.value(),
-            columns=self.cols_spin.value(),
-            scan_pattern=ScanPattern(self.scan_combo.currentData()),
-            first_row_ltr=self.first_row_check.isChecked(),
-            aggregation=Aggregation(self.aggregation_combo.currentData()).value,
-            row_a_s=self.row_a_spin.value(),
-            row_b_s=self.row_b_spin.value(),
-            rows_apart=self.rows_apart_spin.value(),
-            row_offset=self.row_offset_spin.value(),
-            point_a_s=self.point_a_spin.value(),
-            point_b_s=self.point_b_spin.value(),
-            points_apart=self.points_apart_spin.value(),
-            point_offset=self.point_offset_spin.value(),
-            processing=config,
-            flip_y=self.flip_y_check.isChecked(),
-            method=self.method_combo.currentData(),
-            y_phase_fraction=self.y_phase_spin.value() / 100.0,
-            x_period_offset=self.x_period_offset_spin.value(),
-            x_phase_fraction=self.x_phase_spin.value() / 100.0,
-            window_mode=self.window_mode_combo.currentData(),
-            window_fraction=self.window_fraction_spin.value() / 100.0,
-            window_duration_s=(
-                self.window_duration_spin.value()
-                if WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
-                else None
-            ),
-        )
-
-    def _export_project(self) -> None:
-        export_project(self)
-
-    def _export_parameter_summary(self) -> None:
-        export_parameter_summary(self)
-
-    def _export_pdf_report(self) -> None:
-        export_pdf_report(self)
-
-    def _export_map(self) -> None:
-        self._export_raw_map()
+    def _project_state(self):
+        # Serialize the visible widget snapshot rather than a potentially stale
+        # previously-valid config. This also permits repairable draft projects.
+        self.preparation_config = self.preparation_page.configuration()
+        return super()._project_state()
 
 
 def run_app(path: Path | None = None) -> int:
@@ -782,3 +359,6 @@ def run_app(path: Path | None = None) -> int:
     window = MapReconstructionWindow(path)
     window.show()
     return app.exec()
+
+
+__all__ = ["MAX_GUIDES_PER_FAMILY", "MapReconstructionWindow", "reconstruct_map", "run_app"]

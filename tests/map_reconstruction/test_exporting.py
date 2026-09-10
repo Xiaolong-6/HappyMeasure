@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from map_reconstruction.display_units import DisplayUnit
+from map_reconstruction.preparation import SignalPreparationConfig
 from map_reconstruction.processing import MapProcessingConfig, process_map
 from map_reconstruction.ui.exporting import export_paths
 
@@ -25,6 +26,8 @@ def test_processed_metadata_separates_source_and_display_units() -> None:
     window = SimpleNamespace(
         processing_config=MapProcessingConfig(),
         signal_combo=SimpleNamespace(currentText=lambda: "Current_A"),
+        preparation_config=SignalPreparationConfig(),
+        prepared=None,
         processed=processed,
         _active_color_limits=(1.0, 2.0),
         _raw_display_unit=lambda: DisplayUnit("Current", "µA", 1e6),
@@ -36,3 +39,5 @@ def test_processed_metadata_separates_source_and_display_units() -> None:
     assert metadata["raw_physical_unit"] == "A"
     assert metadata["display_unit"] == "µA"
     assert metadata["display_scale"] == 1e6
+    assert metadata["signal_preparation"]["mode"] == "none"
+    assert metadata["prepared_metadata"] == {}

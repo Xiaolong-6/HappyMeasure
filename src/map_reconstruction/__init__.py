@@ -12,6 +12,8 @@ __all__ = [
     "ScanPattern",
     "TimeSeriesData",
     "TimingSolution",
+    "PreparedSignal",
+    "SignalPreparationConfig",
 ]
 
 __version__ = "0.1.0"
@@ -21,9 +23,17 @@ def __getattr__(name: str):
     """Load model exports only when requested, keeping GUI extras optional."""
 
     if name in __all__:
-        from . import models
+        if name in {"PreparedSignal", "SignalPreparationConfig"}:
+            from .preparation import PreparedSignal, SignalPreparationConfig
 
-        value = getattr(models, name)
+            value = {
+                "PreparedSignal": PreparedSignal,
+                "SignalPreparationConfig": SignalPreparationConfig,
+            }[name]
+        else:
+            from . import models
+
+            value = getattr(models, name)
         globals()[name] = value
         return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

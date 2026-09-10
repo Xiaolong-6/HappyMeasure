@@ -29,9 +29,11 @@ from map_reconstruction.processing import (
     ValueScale,
     ValueTransform,
 )
+from map_reconstruction.preparation import SignalPreparationConfig
 
 PROJECT_SCHEMA = "map-reconstruction-project-v1"
 PROJECT_SCHEMA_V2 = "map-reconstruction-project-v2"
+PROJECT_SCHEMA_V3 = "map-reconstruction-project-v3"
 PROJECT_JSON_PATH = "project.json"
 RAW_CSV_PATH = "source/raw_timeseries.csv"
 
@@ -111,6 +113,7 @@ class ProjectState:
     window_mode: WindowMode = WindowMode.FRACTION
     window_fraction: float = 0.65
     window_duration_s: float | None = None
+    preparation: SignalPreparationConfig = SignalPreparationConfig()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "original_filename", _filename(self.original_filename))
@@ -173,6 +176,8 @@ class ProjectState:
         )
         if not isinstance(self.processing, MapProcessingConfig):
             raise ValueError("Invalid project field processing.")
+        if not isinstance(self.preparation, SignalPreparationConfig):
+            raise ValueError("Invalid project field preparation.")
         if bool(self.rows) != bool(self.columns):
             raise ValueError(
                 "Invalid project geometry: rows and columns must both be set or both be zero."
@@ -228,8 +233,17 @@ class ProjectState:
             for key, value in asdict(self.processing).items()
         }
         return {
+            # Keep the compact v1/v2 representation for identity preparation so
+            # old callers retain byte-compatible semantics.  Any active
+            # preparation is explicitly represented as project schema v3.
             "schema": (
-                PROJECT_SCHEMA_V2 if self.method == "dual_offset_phase_window" else PROJECT_SCHEMA
+                PROJECT_SCHEMA_V3
+                if not self.preparation.is_identity
+                else (
+                    PROJECT_SCHEMA_V2
+                    if self.method == "dual_offset_phase_window"
+                    else PROJECT_SCHEMA
+                )
             ),
             "application": {"name": "Map Reconstruction", "version": application_version},
             "created_at": datetime.now(UTC).isoformat(),
@@ -269,6 +283,12 @@ class ProjectState:
                 ),
             },
             "processing": processing,
+            **({"map_processing": processing} if not self.preparation.is_identity else {}),
+            **(
+                {"preparation": {"signal": self.signal, **self.preparation.to_dict()}}
+                if not self.preparation.is_identity
+                else {}
+            ),
             "display": {"flip_y": self.flip_y},
         }
 
@@ -276,7 +296,11 @@ class ProjectState:
     def from_project_dict(cls, payload: object) -> "ProjectState":
         root = _mapping(payload, "project")
         schema = root.get("schema")
-        if not isinstance(schema, str) or schema not in (PROJECT_SCHEMA, PROJECT_SCHEMA_V2):
+        if not isinstance(schema, str) or schema not in (
+            PROJECT_SCHEMA,
+            PROJECT_SCHEMA_V2,
+            PROJECT_SCHEMA_V3,
+        ):
             raise ValueError(f"Unsupported Map Reconstruction project schema: {schema!r}")
         source = _mapping(root.get("source"), "source")
         geometry = _mapping(root.get("geometry"), "geometry")
@@ -287,7 +311,19 @@ class ProjectState:
         if schema == PROJECT_SCHEMA and method != "dual_offset":
             raise ValueError("Version 1 projects must use Legacy Dual Offset.")
         display = _mapping(root.get("display"), "display")
-        processing = _processing_from_dict(_mapping(root.get("processing"), "processing"))
+        processing_payload = root.get("map_processing", root.get("processing"))
+        processing = _processing_from_dict(_mapping(processing_payload, "processing"))
+        preparation_payload = root.get("preparation")
+        if schema == PROJECT_SCHEMA_V3:
+            preparation_root = _mapping(preparation_payload, "preparation")
+            saved_signal = _string(
+                preparation_root.get("signal", source.get("signal")), "preparation.signal"
+            )
+            if saved_signal != source.get("signal"):
+                raise ValueError("Project preparation signal must match source.signal.")
+            preparation = SignalPreparationConfig.from_dict(preparation_root)
+        else:
+            preparation = SignalPreparationConfig()
         try:
             scan_pattern = ScanPattern(geometry.get("scan_pattern"))
         except (TypeError, ValueError) as exc:
@@ -345,6 +381,7 @@ class ProjectState:
                 if method == "dual_offset_phase_window"
                 else None
             ),
+            preparation=preparation,
         )
 
 

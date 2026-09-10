@@ -48,8 +48,50 @@ def export_raw(window: Any) -> None:
     window.statusBar().showMessage(f"Exported raw map to {path}")
 
 
+def export_prepared(window: Any) -> None:
+    """Export raw, baseline, and prepared time traces without changing source data."""
+
+    if window.data is None or window.prepared is None:
+        QtWidgets.QMessageBox.information(
+            window, "No prepared signal", "Prepare a source signal first."
+        )
+        return
+    default = f"{_source_stem(window)}_prepared.csv"
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(
+        window, "Export prepared time-series", default, "CSV files (*.csv);;All files (*.*)"
+    )
+    if not path:
+        return
+    columns = [
+        window.prepared.time_s,
+        window.data.signals[window.prepared.source_signal],
+        window.prepared.values,
+    ]
+    header = [
+        "Elapsed_s",
+        f"Raw_{window.prepared.source_signal}",
+        f"Prepared_{window.prepared.source_signal}",
+    ]
+    if window.prepared.baseline is not None:
+        columns.insert(2, window.prepared.baseline)
+        header.insert(2, f"Baseline_{window.prepared.source_signal}")
+    try:
+        np.savetxt(
+            path,
+            np.column_stack(columns),
+            delimiter=",",
+            header=",".join(header),
+            comments="",
+            fmt="%.12g",
+        )
+    except OSError as exc:
+        QtWidgets.QMessageBox.critical(window, "Export failed", str(exc))
+        return
+    window.statusBar().showMessage(f"Exported prepared trace to {path}")
+
+
 def processed_export_metadata(window: Any) -> dict[str, object]:
-    """Build the sidecar without conflating source and display units."""
+    """Build a reproducible sidecar for preparation, reconstruction output, and display."""
 
     config = window.processing_config
     payload = {
@@ -58,12 +100,15 @@ def processed_export_metadata(window: Any) -> dict[str, object]:
     }
     display = window._raw_display_unit()
     source_unit = scientific_unit_for_signal(window.signal_combo.currentText())
+    preparation = window.preparation_config.to_dict()
     return {
         "source_signal": window.signal_combo.currentText(),
         "source_physical_unit": source_unit,
         "raw_physical_unit": source_unit,
         "display_unit": display.unit,
         "display_scale": display.scale,
+        "signal_preparation": preparation,
+        "prepared_metadata": dict(window.prepared.metadata) if window.prepared is not None else {},
         "baseline_used_si": window.processed.baseline_used if window.processed else None,
         "processing": payload,
         "processing_warnings": list(window.processed.warnings) if window.processed else [],
@@ -205,15 +250,25 @@ def export_pdf_report(window: Any) -> None:
     if not path:
         return
     try:
-        generate_pdf_report(
-            Path(path),
-            window._project_state(),
-            window.data,
-            window.result,
-            window.processed,
-            count_widget=window.count_plot,
-            trace_widget=window.raw_plot,
-        )
+        state = window._project_state()
+        previous_trace = window.trace_view.trace_source_combo.currentText()
+        try:
+            # The report labels this panel as the raw time trace. Force Raw only
+            # for rendering, then restore the operator's on-screen selection.
+            window.trace_view.trace_source_combo.setCurrentText("Raw")
+            window.trace_view._refresh_trace_curve()
+            generate_pdf_report(
+                Path(path),
+                state,
+                window.data,
+                window.result,
+                window.processed,
+                count_widget=window.count_plot,
+                trace_widget=window.raw_plot,
+            )
+        finally:
+            window.trace_view.trace_source_combo.setCurrentText(previous_trace)
+            window.trace_view._refresh_trace_curve()
     except (OSError, ValueError) as exc:
         QtWidgets.QMessageBox.critical(window, "PDF export failed", str(exc))
         return

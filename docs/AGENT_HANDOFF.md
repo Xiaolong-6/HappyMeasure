@@ -264,6 +264,19 @@ Regression command:
 
 # Agent Handoff
 
+## 2026-09-10 Map three-stage workflow
+
+The standalone Map Reconstruction app now has explicit Preparation,
+Reconstruction, and Analysis navigation pages. Keep the scientific dependency
+graph one-way: imported `TimeSeriesData` is immutable in practice, the
+Qt-free `map_reconstruction.preparation` pipeline returns read-only
+`PreparedSignal` arrays, reconstruction consumes an adapter trace, and
+post-map processing/display remain separate. Active preparation configuration
+is serialized in project schema v3; v1/v2 projects intentionally restore
+identity preparation for parity. Do not move dark correction into the map
+processing stage or change the reconstruction formulas when extending this
+workflow.
+
 This file is the machine-facing handoff note for future coding agents. Keep `README.md` human-facing and put implementation-specific context here.
 
 ## Current architecture anchors

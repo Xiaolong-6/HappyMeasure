@@ -19,14 +19,23 @@ class TraceView(QtWidgets.QStackedWidget):
     anchorMoved = QtCore.Signal(str, float)
     anchorMoveFinished = QtCore.Signal(str, float)
     resetViewRequested = QtCore.Signal()
+    traceSourceChanged = QtCore.Signal(str)
 
     def __init__(self, open_callback=None, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setMinimumSize(0, 0)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored
+        )
         self._open_callback = open_callback
         self._syncing = False
         self.anchor_lines: dict[str, pg.InfiniteLine] = {}
         self.guide_items: list[pg.InfiniteLine] = []
         self.phase_window_items: list[pg.LinearRegionItem] = []
+        self._raw_time: np.ndarray | None = None
+        self._raw_values: np.ndarray | None = None
+        self._prepared_values: np.ndarray | None = None
+        self._display_unit: DisplayUnit | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -48,13 +57,21 @@ class TraceView(QtWidgets.QStackedWidget):
             "<span style='color:#d4a017'>¦</span> Pixel starts"
         )
         self.guide_key.setObjectName("guideKey")
+        self.guide_key.setMinimumWidth(0)
+        self.guide_key.setMaximumWidth(340)
         self.guide_key.setTextFormat(QtCore.Qt.TextFormat.RichText)
         trace_toolbar = QtWidgets.QHBoxLayout()
         trace_toolbar.setContentsMargins(0, 0, 0, 0)
         trace_toolbar.addWidget(self.guide_key, 1)
+        trace_toolbar.addWidget(QtWidgets.QLabel("Trace"))
+        self.trace_source_combo = QtWidgets.QComboBox()
+        self.trace_source_combo.addItems(("Prepared", "Raw"))
+        self.trace_source_combo.currentTextChanged.connect(self.traceSourceChanged)
+        trace_toolbar.addWidget(self.trace_source_combo)
         self.reset_button = QtWidgets.QPushButton("Reset trace view")
         self.reset_button.setObjectName("traceResetButton")
         self.reset_button.clicked.connect(self.resetViewRequested)
+        self.reset_button.setMinimumWidth(110)
         trace_toolbar.addWidget(self.reset_button)
         layout.addLayout(trace_toolbar)
         layout.addWidget(self.plot, 1)
@@ -109,8 +126,27 @@ class TraceView(QtWidgets.QStackedWidget):
         self.guide_key.setVisible(loaded)
 
     def set_signal(self, time_s: np.ndarray, values: np.ndarray, display_unit: DisplayUnit) -> None:
-        self.curve.setData(time_s, to_display_values(values, display_unit))
+        self._raw_time = np.asarray(time_s, dtype=float)
+        self._raw_values = np.asarray(values, dtype=float)
+        self._display_unit = display_unit
+        self._refresh_trace_curve()
         self.plot.setLabel("left", display_unit.axis_label, color=SECONDARY_TEXT)
+
+    def set_prepared_signal(self, values: np.ndarray | None) -> None:
+        self._prepared_values = None if values is None else np.asarray(values, dtype=float)
+        self._refresh_trace_curve()
+
+    def _refresh_trace_curve(self) -> None:
+        if self._raw_time is None or self._display_unit is None:
+            return
+        values = self._raw_values
+        if (
+            self.trace_source_combo.currentText() == "Prepared"
+            and self._prepared_values is not None
+        ):
+            values = self._prepared_values
+        if values is not None:
+            self.curve.setData(self._raw_time, to_display_values(values, self._display_unit))
 
     def set_anchor_bounds(self, lower: float, upper: float) -> None:
         for line in self.anchor_lines.values():
@@ -258,6 +294,10 @@ class TraceView(QtWidgets.QStackedWidget):
 
     def clear(self) -> None:
         self.curve.clear()
+        self._raw_time = None
+        self._raw_values = None
+        self._prepared_values = None
+        self._display_unit = None
         self.clear_anchors()
         self.clear_guides()
         self.show_loaded(False)

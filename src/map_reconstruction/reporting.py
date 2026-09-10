@@ -26,6 +26,7 @@ from map_reconstruction.processing import (
     compute_color_limits,
 )
 from map_reconstruction.project_io import ProjectState
+from map_reconstruction.preparation import DarkCorrectionMode
 
 
 @dataclass(frozen=True, slots=True)
@@ -303,6 +304,36 @@ def format_parameter_summary(
         f"Signal: {state.signal}",
         f"Samples: {sample_count}",
         f"Elapsed time: {elapsed}",
+        "",
+        "Signal Preparation",
+        "------------------",
+        f"Mode: {state.preparation.dark_correction_mode.value.replace('_', ' ').title()}",
+        f"Output convention: {state.preparation.output_convention.value.replace('_', ' ').title()}",
+        *(
+            [
+                f"Constant baseline: {_format_value(state.preparation.constant_baseline, scientific_unit_for_signal(state.signal))}"
+            ]
+            if state.preparation.dark_correction_mode is DarkCorrectionMode.CONSTANT
+            else []
+        ),
+        *(
+            [
+                f"Manual regions: {len(state.preparation.manual_dark_regions)}",
+                f"Manual fit: {state.preparation.manual_region_fit.value.title()}",
+            ]
+            if state.preparation.dark_correction_mode is DarkCorrectionMode.MANUAL_REGIONS
+            else []
+        ),
+        *(
+            [
+                f"Response direction: {state.preparation.response_direction.value.title()} photocurrent",
+                f"Quantile: {state.preparation.rolling_quantile * 100.0:.1f} %",
+                f"Window: {state.preparation.rolling_window_s:.4g} s",
+                f"Trend: {state.preparation.rolling_trend.value.replace('_', ' ').title()}",
+            ]
+            if state.preparation.dark_correction_mode is DarkCorrectionMode.ROLLING_QUANTILE
+            else []
+        ),
         "",
         "Geometry",
         "--------",
