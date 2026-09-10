@@ -405,30 +405,100 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
                 )
             )
 
+            # Connection-aware advanced-controls handling: while disconnected
+            # the sweep UI is correctly read-only and the button is disabled.
             advanced_button = getattr(app, "advanced_acquisition_button", None)
             if advanced_button is None:
                 checks.append(
                     UiDiagnosticCheck(
-                        "advanced_controls_button",
+                        "advanced_controls_availability",
                         FAIL,
                         "Advanced acquisition button is missing in Constant Time.",
                     )
                 )
-            else:
-                start_visible = bool(app.acquisition_advanced_visible.get())
-                advanced_button.invoke()
-                app.root.update_idletasks()
-                toggled = bool(app.acquisition_advanced_visible.get()) != start_visible
-                advanced_button.invoke()
-                app.root.update_idletasks()
-                restored = bool(app.acquisition_advanced_visible.get()) == start_visible
                 checks.append(
                     UiDiagnosticCheck(
-                        "advanced_controls_button",
-                        PASS if toggled and restored else FAIL,
-                        "Show/Hide advanced acquisition toggled and returned to its original state.",
+                        "advanced_controls_callback",
+                        FAIL,
+                        "Advanced acquisition toggle could not be exercised: button missing.",
                     )
                 )
+            else:
+                try:
+                    is_disabled = bool(advanced_button.instate(["disabled"]))  # type: ignore[attr-defined]
+                except Exception:
+                    try:
+                        is_disabled = str(advanced_button.cget("state")) == "disabled"  # type: ignore[attr-defined]
+                    except Exception:
+                        is_disabled = False
+                button_state = "disabled" if is_disabled else "normal"
+                # Availability check: disconnected => disabled is correct.
+                # Connected + idle => enabled is correct.
+                expected_disabled = connection_state == "disconnected"
+                # Treat any non-disconnected as expecting enabled for the target
+                # diagnostic page (Sweep, idle). The callback exercises the real
+                # invoke path only when the button is actually enabled.
+                availability_ok = is_disabled == expected_disabled
+                expected_text = "disabled" if expected_disabled else "enabled"
+                checks.append(
+                    UiDiagnosticCheck(
+                        "advanced_controls_availability",
+                        PASS if availability_ok else FAIL,
+                        f"connection_state={connection_state}; button_state={button_state} "
+                        f"(expected {expected_text}).",
+                    )
+                )
+
+                # Callback check: drive the safe UI callback regardless of connection.
+                start_visible = bool(app.acquisition_advanced_visible.get())
+                first_visible: bool | None = None
+                second_visible: bool | None = None
+                callback_ok = False
+                try:
+                    if is_disabled:
+                        # Disconnected: invoke() is a no-op for disabled ttk buttons,
+                        # so exercise the UI-only toggle directly. This sends no SCPI.
+                        app._toggle_advanced_acquisition()  # type: ignore[attr-defined]
+                        app.root.update_idletasks()
+                        first_visible = bool(app.acquisition_advanced_visible.get())
+                        app._toggle_advanced_acquisition()  # type: ignore[attr-defined]
+                        app.root.update_idletasks()
+                        second_visible = bool(app.acquisition_advanced_visible.get())
+                    else:
+                        advanced_button.invoke()
+                        app.root.update_idletasks()
+                        first_visible = bool(app.acquisition_advanced_visible.get())
+                        advanced_button.invoke()
+                        app.root.update_idletasks()
+                        second_visible = bool(app.acquisition_advanced_visible.get())
+                    toggled = first_visible is not None and first_visible != start_visible
+                    restored = second_visible is not None and second_visible == start_visible
+                    callback_ok = bool(toggled and restored)
+                except Exception as exc:
+                    callback_ok = False
+                    first_visible = first_visible  # keep captured
+                    second_visible = second_visible
+                    callback_errors.append(f"{type(exc).__name__}: {exc}")
+
+                if callback_ok:
+                    checks.append(
+                        UiDiagnosticCheck(
+                            "advanced_controls_callback",
+                            PASS,
+                            f"connection_state={connection_state}; button_state={button_state}; "
+                            f"visible {start_visible} -> {first_visible} -> {second_visible}.",
+                        )
+                    )
+                else:
+                    checks.append(
+                        UiDiagnosticCheck(
+                            "advanced_controls_callback",
+                            FAIL,
+                            f"connection_state={connection_state}; button_state={button_state}; "
+                            f"visible {start_visible} -> {first_visible} -> {second_visible}; "
+                            f"expected toggle to {not start_visible} then back to {start_visible}.",
+                        )
+                    )
 
             app.mode.set(SweepMode.CURRENT_SOURCE.value)
             app.root.update_idletasks()
