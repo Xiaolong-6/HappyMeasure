@@ -7,6 +7,8 @@ from enum import Enum
 
 import numpy as np
 
+MAX_HISTOGRAM_BINS = 10_000
+
 
 class HistogramRangeMode(str, Enum):
     """The display range used to bin a processed map."""
@@ -45,8 +47,12 @@ class HistogramConfig:
                 raise ValueError("Histogram minimum must be finite and less than maximum.")
             object.__setattr__(self, "minimum", minimum)
             object.__setattr__(self, "maximum", maximum)
-        if self.bin_mode is HistogramBinMode.COUNT and int(self.bin_count) <= 0:
-            raise ValueError("Histogram bin count must be greater than zero.")
+        if self.bin_mode is HistogramBinMode.COUNT:
+            count = int(self.bin_count)
+            if count <= 0:
+                raise ValueError("Histogram bin count must be greater than zero.")
+            if count > MAX_HISTOGRAM_BINS:
+                raise ValueError(f"Histogram bin count cannot exceed {MAX_HISTOGRAM_BINS:,}.")
         if self.bin_mode is HistogramBinMode.WIDTH:
             width = float(self.bin_width)
             if not np.isfinite(width) or width <= 0:
@@ -95,6 +101,11 @@ def _edges(
     if config.bin_mode is HistogramBinMode.COUNT:
         return np.linspace(minimum, maximum, int(config.bin_count) + 1)
     bin_count = max(1, int(np.ceil((maximum - minimum) / config.bin_width)))
+    if bin_count > MAX_HISTOGRAM_BINS:
+        raise ValueError(
+            f"Histogram bin width would create {bin_count:,} bins; "
+            f"the maximum is {MAX_HISTOGRAM_BINS:,}."
+        )
     edges = minimum + np.arange(bin_count + 1, dtype=float) * config.bin_width
     edges[-1] = maximum
     return edges

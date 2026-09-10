@@ -1,5 +1,25 @@
 # Current Test Status
 
+## 2026-09-10 - Map Reconstruction final merge-blocker remediation
+
+### Map Reconstruction validation
+
+- 139 passed, 0 skipped across Map Reconstruction core, importer, processing,
+  project, Distribution, and offscreen UI regressions.
+- `map_reconstruction` coverage: **95.27%** (required minimum: 95%).
+- The focused Distribution/UI regression set passed: 40 tests, including
+  display-only color-limit metadata synchronization and excessive Count/Width
+  histogram-bin rejection.
+- Ruff, Black, mypy, and `compileall` passed for the changed Map
+  Reconstruction sources.
+- Histogram Count and Width requests share a 10,000-bin safety maximum; the
+  existing Distribution error view handles rejected Width requests.
+
+### HappyMeasure validation
+
+- Not rerun; this remediation changes no shared hardware/acquisition,
+  packaging, dependency, or release files.
+
 ## 2026-09-10 - Map Reconstruction analysis workspace
 
 ### Map Reconstruction validation

@@ -825,6 +825,21 @@ def test_color_limit_changes_only_remap_the_processed_display(application) -> No
         window.inspector.colorLimitsChanged.emit()
         np.testing.assert_array_equal(window.processed.values, original)
         assert window._active_color_limits == pytest.approx((-0.2, 0.2))
+        metadata = window._processed_export_metadata()
+        config = window._processing_config()
+        assert metadata["processing"]["color_range_mode"] == "manual"
+        assert metadata["processing"]["color_min"] == pytest.approx(config.color_min)
+        assert metadata["processing"]["color_max"] == pytest.approx(config.color_max)
+
+        window.color_range_combo.setCurrentIndex(window.color_range_combo.findData("percentile"))
+        window.percentile_low_spin.setValue(5.0)
+        window.percentile_high_spin.setValue(95.0)
+        window.inspector.colorLimitsChanged.emit()
+        np.testing.assert_array_equal(window.processed.values, original)
+        metadata = window._processed_export_metadata()
+        assert metadata["processing"]["color_range_mode"] == "percentile"
+        assert metadata["processing"]["percentile_low"] == pytest.approx(5.0)
+        assert metadata["processing"]["percentile_high"] == pytest.approx(95.0)
     finally:
         window.close()
 

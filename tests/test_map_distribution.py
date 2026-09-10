@@ -6,6 +6,7 @@ from map_reconstruction.qc.distribution import (
     HistogramBinMode,
     HistogramConfig,
     HistogramRangeMode,
+    MAX_HISTOGRAM_BINS,
     make_histogram_data,
 )
 
@@ -88,3 +89,14 @@ def test_histogram_count_and_width_modes_include_rightmost_edge() -> None:
 def test_histogram_rejects_invalid_view_only_config(kwargs: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         HistogramConfig(**kwargs)
+
+
+def test_histogram_rejects_excessive_explicit_bin_count() -> None:
+    with pytest.raises(ValueError, match=f"{MAX_HISTOGRAM_BINS:,}"):
+        HistogramConfig(bin_mode=HistogramBinMode.COUNT, bin_count=MAX_HISTOGRAM_BINS + 1)
+
+
+def test_histogram_rejects_excessive_width_derived_bin_count() -> None:
+    config = HistogramConfig(bin_mode=HistogramBinMode.WIDTH, bin_width=1e-9)
+    with pytest.raises(ValueError, match="maximum"):
+        make_histogram_data(np.array([0.0, 1.0]), config)

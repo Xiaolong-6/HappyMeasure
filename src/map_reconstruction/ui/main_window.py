@@ -488,15 +488,19 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     def _color_limits_changed(self) -> None:
         """Remap colors only; the processed scientific array remains untouched."""
 
+        config = self._processing_config()
+        self.processing_config = config
         if self.processed is not None:
-            self._refresh_processed_display()
+            self._refresh_processed_display(config)
 
-    def _refresh_processed_display(self) -> None:
+    def _refresh_processed_display(self, config: MapProcessingConfig | None = None) -> None:
         if self.processed is None:
             return
+        config = config or self._processing_config()
+        self.processing_config = config
         display_unit = self._current_display_unit()
         try:
-            limits = compute_color_limits(self.processed.values, self._processing_config())
+            limits = compute_color_limits(self.processed.values, config)
         except ValueError as exc:
             self._active_color_limits = None
             self.map_views.show_empty_map("Invalid color limits", str(exc))
