@@ -78,6 +78,11 @@ class SignalPreparationConfig:
     value_gate_min: float = -np.inf
     value_gate_max: float = np.inf
     output_convention: OutputConvention = OutputConvention.MEASURED_MINUS_DARK
+    # The two explicit operation flags are the current public semantics.  The
+    # legacy convention remains stored and accepted so v3 projects keep their
+    # exact numerical meaning.
+    apply_baseline: bool | None = None
+    invert_signal: bool | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -89,6 +94,25 @@ class SignalPreparationConfig:
             self, "response_direction", PhotocurrentPolarity(self.response_direction)
         )
         object.__setattr__(self, "output_convention", OutputConvention(self.output_convention))
+        legacy_active = self.dark_correction_mode is not DarkCorrectionMode.NONE
+        apply_baseline = legacy_active if self.apply_baseline is None else bool(self.apply_baseline)
+        invert_signal = (
+            legacy_active and self.output_convention is OutputConvention.DARK_MINUS_MEASURED
+            if self.invert_signal is None
+            else bool(self.invert_signal)
+        )
+        # Keep the compatibility field coherent for callers and old metadata.
+        object.__setattr__(
+            self,
+            "output_convention",
+            (
+                OutputConvention.DARK_MINUS_MEASURED
+                if invert_signal
+                else OutputConvention.MEASURED_MINUS_DARK
+            ),
+        )
+        object.__setattr__(self, "apply_baseline", apply_baseline)
+        object.__setattr__(self, "invert_signal", invert_signal)
         baseline = float(self.constant_baseline)
         if not np.isfinite(baseline):
             raise ValueError("constant_baseline must be finite.")
@@ -118,7 +142,13 @@ class SignalPreparationConfig:
 
     @property
     def is_identity(self) -> bool:
-        return self.dark_correction_mode is DarkCorrectionMode.NONE
+        return not self.apply_baseline and not self.invert_signal
+
+    @property
+    def baseline_model(self) -> DarkCorrectionMode:
+        """Mathematical name for the legacy persisted baseline-model field."""
+
+        return self.dark_correction_mode
 
     def to_dict(self) -> dict[str, Any]:
         """Return a stable JSON-friendly representation used by project v3."""
@@ -152,6 +182,9 @@ class SignalPreparationConfig:
             "response_direction": self.response_direction.value,
             "value_gate": gate,
             "output_convention": self.output_convention.value,
+            "baseline_model": self.baseline_model.value,
+            "apply_baseline": self.apply_baseline,
+            "invert_signal": self.invert_signal,
         }
 
     @classmethod
@@ -189,8 +222,9 @@ class SignalPreparationConfig:
             )
             for item in raw_regions
         )
+        baseline_model = payload.get("baseline_model", payload.get("mode", DarkCorrectionMode.NONE))
         return cls(
-            dark_correction_mode=payload.get("mode", DarkCorrectionMode.NONE),
+            dark_correction_mode=baseline_model,
             constant_baseline=payload.get("constant_baseline", 0.0),
             manual_dark_regions=regions,
             manual_region_fit=payload.get("manual_region_fit", ManualRegionFit.CONSTANT),
@@ -204,6 +238,8 @@ class SignalPreparationConfig:
             output_convention=payload.get(
                 "output_convention", OutputConvention.MEASURED_MINUS_DARK
             ),
+            apply_baseline=payload.get("apply_baseline"),
+            invert_signal=payload.get("invert_signal"),
         )
 
 

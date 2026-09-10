@@ -1,5 +1,31 @@
 # Current Test Status
 
+## 2026-09-10 - Map workflow UI remediation and 2401 detection
+
+### Map Reconstruction validation
+
+- Focused preparation and offscreen ownership/conditional-visibility checks:
+  **11 passed**. The preparation regression covers an estimated baseline that
+  remains visible while subtraction is off, plus independent sign inversion.
+- Screenshot review generated all three workflow stages at 1920×1000,
+  1600×900, and 1280×800, then removed the temporary assets. The offscreen Qt
+  font backend rendered text as glyph boxes, so this was layout-only review;
+  no native desktop window was inspected.
+- The broader project/UI temporary-directory tests remain blocked on this host
+  by Windows `WinError 5` cleanup ACL failures; this is recorded separately
+  from passing non-`tmp_path` focused tests.
+
+### HappyMeasure validation
+
+- Focused driver/connection/SCPI suite: **28 passed**
+  (`test_fast_acquisition_profile`, `test_connection_beep_power_guard`, and
+  `test_mock_visa_command_sequence`). MODEL 2401 now receives the full
+  2400-series capability family and one real-connection beep; simulator
+  connection remains silent. Fast/Custom setup restores the intended sense
+  function immediately after `:SENS:FUNC:CONC`, and the 9.91E+37 sentinel is
+  converted to `NaN` before it reaches result data.
+- No real hardware was used.
+
 ## 2026-09-10 - Fast Acquisition merge blockers (final)
 
 ### HappyMeasure validation

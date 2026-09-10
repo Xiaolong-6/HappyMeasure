@@ -252,6 +252,11 @@ class MapReconstructionWindow(_BaseWindow):
         self.workflow_header.set_action_availability(
             source_available, self.prepared is not None, raw_available, processed_available
         )
+        self.preparation_page.export_button.setEnabled(self.prepared is not None)
+        self.preparation_page.save_project_button.setEnabled(source_available)
+        self.analysis_page.export_processed_button.setEnabled(processed_available)
+        self.analysis_page.export_figure_button.setEnabled(source_available)
+        self.analysis_page.export_report_button.setEnabled(raw_available)
 
     @staticmethod
     def _copy_distribution_controls(source: MapViews, target: MapViews) -> None:

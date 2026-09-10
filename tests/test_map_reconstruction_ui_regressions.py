@@ -235,8 +235,7 @@ def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
     sample_counts = np.array(window.count_image.image, copy=True)
 
     window.normalization_combo.setCurrentIndex(3)
-    raw_reference_label = window.inspector._processing_rows["normalization_reference"][0].text()
-    assert raw_reference_label != "Normalization reference"
+    assert window.analysis_page.normalization_reference_spin.suffix()
     window.normalization_reference_spin.setValue(2.0)
     window._processing_controls_changed()
     assert window.processed is not None
@@ -245,8 +244,7 @@ def test_custom_reference_is_unitless_and_processing_error_preserves_raw_result(
     window.transform_combo.setCurrentIndex(3)
     window.custom_expression_edit.setText("x * 2")
     window._update_processing_units()
-    custom_reference_label = window.inspector._processing_rows["normalization_reference"][0].text()
-    assert custom_reference_label == "Normalization reference"
+    assert window.analysis_page.normalization_reference_spin.suffix() == ""
     config = window._processing_config()
     assert config.normalization_reference == pytest.approx(2.0)
 
@@ -822,7 +820,7 @@ def test_color_limit_changes_only_remap_the_processed_display(application) -> No
         window.color_range_combo.setCurrentIndex(window.color_range_combo.findData("manual"))
         window.color_min_spin.setValue(-0.2)
         window.color_max_spin.setValue(0.2)
-        window.inspector.colorLimitsChanged.emit()
+        window.analysis_page.colorLimitsChanged.emit()
         np.testing.assert_array_equal(window.processed.values, original)
         assert window._active_color_limits == pytest.approx((-0.2, 0.2))
         metadata = window._processed_export_metadata()
@@ -834,12 +832,40 @@ def test_color_limit_changes_only_remap_the_processed_display(application) -> No
         window.color_range_combo.setCurrentIndex(window.color_range_combo.findData("percentile"))
         window.percentile_low_spin.setValue(5.0)
         window.percentile_high_spin.setValue(95.0)
-        window.inspector.colorLimitsChanged.emit()
+        window.analysis_page.colorLimitsChanged.emit()
         np.testing.assert_array_equal(window.processed.values, original)
         metadata = window._processed_export_metadata()
         assert metadata["processing"]["color_range_mode"] == "percentile"
         assert metadata["processing"]["percentile_low"] == pytest.approx(5.0)
         assert metadata["processing"]["percentile_high"] == pytest.approx(95.0)
+    finally:
+        window.close()
+
+
+def test_three_stage_widgets_have_single_source_authority_and_conditional_editors(
+    application,
+) -> None:
+    window = MapReconstructionWindow()
+    try:
+        page = window.preparation_page
+        assert page.signal_combo is window.signal_combo
+        assert window.inspector.data_section.isHidden()
+        page.mode_combo.setCurrentIndex(page.mode_combo.findData("constant"))
+        assert not page.constant_baseline_spin.isHidden()
+        assert page.manual_host.isHidden()
+        page.mode_combo.setCurrentIndex(page.mode_combo.findData("manual_regions"))
+        assert not page.manual_host.isHidden()
+        assert page.constant_baseline_spin.isHidden()
+        page.mode_combo.setCurrentIndex(page.mode_combo.findData("rolling_quantile"))
+        assert not page.gate_host.isHidden()
+        assert not page.direction_combo.isHidden()
+
+        analysis = window.analysis_page
+        analysis.transform_combo.setCurrentIndex(analysis.transform_combo.findData("custom"))
+        assert analysis.custom_expression_edit.parentWidget() is not window.inspector
+        assert not analysis.custom_expression_edit.isHidden()
+        analysis.color_range_combo.setCurrentIndex(analysis.color_range_combo.findData("manual"))
+        assert not analysis.color_manual_pair.isHidden()
     finally:
         window.close()
 

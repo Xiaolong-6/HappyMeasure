@@ -383,6 +383,7 @@ class StatusBarMixin(UiMixinTyping):
         for col in range(4):
             summary.columnconfigure(col, weight=1, uniform="range_summary")
 
+        range_title_widgets: list[tk.Label] = []
         range_value_widgets: list[tk.Label] = []
         for col, title in enumerate(
             ("Autorange", "Actual range", "Range menu", "Last range change")
@@ -397,9 +398,11 @@ class StatusBarMixin(UiMixinTyping):
             )
             cell.grid(row=0, column=col, sticky="nsew", padx=(0 if col == 0 else 8, 0))
             cell.columnconfigure(0, weight=1)
-            tk.Label(
+            title_label = tk.Label(
                 cell, text=title, bg="#F8FAFC", fg=muted, font=("Segoe UI", 9), anchor="center"
-            ).grid(row=0, column=0, sticky="ew")
+            )
+            title_label.grid(row=0, column=0, sticky="ew")
+            range_title_widgets.append(title_label)
             value = tk.Label(
                 cell,
                 text="Unknown",
@@ -414,6 +417,8 @@ class StatusBarMixin(UiMixinTyping):
         self._front_panel_range_actual_value = range_value_widgets[1]
         self._front_panel_range_menu_value = range_value_widgets[2]
         self._front_panel_range_change_value = range_value_widgets[3]
+        self._front_panel_range_actual_title = range_title_widgets[1]
+        self._front_panel_range_change_title = range_title_widgets[3]
 
         controls = tk.Frame(range_card, bg=card_bg)
         controls.grid(row=2, column=0, sticky="ew", pady=(0, 12))
@@ -516,6 +521,7 @@ class StatusBarMixin(UiMixinTyping):
         if not hasattr(self, "_front_panel_range_mode_value"):
             return
         range_state = self._current_range_snapshot()
+        telemetry_enabled = bool(getattr(self, "range_telemetry", self.auto_measure_range).get())
         if range_state is not None:
             mode = (
                 "AUTO"
@@ -523,17 +529,23 @@ class StatusBarMixin(UiMixinTyping):
                 else "FIXED" if range_state.autorange is False else "UNKNOWN"
             )
             actual = format_current_range(range_state.actual_range_A)
-            change = range_state.last_change_text()
+            change = range_state.last_change_text() if telemetry_enabled else "Not monitored"
             warning = f"Warning: {range_state.warning}" if range_state.warning else ""
         else:
             mode = "UNKNOWN"
             actual = "Unknown"
-            change = "none"
+            change = "Not monitored" if not telemetry_enabled else "none"
             warning = ""
         self._front_panel_range_mode_value.configure(
             text="ON" if mode == "AUTO" else "OFF" if mode == "FIXED" else "Unknown"
         )
         self._front_panel_range_actual_value.configure(text=actual)
+        if hasattr(self, "_front_panel_range_actual_title"):
+            self._front_panel_range_actual_title.configure(
+                text="Actual range" if telemetry_enabled else "Range snapshot"
+            )
+        if hasattr(self, "_front_panel_range_change_title"):
+            self._front_panel_range_change_title.configure(text="Last range change")
         if hasattr(self, "_front_panel_range_menu_value"):
             self._front_panel_range_menu_value.configure(text="Auto" if mode == "AUTO" else actual)
         self._front_panel_range_change_value.configure(text=change)
@@ -599,6 +611,7 @@ class StatusBarMixin(UiMixinTyping):
         sub_value = f"{src_label}:{self._format_eng_value(getattr(self, '_last_source_value', None), source_unit)}   Cmpl:{self._format_eng_value(compliance_value, cmpl_unit)}"
         self._front_panel_main_value.configure(text=main_value)
         self._front_panel_sub_value.configure(text=sub_value)
+        self._front_panel_measure_indicator.configure(text=f"MEASURE   {meas_label}")
         try:
             terminal = self.terminal.get()
         except Exception:

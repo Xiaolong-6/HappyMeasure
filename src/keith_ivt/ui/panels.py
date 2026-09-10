@@ -165,19 +165,19 @@ class PanelBuilderMixin(UiMixinTyping):
         )
         self.source_range_row = self._range_control_row(
             self.common_box,
-            "Source range",
+            "Voltage source range",
             self.source_range,
             self.auto_source_range,
             3,
-            "Fixed source range when Auto source range is disabled.",
+            "Source-output range. Auto is the normal default, including Fast acquisition.",
         )
         self.measure_range_row = self._range_control_row(
             self.common_box,
-            "Measure range",
+            "Current measurement range",
             self.measure_range,
             self.auto_measure_range,
             4,
-            "Fixed measure range when Auto measure range is disabled.",
+            "Sensed-quantity range. Fixed measurement range is recommended for mapping; Auto remains available.",
         )
         self.dynamic_box = ttk.Frame(parent, style="Card.TFrame", padding=(10, 8))
         self.dynamic_box.pack(fill="x", padx=10, pady=(4, 8))

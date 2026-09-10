@@ -9,7 +9,6 @@ from keith_ivt.models import SweepKind
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 from keith_ivt.ui.widgets import ToolTip, add_tip
 
-
 PROFILE_STANDARD = "Standard"
 PROFILE_FAST = "Fast"
 PROFILE_CUSTOM = "Custom"
@@ -147,15 +146,13 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._advanced_widgets: list[object] = []
 
         def bool_row(row: int, label: str, var, recommended: str, tip: str) -> None:
-            ttk.Label(parent, text=label, style="Card.TLabel").grid(
-                row=row, column=0, sticky="w", padx=(0, 8), pady=2
-            )
+            label_widget = ttk.Label(parent, text=label, style="Card.TLabel")
+            label_widget.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=2)
             widget = ttk.Checkbutton(parent, variable=var)
             widget.grid(row=row, column=1, sticky="w", pady=2)
-            ttk.Label(parent, text=recommended, style="Muted.TLabel").grid(
-                row=row, column=2, sticky="e", padx=(8, 0), pady=2
-            )
-            add_tip(widget, tip)
+            hover_text = f"{tip}\nRecommended setting: {recommended.removeprefix('Recommended: ')}."
+            add_tip(label_widget, hover_text)
+            add_tip(widget, hover_text)
             self._advanced_widgets.append(widget)
 
         bool_row(
@@ -180,16 +177,15 @@ class FastAcquisitionMixin(UiMixinTyping):
             "Keithley digital averaging increases point time. Leave off for maximum host-query rate.",
         )
 
-        ttk.Label(parent, text="Filter count", style="Card.TLabel").grid(
-            row=4, column=0, sticky="w", padx=(0, 8), pady=2
-        )
+        filter_count_label = ttk.Label(parent, text="Filter count", style="Card.TLabel")
+        filter_count_label.grid(row=4, column=0, sticky="w", padx=(0, 8), pady=2)
         self.digital_filter_count_entry = ttk.Entry(
             parent, textvariable=self.digital_filter_count, width=8
         )
         self.digital_filter_count_entry.grid(row=4, column=1, sticky="ew", pady=2)
-        ttk.Label(parent, text="Only when filter On", style="Muted.TLabel").grid(
-            row=4, column=2, sticky="e", padx=(8, 0), pady=2
-        )
+        filter_count_tip = "Number of readings used by the instrument digital filter. Only applies when Digital filter is enabled. Recommended setting: 2."
+        add_tip(filter_count_label, filter_count_tip)
+        add_tip(self.digital_filter_count_entry, filter_count_tip)
         self._advanced_widgets.append(self.digital_filter_count_entry)
 
         bool_row(
@@ -228,32 +224,14 @@ class FastAcquisitionMixin(UiMixinTyping):
             "Constant Time normally sets the source once before sampling.",
         )
 
-        ttk.Label(parent, text="Trigger delay (s)", style="Card.TLabel").grid(
-            row=10, column=0, sticky="w", padx=(0, 8), pady=2
-        )
-        self.trigger_delay_entry = ttk.Entry(
-            parent, textvariable=self.trigger_delay_s, width=8
-        )
+        trigger_delay_label = ttk.Label(parent, text="Trigger delay (s)", style="Card.TLabel")
+        trigger_delay_label.grid(row=10, column=0, sticky="w", padx=(0, 8), pady=2)
+        self.trigger_delay_entry = ttk.Entry(parent, textvariable=self.trigger_delay_s, width=8)
         self.trigger_delay_entry.grid(row=10, column=1, sticky="ew", pady=2)
-        ttk.Label(parent, text="Recommended: 0", style="Muted.TLabel").grid(
-            row=10, column=2, sticky="e", padx=(8, 0), pady=2
-        )
+        trigger_delay_tip = "Extra delay inserted after a trigger before the measurement. It increases point time. Recommended setting: 0 s."
+        add_tip(trigger_delay_label, trigger_delay_tip)
+        add_tip(self.trigger_delay_entry, trigger_delay_tip)
         self._advanced_widgets.append(self.trigger_delay_entry)
-
-        ttk.Separator(parent).grid(
-            row=11, column=0, columnspan=3, sticky="ew", pady=(6, 5)
-        )
-        ttk.Label(
-            parent,
-            text=(
-                "NPLC: 0.1 recommended · Software delay: 0 s recommended · "
-                "Fixed measure range preferred for mapping. RS-232: 57600 baud "
-                "recommended when supported; Fast never changes connection baud automatically."
-            ),
-            style="Muted.TLabel",
-            wraplength=390,
-            justify="left",
-        ).grid(row=12, column=0, columnspan=3, sticky="ew")
 
     def _toggle_advanced_acquisition(self) -> None:
         visible = not bool(self.acquisition_advanced_visible.get())
@@ -267,11 +245,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         button = getattr(self, "advanced_acquisition_button", None)
         if button is not None and button.winfo_exists():
             button.configure(
-                text=(
-                    "Hide advanced acquisition"
-                    if visible
-                    else "Show advanced acquisition"
-                )
+                text=("Hide advanced acquisition" if visible else "Show advanced acquisition")
             )
         try:
             self._refresh_content_scrollregion_later()
@@ -396,8 +370,8 @@ class FastAcquisitionMixin(UiMixinTyping):
                 )
             elif is_custom:
                 text = (
-                    "Custom acquisition: advanced controls are editable. Recommended values "
-                    "are shown at right; actual speed depends on transport and hardware."
+                    "Custom acquisition: advanced controls are editable. Hover a setting for its "
+                    "meaning and recommendation; actual speed depends on transport and hardware."
                 )
             else:
                 text = (

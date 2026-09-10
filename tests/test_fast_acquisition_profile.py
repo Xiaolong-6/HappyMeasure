@@ -116,6 +116,8 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
 
     assert ":SENS:CURR:NPLC 0.1" in commands
     assert ":SENS:FUNC:CONC OFF" in commands
+    concurrent_index = commands.index(":SENS:FUNC:CONC OFF")
+    assert commands[concurrent_index + 1] == ":SENS:FUNC 'CURR'"
     assert ":SENS:AVER:STAT OFF" in commands
     assert ":DISP:ENAB ON" in commands
     assert ":SYST:AZER:STAT ONCE" in commands
@@ -141,6 +143,30 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
     assert meter.get_current_range() == pytest.approx(1e-3)
     assert query_commands == [":READ?"]
 
+
+def test_custom_concurrent_setup_restores_the_intended_voltage_measurement_function() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    commands: list[str] = []
+    meter.write = commands.append  # type: ignore[method-assign]
+    meter.query = lambda command: "0.25,-4.2E-4"  # type: ignore[method-assign]
+    config = _time_config(
+        mode=SweepMode.CURRENT_SOURCE,
+        fast_acquisition=False,
+        custom_acquisition=True,
+        concurrent_measurement=False,
+    )
+    meter.configure_for_sweep(config)
+    concurrent_index = commands.index(":SENS:FUNC:CONC OFF")
+    assert commands[concurrent_index + 1] == ":SENS:FUNC 'VOLT'"
+
+
+def test_keithley_overflow_sentinel_is_returned_as_nan_not_a_scientific_value() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    meter._measurement_only_read = True
+    meter.query = lambda command: "9.91E+37"  # type: ignore[method-assign]
+    _source, measured = meter.read_source_and_measure()
+    assert measured != measured
+    assert meter._normalise_measurement(1e30) == pytest.approx(1e30)
 
 def test_standard_profile_keeps_two_field_readback() -> None:
     meter = Keithley2400Serial("COM_FAKE")

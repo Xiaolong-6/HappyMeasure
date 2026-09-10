@@ -183,12 +183,25 @@ class SweepConfigMixin(UiMixinTyping):
             self.step_label.set("Step (V)")
             self.const_label.set("Const value (V)")
             self.compliance_label.set("Compliance (A)")
+            source_label = "Voltage source range"
+            measure_label = "Current measurement range"
         else:
             self.start_label.set("Start (A)")
             self.stop_label.set("Stop (A)")
             self.step_label.set("Step (A)")
             self.const_label.set("Const value (A)")
             self.compliance_label.set("Compliance (V)")
+            source_label = "Current source range"
+            measure_label = "Voltage measurement range"
+        for row, label in (
+            (getattr(self, "source_range_row", None), source_label),
+            (getattr(self, "measure_range_row", None), measure_label),
+        ):
+            try:
+                if row and row[0].winfo_exists():
+                    row[0].configure(text=label)
+            except Exception:
+                pass
 
     def _update_hysteresis_state(self) -> None:
         enabled_kind = self.sweep_kind.get() in {SweepKind.STEP.value, SweepKind.ADAPTIVE.value}

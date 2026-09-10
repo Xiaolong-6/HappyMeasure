@@ -36,8 +36,8 @@ QLabel#mutedText, QLabel#workflowFile, QLabel#workflowStatus {{
 }}
 QFrame#stageSidebar {{
     background: {PANEL};
-    border: 1px solid {BORDER};
-    border-radius: 7px;
+    border: 1px solid #E7EBF0;
+    border-radius: 5px;
     min-width: 300px;
     max-width: 340px;
 }}
@@ -49,8 +49,9 @@ QLabel#sectionHeader {{
 }}
 QFrame#inspectorSection {{
     background: {PANEL};
-    border: 1px solid {BORDER};
-    border-radius: 9px;
+    border: none;
+    border-bottom: 1px solid {BORDER};
+    border-radius: 0;
 }}
 QFrame#emptyState {{
     background: {PANEL};
@@ -164,6 +165,26 @@ QPushButton#primaryAction {{
 }}
 QPushButton#primaryAction:hover {{
     background: #1D4ED8;
+}}
+QFrame#workflowNavigation {{
+    background: #EEF2F7;
+    border: 1px solid {BORDER};
+    border-radius: 5px;
+}}
+QFrame#workflowNavigation QPushButton {{
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    color: {SECONDARY_TEXT};
+    font-weight: 600;
+    min-height: 27px;
+}}
+QFrame#workflowNavigation QPushButton:checked {{
+    background: #DCE9FC;
+    color: #174EA6;
+}}
+QFrame#workflowNavigation QPushButton:hover:!checked {{
+    background: #E4EAF2;
 }}
 QPushButton:disabled {{
     color: #98A2B3;

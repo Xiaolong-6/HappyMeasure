@@ -79,7 +79,12 @@ class HardwareControllerMixin(UiMixinTyping):
         if "SIMULATED" in text:
             return self._full_cap("Debug simulator / Keithley 2400 profile", "simulator", "smu-iv")
         if "KEITHLEY" in text and (
-            "2400" in text or "2410" in text or "2420" in text or "2430" in text or "2440" in text
+            "2400" in text
+            or "2401" in text
+            or "2410" in text
+            or "2420" in text
+            or "2430" in text
+            or "2440" in text
         ):
             return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
         if "KEITHLEY" in text and "2450" in text:
