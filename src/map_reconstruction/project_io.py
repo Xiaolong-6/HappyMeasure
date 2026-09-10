@@ -233,12 +233,13 @@ class ProjectState:
             for key, value in asdict(self.processing).items()
         }
         return {
-            # Keep the compact v1/v2 representation for identity preparation so
-            # old callers retain byte-compatible semantics.  Any active
-            # preparation is explicitly represented as project schema v3.
+            # Keep the compact v1/v2 representation for untouched preparation
+            # so old callers retain byte-compatible semantics. Any configured
+            # preparation (even with apply_baseline=False) is explicitly
+            # represented as project schema v3.
             "schema": (
                 PROJECT_SCHEMA_V3
-                if not self.preparation.is_identity
+                if self.preparation.has_nondefault_state
                 else (
                     PROJECT_SCHEMA_V2
                     if self.method == "dual_offset_phase_window"
@@ -283,10 +284,14 @@ class ProjectState:
                 ),
             },
             "processing": processing,
-            **({"map_processing": processing} if not self.preparation.is_identity else {}),
+            **(
+                {"map_processing": processing}
+                if self.preparation.has_nondefault_state
+                else {}
+            ),
             **(
                 {"preparation": {"signal": self.signal, **self.preparation.to_dict()}}
-                if not self.preparation.is_identity
+                if self.preparation.has_nondefault_state
                 else {}
             ),
             "display": {"flip_y": self.flip_y},

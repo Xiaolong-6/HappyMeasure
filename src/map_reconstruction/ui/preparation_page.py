@@ -318,6 +318,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         mode = DarkCorrectionMode(self.mode_combo.currentData())
         manual = mode == DarkCorrectionMode.MANUAL_REGIONS
         rolling = mode == DarkCorrectionMode.ROLLING_QUANTILE
+        is_none = mode == DarkCorrectionMode.NONE
         self._set_form_row_visible("constant", mode == DarkCorrectionMode.CONSTANT)
         self._set_form_row_visible("manual_fit", manual)
         self._set_form_row_visible("direction", rolling)
@@ -326,6 +327,14 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self._set_form_row_visible("trend", rolling)
         self.manual_host.setVisible(manual)
         self.gate_host.setVisible(manual or rolling)
+        # Baseline subtraction is meaningless without a baseline model.
+        self.apply_baseline_combo.setEnabled(not is_none)
+        if is_none and bool(self.apply_baseline_combo.currentData()) is True:
+            blocker = QtCore.QSignalBlocker(self.apply_baseline_combo)
+            self.apply_baseline_combo.setCurrentIndex(
+                self.apply_baseline_combo.findData(False)
+            )
+            del blocker
 
     def _emit_configuration_changed(self, *_args: object) -> None:
         if not self._syncing:

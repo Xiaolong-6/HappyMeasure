@@ -94,13 +94,19 @@ class SignalPreparationConfig:
             self, "response_direction", PhotocurrentPolarity(self.response_direction)
         )
         object.__setattr__(self, "output_convention", OutputConvention(self.output_convention))
-        legacy_active = self.dark_correction_mode is not DarkCorrectionMode.NONE
-        apply_baseline = legacy_active if self.apply_baseline is None else bool(self.apply_baseline)
-        invert_signal = (
-            legacy_active and self.output_convention is OutputConvention.DARK_MINUS_MEASURED
-            if self.invert_signal is None
-            else bool(self.invert_signal)
-        )
+        # Baseline correction is meaningless without a baseline model. Force
+        # it off so UI state "Subtract B(t)" cannot be persisted as a no-op.
+        if self.dark_correction_mode is DarkCorrectionMode.NONE:
+            apply_baseline = False
+            invert_signal = bool(self.invert_signal) if self.invert_signal is not None else False
+        else:
+            legacy_active = True
+            apply_baseline = legacy_active if self.apply_baseline is None else bool(self.apply_baseline)
+            invert_signal = (
+                legacy_active and self.output_convention is OutputConvention.DARK_MINUS_MEASURED
+                if self.invert_signal is None
+                else bool(self.invert_signal)
+            )
         # Keep the compatibility field coherent for callers and old metadata.
         object.__setattr__(
             self,
@@ -143,6 +149,17 @@ class SignalPreparationConfig:
     @property
     def is_identity(self) -> bool:
         return not self.apply_baseline and not self.invert_signal
+
+    @property
+    def has_nondefault_state(self) -> bool:
+        """Return whether any persisted field differs from the default.
+
+        ``is_identity`` describes the current mathematical no-op state, but a
+        configuration with fitted baseline regions and ``apply_baseline=False``
+        must still be persisted as v3 so the workflow can be restored.
+        """
+
+        return self != SignalPreparationConfig()
 
     @property
     def baseline_model(self) -> DarkCorrectionMode:

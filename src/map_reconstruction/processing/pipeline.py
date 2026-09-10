@@ -131,6 +131,13 @@ def process_map(
             raise ValueError("Custom expression returned an incompatible shape.")
         values = np.asarray(transformed + np.zeros_like(values), dtype=float)
         values[~valid] = np.nan
+        generated_invalid = valid & ~np.isfinite(values)
+        if np.any(generated_invalid):
+            count = int(np.count_nonzero(generated_invalid))
+            values[generated_invalid] = np.nan
+            warnings.append(
+                f"{count} pixel(s) became non-finite during custom processing and were excluded."
+            )
 
     finite_values = _finite(values)
     if config.normalization is NormalizationMode.MAX_MAGNITUDE:
