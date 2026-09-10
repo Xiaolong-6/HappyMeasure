@@ -405,3 +405,29 @@ Regression command:
   presentation-only and shares the same processed map, sample counts, histogram
   configuration, and colour limits as before; do not create duplicate science
   state or reintroduce diagnostic tabs in Analysis.
+
+## 2026-09-10 open-circuit 2401 bench record (pre-release, no DUT)
+
+- Code: `2807517` on `feat/map-workflow-ui-remediation`, clean tree. All
+  results below map to that commit.
+- Instrument: `KEITHLEY INSTRUMENTS INC., MODEL 2401, 4612952, B02`
+  (same unit as the 2026-09-08 record). COM3 / 57600 baud (instrument maximum
+  equals the app maximum, so no code change was needed) / rear selected with
+  both terminals open / 2-wire. V-source only, 0 V, compliance 100 uA.
+- Preflight (`happymeasure.hardware_preflight`): PASS, output OFF confirmed.
+- Smoke Mode 1 QUICK: OVERALL PASS — IDN, one physical beep
+  (operator-confirmed), source-delay ownership, 0 V open read (5 points,
+  output off), four timing cases, pause/resume rebase, stop plus immediate
+  restart. Artifacts: `hardware_smoke_results\20260910_154635\` (git-ignored).
+- App Fast path, 2 s Fast Constant Time at 0 V: 275 points,
+  **median 7.04 ms/sample**, no warnings, cached source 0.0. This beats the
+  conservative 14-16 ms benchmark note; record it as observed open-circuit
+  throughput, not a guarantee.
+- Standard 0.2 s interval: median 0.1999 s (scheduler exact). Custom with
+  `source_write_each_sample=True` and telemetry off: 6 points, no errors.
+  NPLC 1: median 0.469 s. `acquisition_warnings` metadata key present and the
+  CSV re-imports.
+- Explicitly not covered this session: GUI-driven runs, smoke Mode 2 FULL,
+  abort-via-GUI output-off, overflow-skip (open leads cannot produce
+  `9.91E+37`), accuracy/linearity (needs resistors/DUT), packaged-exe check.
+  Next bench needs Level 1 dummy resistors for those.
