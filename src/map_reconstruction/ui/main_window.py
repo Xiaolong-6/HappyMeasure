@@ -25,6 +25,7 @@ from map_reconstruction.methods.phase_window import (
     reconstruct_phase_window_map,
 )
 from map_reconstruction.models import (
+    Aggregation,
     DualOffsetParams,
     PhaseWindowParams,
     PhaseWindowTimingSolution,
@@ -68,7 +69,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     scan_combo: QtWidgets.QComboBox
     flip_y_check: QtWidgets.QCheckBox
     first_row_check: QtWidgets.QCheckBox
-    median_check: QtWidgets.QCheckBox
+    aggregation_combo: QtWidgets.QComboBox
     rows_spin: QtWidgets.QSpinBox
     cols_spin: QtWidgets.QSpinBox
     row_a_spin: QtWidgets.QDoubleSpinBox
@@ -127,7 +128,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.inspector)
-        scroll.setMinimumWidth(215)
+        scroll.setMinimumWidth(340)
         scroll.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         splitter.addWidget(scroll)
 
@@ -142,7 +143,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([238, 942])
+        splitter.setSizes([340, 840])
 
         self._expose_compatibility_attributes()
         self.inspector.signalChanged.connect(self._signal_changed)
@@ -150,8 +151,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.registrationChanged.connect(self._reconstruct)
         self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
         self.inspector.processingChanged.connect(self._processing_controls_changed)
+        self.inspector.colorLimitsChanged.connect(self._color_limits_changed)
+        self.map_views.distributionControlsChanged.connect(self._distribution_controls_changed)
+        self.map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
         self.inspector.pointPeriodEdited.connect(self._point_period_edited)
-        self.inspector.resetTraceRequested.connect(self._reset_views)
+        self.trace_view.resetViewRequested.connect(self._reset_views)
         self.inspector.openRequested.connect(self._choose_file)
         self.inspector.openProjectRequested.connect(self._choose_project)
         self.inspector.exportRawRequested.connect(self._export_raw_map)
@@ -184,12 +188,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             "scan_combo",
             "first_row_check",
             "flip_y_check",
-            "median_check",
+            "aggregation_combo",
             "row_a_spin",
             "row_b_spin",
             "rows_apart_spin",
             "row_offset_spin",
-            "row_offset_slider",
             "point_a_spin",
             "point_b_spin",
             "points_apart_spin",
@@ -202,7 +205,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             "window_mode_combo",
             "window_fraction_spin",
             "window_duration_spin",
-            "point_offset_slider",
             "transform_combo",
             "baseline_combo",
             "normalization_combo",
@@ -483,6 +485,61 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if self.result is not None:
             self._process_and_display()
 
+    def _color_limits_changed(self) -> None:
+        """Remap colors only; the processed scientific array remains untouched."""
+
+        if self.processed is not None:
+            self._refresh_processed_display()
+
+    def _refresh_processed_display(self) -> None:
+        if self.processed is None:
+            return
+        display_unit = self._current_display_unit()
+        try:
+            limits = compute_color_limits(self.processed.values, self._processing_config())
+        except ValueError as exc:
+            self._active_color_limits = None
+            self.map_views.show_empty_map("Invalid color limits", str(exc))
+            self.inspector.set_warning(str(exc))
+            return
+        if limits is None:
+            self._active_color_limits = None
+            self.map_views.show_empty_map(
+                "No finite processed values", "Adjust processing settings."
+            )
+            return
+        display_limits = (limits.minimum * display_unit.scale, limits.maximum * display_unit.scale)
+        self._active_color_limits = display_limits
+        self.map_views.show_processed_map(
+            self.processed.values,
+            display_unit,
+            display_limits,
+            self.flip_y_check.isChecked(),
+            display_unit.axis_label,
+        )
+
+    def _distribution_controls_changed(self) -> None:
+        """Refresh only the QC histogram; its controls never reprocess a map."""
+
+        if self.processed is not None:
+            self._update_distribution()
+
+    def _use_map_limits_for_distribution(self) -> None:
+        if self._active_color_limits is None:
+            self.map_views.show_distribution_error("Map color limits are not available.")
+            return
+        self.map_views.set_manual_distribution_range(*self._active_color_limits)
+
+    def _update_distribution(self) -> None:
+        if self.processed is None:
+            return
+        display_unit = self._current_display_unit()
+        try:
+            config = self.map_views.histogram_config(display_unit.scale)
+            self.map_views.show_distribution(self.processed, display_unit, config)
+        except ValueError as exc:
+            self.map_views.show_distribution_error(str(exc))
+
     def _reconstruct(self) -> None:
         if self.data is None or self._syncing or self._restoring_project:
             return
@@ -507,6 +564,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             result.timing.row_period_s,
             result.timing.point_period_s,
             result.timing.row_period_s - params.cols * result.timing.point_period_s,
+            phase_window=isinstance(params, PhaseWindowParams),
         )
         nonzero_counts = result.sample_counts[finite]
         self.inspector.set_qc(
@@ -591,7 +649,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         try:
             config = self._processing_config()
             processed = process_map(self.result.values, config, self.signal_combo.currentText())
-            limits = compute_color_limits(processed.values, config)
         except ValueError as exc:
             self.processed = None
             self._active_color_limits = None
@@ -602,31 +659,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             return
         self.processing_config = config
         self.processed = processed
-        display_unit = self._current_display_unit()
         self.inspector.set_processing_summary(
             f"{processed.value_label} - {config.value_scale.value}"
             + (f" - {len(processed.warnings)} warning(s)" if processed.warnings else "")
         )
         self.inspector.set_warning(" | ".join([*self.result.warnings, *processed.warnings]))
-        if limits is None:
-            self._active_color_limits = None
-            self.map_views.show_empty_map(
-                "No finite processed values", "Adjust processing settings."
-            )
-        else:
-            display_limits = (
-                limits.minimum * display_unit.scale,
-                limits.maximum * display_unit.scale,
-            )
-            self._active_color_limits = display_limits
-            self.map_views.show_processed_map(
-                processed.values,
-                display_unit,
-                display_limits,
-                self.flip_y_check.isChecked(),
-                display_unit.axis_label,
-            )
-        self.map_views.show_distribution(processed, display_unit)
+        self._refresh_processed_display()
+        self._update_distribution()
         self._set_export_availability()
         if np.isfinite(processed.values).any():
             self.statusBar().showMessage("Map reconstructed.")
@@ -675,7 +714,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
     def _reset_views(self) -> None:
         self.trace_view.reset_view()
-        self.map_views.reset_views()
 
     def _export_raw_map(self) -> None:
         export_raw(self)
@@ -698,7 +736,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             columns=self.cols_spin.value(),
             scan_pattern=ScanPattern(self.scan_combo.currentData()),
             first_row_ltr=self.first_row_check.isChecked(),
-            aggregation="median" if self.median_check.isChecked() else "mean",
+            aggregation=Aggregation(self.aggregation_combo.currentData()).value,
             row_a_s=self.row_a_spin.value(),
             row_b_s=self.row_b_spin.value(),
             rows_apart=self.rows_apart_spin.value(),

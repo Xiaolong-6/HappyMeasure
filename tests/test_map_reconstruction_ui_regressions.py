@@ -318,9 +318,8 @@ def test_timing_controls_use_native_buttons_and_explain_anchor_semantics(applica
         assert spin.buttonSymbols() is QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows
     assert "T_row = (YB - YA) / Rows apart" in window.rows_apart_spin.toolTip()
     assert "T_point = (XB - XA) / Points apart" in window.points_apart_spin.toolTip()
-    labels = {label.text(): label for label in window.inspector.findChildren(QtWidgets.QLabel)}
-    assert "First Y/row timing anchor" in labels["YA"].toolTip()
-    assert "Second X/pixel timing anchor" in labels["XB"].toolTip()
+    assert "First Y/row timing anchor" in window.row_a_spin.toolTip()
+    assert "Second X/pixel timing anchor" in window.point_b_spin.toolTip()
 
     window.inspector.set_timing_solution(14.71044, 0.21544, 9.32456)
     assert window.inspector.qc_values["Row period"].text() == "14.7104 s"
@@ -717,6 +716,9 @@ def test_phase_window_selector_updates_bands_markers_and_sampling_qc(application
         assert not window.inspector.phase_window_section.isHidden()
         assert window.result is not None
         assert window.trace_view.phase_window_items
+        assert "Pixel starts" not in window.raw_guide_key.text()
+        assert "Acquisition windows" in window.raw_guide_key.text()
+        assert window.trace_view.reset_button.text() == "Reset trace view"
         first_band = tuple(window.trace_view.phase_window_items[0].getRegion())
         window.x_phase_spin.setValue(52.5)
         window.inspector.registrationChanged.emit()
@@ -735,19 +737,106 @@ def test_phase_window_selector_updates_bands_markers_and_sampling_qc(application
 def test_method_selector_hides_full_legacy_rows_for_phase_window(application) -> None:
     window = _window_with_valid_reconstruction(application)
     try:
-        assert window.inspector.point_timing_form.isRowVisible(
-            window.inspector.point_offset_control
-        )
-        assert not window.inspector.row_timing_form.isRowVisible(window.y_phase_spin)
-        assert not window.inspector.point_timing_form.isRowVisible(window.x_phase_spin)
+        assert not window.inspector.point_offset_control.isHidden()
+        assert window.inspector.y_phase_control.parentWidget().isHidden()
+        assert window.inspector.x_phase_control.parentWidget().isHidden()
         window.method_combo.setCurrentIndex(
             window.method_combo.findData("dual_offset_phase_window")
         )
-        assert not window.inspector.point_timing_form.isRowVisible(
-            window.inspector.point_offset_control
-        )
-        assert window.inspector.row_timing_form.isRowVisible(window.y_phase_spin)
-        assert window.inspector.point_timing_form.isRowVisible(window.x_phase_spin)
+        assert window.inspector.point_offset_control.isHidden()
+        assert not window.inspector.y_phase_control.parentWidget().isHidden()
+        assert not window.inspector.x_phase_control.parentWidget().isHidden()
+    finally:
+        window.close()
+
+
+def test_compact_registration_groups_and_slider_rules(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        inspector = window.inspector
+        assert inspector.findChild(QtWidgets.QWidget, "geometryDimensions") is not None
+        assert inspector.aggregation_combo.currentData() == "median"
+        assert inspector.findChild(QtWidgets.QWidget, "rowAnchorPair") is not None
+        assert inspector.findChild(QtWidgets.QWidget, "pointAnchorPair") is not None
+        for name in ("yPhaseControl", "xPhaseControl", "windowFractionControl"):
+            control = inspector.findChild(QtWidgets.QWidget, name)
+            assert control is not None
+            slider = control.findChild(QtWidgets.QSlider)
+            assert slider is not None
+        assert inspector.findChild(QtWidgets.QWidget, "colorManualPair") is not None
+        assert inspector.findChild(QtWidgets.QWidget, "colorPercentilePair") is not None
+        y_slider = inspector.y_phase_control.findChild(QtWidgets.QSlider)
+        assert y_slider is not None
+        y_slider.setValue(123)
+        assert inspector.y_phase_spin.value() == pytest.approx(12.3)
+        assert not hasattr(inspector, "row_offset_slider")
+        assert not hasattr(inspector, "point_offset_slider")
+    finally:
+        window.close()
+
+
+def test_compact_inspector_has_no_horizontal_scrollbar_at_practical_width(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        window.resize(1024, 650)
+        window.show()
+        application.processEvents()
+        scroll = window.findChild(QtWidgets.QScrollArea)
+        assert scroll is not None
+        assert scroll.width() >= 340
+        assert scroll.horizontalScrollBar().maximum() == 0
+    finally:
+        window.close()
+
+
+def test_distribution_controls_are_view_only_and_copy_map_limits(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    try:
+        assert window.processed is not None
+        original = window.processed.values.copy()
+        views = window.map_views
+        views.distribution_range_combo.setCurrentIndex(1)
+        assert not views.distribution_min_spin.isHidden()
+        views.distribution_bin_combo.setCurrentIndex(1)
+        assert not views.distribution_count_spin.isHidden()
+        views.distribution_bin_combo.setCurrentIndex(2)
+        assert not views.distribution_width_spin.isHidden()
+        views.distribution_min_spin.setValue(-0.2)
+        views.distribution_max_spin.setValue(0.2)
+        views.distributionControlsChanged.emit()
+        np.testing.assert_array_equal(window.processed.values, original)
+        assert "Shown" in views.distribution_stats.text()
+        assert window._active_color_limits is not None
+        views.use_map_limits_button.click()
+        assert views.distribution_min_spin.value() == pytest.approx(window._active_color_limits[0])
+        assert views.distribution_max_spin.value() == pytest.approx(window._active_color_limits[1])
+    finally:
+        window.close()
+
+
+def test_color_limit_changes_only_remap_the_processed_display(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    try:
+        assert window.processed is not None
+        original = window.processed.values.copy()
+        window.color_range_combo.setCurrentIndex(window.color_range_combo.findData("manual"))
+        window.color_min_spin.setValue(-0.2)
+        window.color_max_spin.setValue(0.2)
+        window.inspector.colorLimitsChanged.emit()
+        np.testing.assert_array_equal(window.processed.values, original)
+        assert window._active_color_limits == pytest.approx((-0.2, 0.2))
+    finally:
+        window.close()
+
+
+def test_sample_count_color_levels_use_actual_counts(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        counts = np.arange(9, dtype=int).reshape(3, 3)
+        window.map_views.show_sample_counts(counts, False)
+        assert tuple(window.count_image.levels) == (0.0, 8.0)
+        window.map_views.show_sample_counts(np.full((2, 2), 7, dtype=int), False)
+        assert tuple(window.count_image.levels) == (6.5, 7.5)
     finally:
         window.close()
 

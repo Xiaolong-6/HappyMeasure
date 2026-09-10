@@ -18,6 +18,7 @@ class TraceView(QtWidgets.QStackedWidget):
 
     anchorMoved = QtCore.Signal(str, float)
     anchorMoveFinished = QtCore.Signal(str, float)
+    resetViewRequested = QtCore.Signal()
 
     def __init__(self, open_callback=None, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -48,11 +49,18 @@ class TraceView(QtWidgets.QStackedWidget):
         )
         self.guide_key.setObjectName("guideKey")
         self.guide_key.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        layout.addWidget(self.guide_key)
+        trace_toolbar = QtWidgets.QHBoxLayout()
+        trace_toolbar.setContentsMargins(0, 0, 0, 0)
+        trace_toolbar.addWidget(self.guide_key, 1)
+        self.reset_button = QtWidgets.QPushButton("Reset trace view")
+        self.reset_button.setObjectName("traceResetButton")
+        self.reset_button.clicked.connect(self.resetViewRequested)
+        trace_toolbar.addWidget(self.reset_button)
+        layout.addLayout(trace_toolbar)
         layout.addWidget(self.plot, 1)
         self.curve = self.plot.plot([], [], pen=pg.mkPen(TRACE, width=1.15))
         self.used_samples = pg.ScatterPlotItem(
-            pen=None, brush=pg.mkBrush("#F59E0B"), size=7, symbol="o"
+            pen=None, brush=pg.mkBrush("#F59E0B"), size=4, symbol="o"
         )
         self.plot.addItem(self.used_samples)
         # Stable aliases for callers that used the pre-component view names.
@@ -165,6 +173,14 @@ class TraceView(QtWidgets.QStackedWidget):
 
     def set_guides(self, row_positions: np.ndarray, pixel_positions: np.ndarray) -> None:
         self.clear_guides()
+        self.guide_key.setText(
+            "<span style='color:#e53935'>●</span> YA &nbsp; "
+            "<span style='color:#00bcd4'>●</span> YB &nbsp; "
+            "<span style='color:#2979ff'>●</span> XA &nbsp; "
+            "<span style='color:#d500f9'>●</span> XB &nbsp; "
+            "<span style='color:#888888'>⋮</span> Row refs &nbsp; "
+            "<span style='color:#d4a017'>¦</span> Pixel starts"
+        )
         for position in row_positions[self.guide_indices(row_positions.size)]:
             self._add_guide(float(position), "#888888", QtCore.Qt.PenStyle.DotLine)
         for position in pixel_positions[self.guide_indices(pixel_positions.size)]:
@@ -200,6 +216,15 @@ class TraceView(QtWidgets.QStackedWidget):
         """Render decimated core bounds and exactly their selected samples."""
 
         self.clear_guides()
+        self.guide_key.setText(
+            "<span style='color:#e53935'>●</span> YA &nbsp; "
+            "<span style='color:#00bcd4'>●</span> YB &nbsp; "
+            "<span style='color:#2979ff'>●</span> XA &nbsp; "
+            "<span style='color:#d500f9'>●</span> XB &nbsp; "
+            "<span style='color:#888888'>⋮</span> Row boundaries &nbsp; "
+            "<span style='color:#d4a017'>▧</span> Acquisition windows &nbsp; "
+            "<span style='color:#F59E0B'>●</span> Used samples"
+        )
         for position in row_positions[self.guide_indices(row_positions.size)]:
             self._add_guide(float(position), "#888888", QtCore.Qt.PenStyle.DotLine)
         flat_bounds = np.asarray(bounds, dtype=float).reshape(-1, 2)
@@ -215,8 +240,8 @@ class TraceView(QtWidgets.QStackedWidget):
             band = pg.LinearRegionItem(
                 values=(float(left), float(right)),
                 movable=False,
-                brush=pg.mkBrush(245, 158, 11, 38),
-                pen=pg.mkPen("#D97706", width=0.8),
+                brush=pg.mkBrush(245, 158, 11, 25),
+                pen=pg.mkPen(245, 158, 11, 0),
             )
             band.setZValue(-5)
             self.plot.addItem(band)

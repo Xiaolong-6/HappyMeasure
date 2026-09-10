@@ -42,3 +42,17 @@ python -m compileall -q src tests
 
 For a release candidate, also run the full validation path documented in
 `docs/RELEASE_CHECKLIST.md`.
+
+## Scoped Map Reconstruction Validation
+
+For Map Reconstruction-only UI, visualization, or analysis-control changes:
+
+1. Run focused Map Reconstruction and offscreen Qt regressions.
+2. Run Ruff, Black, mypy, and compileall only for changed Map Reconstruction
+   sources.
+3. Measure `map_reconstruction` coverage separately.
+
+Do not run the full HappyMeasure hardware/acquisition validation suite unless
+shared modules, packaging/dependency files, or release metadata change, or the
+work is preparing a repository release. Record the two validation scopes
+separately in `docs/TESTED_CURRENT.md`.

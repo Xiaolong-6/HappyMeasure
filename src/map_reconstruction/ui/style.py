@@ -33,12 +33,12 @@ QLabel#sectionHeader {{
 QFrame#inspectorSection {{
     background: {PANEL};
     border: 1px solid {BORDER};
-    border-radius: 5px;
+    border-radius: 9px;
 }}
 QFrame#emptyState {{
     background: {PANEL};
     border: 1px solid {BORDER};
-    border-radius: 5px;
+    border-radius: 9px;
 }}
 QLabel#emptyTitle {{
     color: {PRIMARY_TEXT};

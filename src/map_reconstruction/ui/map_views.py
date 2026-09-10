@@ -8,7 +8,12 @@ from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
 
 from map_reconstruction.display_units import DisplayUnit, to_display_values
 from map_reconstruction.processing import ProcessedMap
-from map_reconstruction.qc.distribution import make_histogram_data
+from map_reconstruction.qc.distribution import (
+    HistogramBinMode,
+    HistogramConfig,
+    HistogramRangeMode,
+    make_histogram_data,
+)
 from map_reconstruction.ui.style import (
     BORDER,
     GRID_MAJOR,
@@ -20,6 +25,9 @@ from map_reconstruction.ui.style import (
 
 class MapViews(QtWidgets.QWidget):
     """Own the right-side scientific map and QC plots."""
+
+    distributionControlsChanged = QtCore.Signal()
+    useMapLimitsRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -134,6 +142,40 @@ class MapViews(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(panel)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(5)
+        controls = QtWidgets.QWidget()
+        controls.setObjectName("distributionControls")
+        controls_layout = QtWidgets.QGridLayout(controls)
+        controls_layout.setContentsMargins(5, 4, 5, 0)
+        controls_layout.setHorizontalSpacing(6)
+        controls_layout.setVerticalSpacing(4)
+        self.distribution_range_combo = QtWidgets.QComboBox()
+        self.distribution_range_combo.addItem("Range: Auto", HistogramRangeMode.AUTO)
+        self.distribution_range_combo.addItem("Range: Manual", HistogramRangeMode.MANUAL)
+        self.distribution_bin_combo = QtWidgets.QComboBox()
+        self.distribution_bin_combo.addItem("Bins: Auto", HistogramBinMode.AUTO)
+        self.distribution_bin_combo.addItem("Bins: Count", HistogramBinMode.COUNT)
+        self.distribution_bin_combo.addItem("Bins: Width", HistogramBinMode.WIDTH)
+        self.distribution_min_spin = self._distribution_value_spin()
+        self.distribution_max_spin = self._distribution_value_spin()
+        self.distribution_count_spin = QtWidgets.QSpinBox()
+        self.distribution_count_spin.setRange(1, 10_000)
+        self.distribution_count_spin.setValue(50)
+        self.distribution_width_spin = self._distribution_value_spin()
+        self.distribution_width_spin.setMinimum(1e-12)
+        self.distribution_width_spin.setValue(1.0)
+        self.use_map_limits_button = QtWidgets.QPushButton("Use map limits")
+        controls_layout.addWidget(self.distribution_range_combo, 0, 0)
+        controls_layout.addWidget(self.distribution_bin_combo, 0, 1)
+        controls_layout.addWidget(QtWidgets.QLabel("Min"), 1, 0)
+        controls_layout.addWidget(self.distribution_min_spin, 1, 1)
+        controls_layout.addWidget(QtWidgets.QLabel("Max"), 1, 2)
+        controls_layout.addWidget(self.distribution_max_spin, 1, 3)
+        controls_layout.addWidget(self.use_map_limits_button, 1, 4)
+        controls_layout.addWidget(QtWidgets.QLabel("Count"), 2, 0)
+        controls_layout.addWidget(self.distribution_count_spin, 2, 1)
+        controls_layout.addWidget(QtWidgets.QLabel("Bin width"), 2, 2)
+        controls_layout.addWidget(self.distribution_width_spin, 2, 3)
+        layout.addWidget(controls)
         plot = pg.PlotWidget()
         self._configure_plot(plot, "Value distribution")
         plot.setLabel("bottom", "Signal", color=SECONDARY_TEXT)
@@ -170,7 +212,85 @@ class MapViews(QtWidgets.QWidget):
         layout.addWidget(plot, 1)
         layout.addWidget(stats)
         stack.addWidget(panel)
+        self._distribution_control_widgets = {
+            "manual": tuple(
+                controls_layout.itemAtPosition(row, column).widget()
+                for row, column in ((1, 0), (1, 1), (1, 2), (1, 3), (1, 4))
+            ),
+            "count": (controls_layout.itemAtPosition(2, 0).widget(), self.distribution_count_spin),
+            "width": (controls_layout.itemAtPosition(2, 2).widget(), self.distribution_width_spin),
+        }
+        self.distribution_range_combo.currentIndexChanged.connect(
+            self._distribution_controls_changed
+        )
+        self.distribution_bin_combo.currentIndexChanged.connect(self._distribution_controls_changed)
+        self.distribution_min_spin.editingFinished.connect(self.distributionControlsChanged)
+        self.distribution_max_spin.editingFinished.connect(self.distributionControlsChanged)
+        self.distribution_count_spin.valueChanged.connect(self.distributionControlsChanged)
+        self.distribution_width_spin.editingFinished.connect(self.distributionControlsChanged)
+        self.use_map_limits_button.clicked.connect(self.useMapLimitsRequested)
+        self._update_distribution_control_visibility()
         return stack, plot, bars, mean_line, median_line, stats
+
+    @staticmethod
+    def _distribution_value_spin() -> QtWidgets.QDoubleSpinBox:
+        spin = QtWidgets.QDoubleSpinBox()
+        spin.setDecimals(6)
+        spin.setRange(-1e15, 1e15)
+        spin.setSingleStep(0.1)
+        spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        spin.setKeyboardTracking(False)
+        spin.setMinimumWidth(84)
+        return spin
+
+    def _distribution_controls_changed(self) -> None:
+        self._update_distribution_control_visibility()
+        self.distributionControlsChanged.emit()
+
+    def _update_distribution_control_visibility(self) -> None:
+        manual = (
+            HistogramRangeMode(self.distribution_range_combo.currentData())
+            is HistogramRangeMode.MANUAL
+        )
+        bin_mode = HistogramBinMode(self.distribution_bin_combo.currentData())
+        for widget in self._distribution_control_widgets["manual"]:
+            widget.setVisible(manual)
+        for widget in self._distribution_control_widgets["count"]:
+            widget.setVisible(bin_mode is HistogramBinMode.COUNT)
+        for widget in self._distribution_control_widgets["width"]:
+            widget.setVisible(bin_mode is HistogramBinMode.WIDTH)
+
+    def histogram_config(self, display_scale: float) -> HistogramConfig:
+        manual = (
+            HistogramRangeMode(self.distribution_range_combo.currentData())
+            is HistogramRangeMode.MANUAL
+        )
+        return HistogramConfig(
+            range_mode=self.distribution_range_combo.currentData(),
+            minimum=self.distribution_min_spin.value() / display_scale if manual else None,
+            maximum=self.distribution_max_spin.value() / display_scale if manual else None,
+            bin_mode=self.distribution_bin_combo.currentData(),
+            bin_count=self.distribution_count_spin.value(),
+            bin_width=self.distribution_width_spin.value() / display_scale,
+        )
+
+    def set_manual_distribution_range(self, minimum: float, maximum: float) -> None:
+        blockers = [
+            QtCore.QSignalBlocker(widget)
+            for widget in (
+                self.distribution_range_combo,
+                self.distribution_min_spin,
+                self.distribution_max_spin,
+            )
+        ]
+        try:
+            self.distribution_range_combo.setCurrentIndex(1)
+            self.distribution_min_spin.setValue(minimum)
+            self.distribution_max_spin.setValue(maximum)
+        finally:
+            del blockers
+        self._update_distribution_control_visibility()
+        self.distributionControlsChanged.emit()
 
     def _set_loaded(self, loaded: bool) -> None:
         index = 1 if loaded else 0
@@ -212,12 +332,29 @@ class MapViews(QtWidgets.QWidget):
         display = np.asarray(values, dtype=float)
         if flip_y:
             display = np.flipud(display)
-        self.count_image.setImage(display, autoLevels=True)
+        finite = display[np.isfinite(display)]
+        if finite.size == 0:
+            self.count_image.clear()
+            self.count_stack.setCurrentIndex(0)
+            return
+        low, high = float(np.min(finite)), float(np.max(finite))
+        levels = (low - 0.5, high + 0.5) if low == high else (low, high)
+        self.count_image.setImage(display, autoLevels=False, levels=levels)
+        self.count_color_bar.setLevels(levels)
+        ticks = np.arange(int(np.ceil(low)), int(np.floor(high)) + 1)
+        if ticks.size > 10:
+            ticks = np.unique(np.linspace(ticks[0], ticks[-1], 8, dtype=int))
+        self.count_color_bar.getAxis("right").setTicks(
+            [[(float(tick), str(int(tick))) for tick in ticks]]
+        )
+        self.count_color_bar.setLabel("right", "Samples / pixel", enableAutoSIPrefix=False)
         self.count_plot.enableAutoRange()
         self.count_stack.setCurrentIndex(1)
 
-    def show_distribution(self, processed: ProcessedMap, display_unit: DisplayUnit) -> None:
-        histogram = make_histogram_data(processed.values)
+    def show_distribution(
+        self, processed: ProcessedMap, display_unit: DisplayUnit, config: HistogramConfig
+    ) -> None:
+        histogram = make_histogram_data(processed.values, config)
         if histogram is None:
             self.clear_distribution()
             return
@@ -232,7 +369,8 @@ class MapViews(QtWidgets.QWidget):
         self.median_line.show()
         self.distribution_stats.setText(
             "Source: processed map    "
-            f"Finite pixels {histogram.finite_count} / {histogram.total_count}    "
+            f"Finite {histogram.finite_count} / {histogram.total_count}    "
+            f"Shown {histogram.shown_count}    Below {histogram.below_count}    Above {histogram.above_count}    "
             f"Mean {histogram.mean * display_unit.scale:.6g} {display_unit.unit}    "
             f"Median {histogram.median * display_unit.scale:.6g} {display_unit.unit}"
         )
@@ -262,6 +400,19 @@ class MapViews(QtWidgets.QWidget):
         self.mean_line.hide()
         self.median_line.hide()
         self.distribution_stack.setCurrentIndex(0)
+
+    def show_distribution_error(self, message: str) -> None:
+        """Keep invalid QC controls local to the Distribution view."""
+
+        self.distribution_bars.setOpts(
+            x0=np.array([], dtype=float),
+            x1=np.array([], dtype=float),
+            height=np.array([], dtype=float),
+        )
+        self.mean_line.hide()
+        self.median_line.hide()
+        self.distribution_stats.setText(f"Histogram controls: {message}")
+        self.distribution_stack.setCurrentIndex(1)
 
     def clear_processed_views(self, message: str = "Reconstruction unavailable") -> None:
         """Clear all derived views after reconstruction invalidation."""

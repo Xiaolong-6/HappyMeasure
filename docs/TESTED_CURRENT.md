@@ -1,5 +1,28 @@
 # Current Test Status
 
+## 2026-09-10 - Map Reconstruction analysis workspace
+
+### Map Reconstruction validation
+
+- 137 passed, 0 skipped: Map Reconstruction core, importer, processing,
+  project, Distribution, and offscreen UI regressions.
+- `map_reconstruction` coverage: **95.24%** (required minimum: 95%).
+- Ruff, Black, mypy, and `compileall` passed for every changed Map
+  Reconstruction source module.
+- Offscreen Qt smoke passed at 1280×820 and 1024×650; the compact inspector
+  retains its primary controls without a horizontal scrollbar at the narrower
+  size.
+- Native visual inspection was not performed: the desktop automation surface
+  exposed no standalone application window in this session.
+
+### HappyMeasure validation
+
+- Not a validation gate for this Map Reconstruction-only branch; no shared
+  hardware/acquisition, packaging, dependency, or release files changed.
+- One exploratory whole-repository run observed the existing timing-sensitive
+  `TestPlotOptimizer.test_frame_rate_limiting` failure. It is outside this
+  branch's scope and was not used to validate or reject this change.
+
 ## 2026-09-09 - Dual Offset — Phase Window
 
 - 654 tests collected; 653 passed and 1 expected conditional skip. The final

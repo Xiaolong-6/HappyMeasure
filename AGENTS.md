@@ -120,6 +120,18 @@ Relevant suites commonly include:
 - `tests/test_hysteresis_sweep_values.py`
 - `tests/test_error_handling.py`
 
+### Map Reconstruction-only validation
+
+For a change confined to `map_reconstruction` UI, visualization, or analysis
+controls, validate the affected Map Reconstruction tests and offscreen Qt
+regressions, then run Ruff, Black, mypy, and compileall only for the changed
+Map Reconstruction sources. Measure `map_reconstruction` coverage separately.
+
+Do not run the full HappyMeasure hardware/acquisition validation suite unless
+the change touches shared modules, packaging/dependencies, or prepares a
+repository release. Record Map Reconstruction and HappyMeasure validation
+separately in `docs/TESTED_CURRENT.md`.
+
 Before committing, also follow `CONTRIBUTING.md`. Do not weaken or delete a
 regression test merely to make a change pass unless the tested behavior is
 intentionally obsolete and that decision is documented.
