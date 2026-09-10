@@ -7,7 +7,7 @@ from typing import Any
 from keith_ivt.acquisition import FAST_BENCHMARK_NOTE, FAST_NPLC
 from keith_ivt.models import SweepKind
 from keith_ivt.ui.mixin_typing import UiMixinTyping
-from keith_ivt.ui.widgets import add_tip
+from keith_ivt.ui.widgets import ToolTip, add_tip
 
 
 PROFILE_STANDARD = "Standard"
@@ -112,17 +112,13 @@ class FastAcquisitionMixin(UiMixinTyping):
             "Standard preserves the historical path. Fast applies the benchmark-backed "
             "host-query preset. Custom exposes individual acquisition controls.",
         )
-
-        self.fast_profile_note = ttk.Label(
-            frame,
-            text="",
-            style="Muted.TLabel",
-            wraplength=390,
-            justify="left",
+        # The per-profile explanation lives on this affordance hover so the
+        # panel stays compact instead of spreading a paragraph inline.
+        self.acquisition_profile_help = ttk.Label(
+            frame, text="?", style="Muted.TLabel", cursor="question_arrow"
         )
-        self.fast_profile_note.grid(
-            row=1, column=0, columnspan=2, sticky="ew", pady=(3, 4)
-        )
+        self.acquisition_profile_help.grid(row=0, column=2, sticky="w", padx=(6, 0))
+        self.acquisition_profile_tip = ToolTip(self.acquisition_profile_help, "")
 
         self.advanced_acquisition_button = ttk.Button(
             frame,
@@ -131,7 +127,7 @@ class FastAcquisitionMixin(UiMixinTyping):
             command=self._toggle_advanced_acquisition,
         )
         self.advanced_acquisition_button.grid(
-            row=2, column=0, columnspan=2, sticky="ew", pady=(3, 4)
+            row=1, column=0, columnspan=3, sticky="ew", pady=(3, 4)
         )
 
         advanced = ttk.Frame(frame, style="Card.TFrame", padding=(8, 6))
@@ -139,7 +135,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         self.advanced_acquisition_frame = advanced
         self._build_advanced_rows(advanced)
         if self.acquisition_advanced_visible.get():
-            advanced.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+            advanced.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0))
 
     def _build_advanced_rows(self, parent) -> None:
         ttk.Label(
@@ -265,7 +261,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         frame = getattr(self, "advanced_acquisition_frame", None)
         if frame is not None and frame.winfo_exists():
             if visible:
-                frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+                frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0))
             else:
                 frame.grid_remove()
         button = getattr(self, "advanced_acquisition_button", None)
@@ -388,8 +384,8 @@ class FastAcquisitionMixin(UiMixinTyping):
                 except Exception:
                     pass
 
-        note = getattr(self, "fast_profile_note", None)
-        if note is not None and note.winfo_exists():
+        tip = getattr(self, "acquisition_profile_tip", None)
+        if tip is not None:
             if is_fast:
                 text = (
                     "Fast preset: sample as fast as the host/instrument path allows; "
@@ -408,7 +404,7 @@ class FastAcquisitionMixin(UiMixinTyping):
                     "Standard acquisition preserves historical HappyMeasure behavior. "
                     "Choose Fast for the benchmark-backed Constant-Time host-query preset."
                 )
-            note.configure(text=text)
+            tip.text = text
 
         self._last_acquisition_profile = profile
         try:
