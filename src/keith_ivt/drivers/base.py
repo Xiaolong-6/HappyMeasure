@@ -55,6 +55,24 @@ class DriverCapabilities:
     supports_4wire: bool = True
     supports_fixed_range: bool = True
     supports_manual_output: bool = True
+    supports_fast_acquisition: bool = False
+
+
+def supports_fast_acquisition_for_idn(idn: str) -> bool:
+    """Return whether Fast acquisition is validated for an *IDN? identity.
+
+    Validated today: the Keithley 2400-series family and the debug simulator
+    profile. Unvalidated families (2450, generic instruments) stay Standard-only.
+    """
+
+    text = str(idn or "").upper()
+    if "SIMULATED" in text:
+        return True
+    if "KEITHLEY" in text and any(
+        family in text for family in ("2400", "2401", "2410", "2420", "2430", "2440")
+    ):
+        return True
+    return False
 
 
 @dataclass(frozen=True)

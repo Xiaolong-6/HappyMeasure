@@ -60,7 +60,9 @@ class HardwareControllerMixin(UiMixinTyping):
         )
 
     @staticmethod
-    def _full_cap(name: str, vendor: str, family: str) -> DriverCapabilities:
+    def _full_cap(
+        name: str, vendor: str, family: str, *, fast_acquisition: bool = False
+    ) -> DriverCapabilities:
         return DriverCapabilities(
             name=name,
             vendor=vendor,
@@ -72,12 +74,18 @@ class HardwareControllerMixin(UiMixinTyping):
             supports_4wire=True,
             supports_fixed_range=True,
             supports_manual_output=True,
+            supports_fast_acquisition=fast_acquisition,
         )
 
     def _detect_capabilities_from_idn(self, idn: str) -> DriverCapabilities:
         text = idn.upper()
         if "SIMULATED" in text:
-            return self._full_cap("Debug simulator / Keithley 2400 profile", "simulator", "smu-iv")
+            return self._full_cap(
+                "Debug simulator / Keithley 2400 profile",
+                "simulator",
+                "smu-iv",
+                fast_acquisition=True,
+            )
         if "KEITHLEY" in text and (
             "2400" in text
             or "2401" in text
@@ -86,7 +94,12 @@ class HardwareControllerMixin(UiMixinTyping):
             or "2430" in text
             or "2440" in text
         ):
-            return self._full_cap("Keithley 2400-series SMU", "Keithley", "2400-series-smu")
+            return self._full_cap(
+                "Keithley 2400-series SMU",
+                "Keithley",
+                "2400-series-smu",
+                fast_acquisition=True,
+            )
         if "KEITHLEY" in text and "2450" in text:
             return self._full_cap("Keithley 2450 SMU", "Keithley", "2450-smu")
         # Conservative fallback: IV only until a real driver advertises more.
@@ -143,6 +156,12 @@ class HardwareControllerMixin(UiMixinTyping):
         note = self._widget_alive("sweep_capability_note")
         if note is not None:
             note.configure(text=self._sweep_capability_note())
+        refresh_acquisition = getattr(self, "_refresh_acquisition_availability", None)
+        if callable(refresh_acquisition):
+            try:
+                refresh_acquisition()
+            except Exception:
+                pass
         if hasattr(self, "hardware_profile_text") and self.hardware_profile_text is not None:
             try:
                 self.hardware_profile_text.set(self._capability_summary())
@@ -290,6 +309,21 @@ class HardwareControllerMixin(UiMixinTyping):
         for attr in ("device_entry", "operator_entry"):
             self._safe_configure(attr, state=state)
 
+    def _stamp_detected_capabilities(self, meter):
+        """Carry connect-time IDN capabilities onto a serial run instrument.
+
+        Simulated instruments already advertise their own capabilities; legacy
+        drivers without capability info keep the historical behavior.
+        """
+        if isinstance(meter, Keithley2400Serial):
+            try:
+                capabilities = getattr(self, "_active_capabilities", None)
+                if capabilities is not None:
+                    meter.capabilities = capabilities
+            except Exception:
+                pass
+        return meter
+
     def _make_instrument(self, config=None):
         """Create an instrument without reading Tk variables from a worker thread.
 
@@ -301,10 +335,14 @@ class HardwareControllerMixin(UiMixinTyping):
         if config is not None:
             if config.debug:
                 return SimulatedKeithley(model_name=config.debug_model)
-            return Keithley2400Serial(port=config.port, baud_rate=int(config.baud_rate))
+            return self._stamp_detected_capabilities(
+                Keithley2400Serial(port=config.port, baud_rate=int(config.baud_rate))
+            )
         if self.debug.get():
             return SimulatedKeithley(model_name=self.debug_model.get())
-        return Keithley2400Serial(port=self.port.get(), baud_rate=int(self.baud_rate.get()))
+        return self._stamp_detected_capabilities(
+            Keithley2400Serial(port=self.port.get(), baud_rate=int(self.baud_rate.get()))
+        )
 
     def connect_or_disconnect(self) -> None:
         """Single hardware action button: connect when idle/disconnected, disconnect when idle/connected."""

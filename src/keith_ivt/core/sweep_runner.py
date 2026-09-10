@@ -5,6 +5,7 @@ import time
 import sys
 import math
 from datetime import datetime
+from typing import Any
 
 from keith_ivt.acquisition import resolve_time_acquisition
 from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
@@ -22,6 +23,19 @@ PointCallback = Callable[[SweepPoint, int, int], None]
 StopCallback = Callable[[], bool]
 PauseCallback = Callable[[], bool]
 StableRead = tuple[float, float] | None
+
+
+def _fast_capability_ok(instrument: Any) -> bool:
+    """Return whether Fast/Custom overrides may run on this instrument.
+
+    Instruments that advertise capabilities must validate Fast support;
+    legacy drivers without capability info keep the historical behavior.
+    """
+
+    capabilities = getattr(instrument, "capabilities", None)
+    if capabilities is None:
+        return True
+    return bool(getattr(capabilities, "supports_fast_acquisition", False))
 
 
 class SkippedOverflowRead:
@@ -110,6 +124,12 @@ class SweepRunner:
                 "MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path."
             )
         acquisition = resolve_time_acquisition(config)
+        if acquisition.apply_instrument_overrides and not _fast_capability_ok(
+            self.instrument
+        ):
+            raise ValueError(
+                "Fast acquisition is not validated for the connected instrument."
+            )
         values = (
             []
             if config.sweep_kind is SweepKind.CONSTANT_TIME and acquisition.as_fast_as_possible
@@ -142,6 +162,7 @@ class SweepRunner:
             )
             if config.sweep_kind is SweepKind.CONSTANT_TIME:
                 index = 0
+                slot_index = 0
                 self.instrument.set_source(config.source_scpi, config.constant_value)
                 t0_ns = _acquisition_clock_ns()
                 next_deadline_ns = t0_ns
@@ -149,7 +170,10 @@ class SweepRunner:
                 fast_finite = acquisition.as_fast_as_possible and not is_continuous_time
                 duration_ns = round(config.duration_s * 1e9)
                 total = 0 if (is_continuous_time or fast_finite) else len(values)
-                while not _should_stop() and (is_continuous_time or fast_finite or index < total):
+                scheduled_finite = not is_continuous_time and not fast_finite
+                while not _should_stop() and (
+                    is_continuous_time or fast_finite or slot_index < total
+                ):
                     was_paused = False
                     while should_pause is not None and should_pause():
                         was_paused = True
@@ -182,12 +206,17 @@ class SweepRunner:
                     )
                     if stable_read is None:
                         break
+                    # Every completed acquisition consumes one scheduled slot,
+                    # whether the sample is stored or skipped as overflow.
+                    slot_index += 1
                     assert t0_ns is not None
                     elapsed_ns = _acquisition_clock_ns() - t0_ns
                     if isinstance(stable_read, SkippedOverflowRead):
                         overflow_count += 1
                         elapsed_before_pause_ns = elapsed_ns
                         if fast_finite and elapsed_ns >= duration_ns:
+                            break
+                        if scheduled_finite and slot_index >= total:
                             break
                         if acquisition.as_fast_as_possible:
                             continue
@@ -212,7 +241,7 @@ class SweepRunner:
                     elapsed_before_pause_ns = elapsed_ns
                     if fast_finite and elapsed_ns >= duration_ns:
                         break
-                    if not is_continuous_time and not fast_finite and index >= total:
+                    if scheduled_finite and slot_index >= total:
                         break
                     if acquisition.as_fast_as_possible:
                         continue

@@ -161,6 +161,57 @@ def test_tk_preset_apply_restores_acquisition_without_duplicate_controls() -> No
 
 @pytest.mark.skipif(
     os.environ.get("HAPPYMEASURE_RUN_TK_SMOKE") != "1",
+    reason="Set HAPPYMEASURE_RUN_TK_SMOKE=1 on a desktop session to run Tk capability smoke test",
+)
+def test_tk_acquisition_availability_follows_instrument_capability() -> None:
+    from keith_ivt.drivers.base import DriverCapabilities
+    from keith_ivt.ui.simple_app import SimpleKeithIVtApp
+
+    app = SimpleKeithIVtApp()
+    try:
+        app.root.update_idletasks()
+        app.sweep_kind.set("TIME")
+        app._show_nav("Sweep")
+        app.root.update_idletasks()
+        app._ensure_acquisition_vars()
+
+        # NOTE: set debug first: writing the debug var fires the
+        # debug-change trace, which resets a live connection.
+        app.debug.set(False)
+        app._connected = True
+        app._active_capabilities = DriverCapabilities(
+            name="Keithley 2450 SMU", vendor="Keithley", model_family="2450-smu"
+        )
+        app._refresh_acquisition_availability()
+        assert list(app.acquisition_profile_combo.cget("values")) == ["Standard"]
+        assert app.acquisition_profile.get() == "Standard"
+
+        app._active_capabilities = DriverCapabilities(
+            name="Keithley 2400-series SMU",
+            vendor="Keithley",
+            model_family="2400-series-smu",
+            supports_fast_acquisition=True,
+        )
+        app._refresh_acquisition_availability()
+        assert list(app.acquisition_profile_combo.cget("values")) == [
+            "Standard",
+            "Fast",
+            "Custom",
+        ]
+
+        app._connected = False
+        app._refresh_acquisition_availability()
+        assert list(app.acquisition_profile_combo.cget("values")) == [
+            "Standard",
+            "Fast",
+            "Custom",
+        ]
+    finally:
+        app.root.destroy()
+
+
+@pytest.mark.skipif(
+    os.environ.get("HAPPYMEASURE_RUN_TK_SMOKE") != "1",
     reason="Set HAPPYMEASURE_RUN_TK_SMOKE=1 on a desktop session to run Tk instantiation smoke test",
 )
 def test_tk_app_instantiates_default_hardware_page() -> None:

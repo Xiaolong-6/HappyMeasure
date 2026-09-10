@@ -4,9 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from keith_ivt.acquisition import FAST_NPLC, resolve_time_acquisition
+from keith_ivt.acquisition import (
+    FAST_NPLC,
+    fast_profiles_available,
+    resolve_time_acquisition,
+)
 from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
 from keith_ivt.core.sweep_runner import SweepRunner
+from keith_ivt.drivers.base import DriverCapabilities, supports_fast_acquisition_for_idn
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.models import SweepConfig, SweepKind, SweepMode, validate_config
 
@@ -257,6 +262,83 @@ def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> Non
     # One pre-run source set plus exactly one write per acquired sample: the
     # runner owns scheduling, so the driver read path must not add its own.
     assert len(source_writes) == len(result.points) + 1
+
+
+def test_fast_support_identity_matrix() -> None:
+    assert supports_fast_acquisition_for_idn(
+        "KEITHLEY INSTRUMENTS INC.,MODEL 2401,4612952,B02"
+    )
+    assert supports_fast_acquisition_for_idn("Keithley Instruments Inc., Model 2400")
+    assert supports_fast_acquisition_for_idn("SIMULATED Keithley 2400")
+    assert not supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2450")
+    assert not supports_fast_acquisition_for_idn("Generic IV instrument")
+    assert not supports_fast_acquisition_for_idn("")
+
+
+def test_fast_profile_availability_matrix() -> None:
+    assert fast_profiles_available(connected=False, simulator=False, supports_fast_acquisition=False)
+    assert fast_profiles_available(connected=False, simulator=False, supports_fast_acquisition=True)
+    assert fast_profiles_available(connected=True, simulator=True, supports_fast_acquisition=False)
+    assert fast_profiles_available(
+        connected=True, simulator=False, supports_fast_acquisition=True
+    )
+    assert not fast_profiles_available(
+        connected=True, simulator=False, supports_fast_acquisition=False
+    )
+
+
+class _CapabilityMeter(_FastMeter):
+    def __init__(self, clock: _Clock, supports_fast: bool) -> None:
+        super().__init__(clock)
+        self.capabilities = DriverCapabilities(
+            name="test meter",
+            vendor="test",
+            model_family="test",
+            supports_fast_acquisition=supports_fast,
+        )
+
+
+def test_fast_runtime_guard_rejects_unvalidated_instrument() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
+    with pytest.raises(ValueError, match="not validated"):
+        SweepRunner(meter).run(config)
+
+
+def test_fast_runtime_guard_rejects_unvalidated_custom_overrides() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    config = _time_config(custom_acquisition=True, source_write_each_sample=True)
+    with pytest.raises(ValueError, match="not validated"):
+        SweepRunner(meter).run(config)
+
+
+def test_fast_runtime_guard_allows_standard_on_unvalidated_instrument() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    control = CurrentRangeControl(
+        CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)
+    )
+    result = SweepRunner(meter).run(
+        _time_config(nplc=0.1, delay_s=0.0, duration_s=0.06, interval_s=0.02),
+        current_range_control=control,
+    )
+    assert len(result.points) == 4
+
+
+def test_fast_runtime_guard_allows_validated_and_legacy_instruments(monkeypatch) -> None:
+    import keith_ivt.core.sweep_runner as runner_module
+
+    for meter in (_CapabilityMeter(_Clock(), True), _FastMeter(_Clock())):
+        clock = meter.clock
+        monkeypatch.setattr(runner_module, "_acquisition_clock_ns", clock.perf_counter_ns)
+        config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
+        control = CurrentRangeControl(
+            CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)
+        )
+        result = SweepRunner(meter).run(config, current_range_control=control)
+        assert len(result.points) == 3
 
 
 def test_fast_finite_time_sweep_is_duration_based_and_has_no_interval_wait(monkeypatch) -> None:

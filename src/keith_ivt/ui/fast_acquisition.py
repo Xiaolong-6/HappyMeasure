@@ -4,7 +4,11 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
-from keith_ivt.acquisition import FAST_BENCHMARK_NOTE, FAST_NPLC
+from keith_ivt.acquisition import (
+    FAST_BENCHMARK_NOTE,
+    FAST_NPLC,
+    fast_profiles_available,
+)
 from keith_ivt.models import SweepKind
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 from keith_ivt.ui.widgets import ToolTip, add_tip
@@ -89,6 +93,37 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._build_fast_acquisition_controls()
         self._apply_acquisition_profile_state()
 
+    def _refresh_acquisition_availability(self) -> None:
+        """Restrict Fast/Custom to validated hardware without touching science state."""
+        combo = getattr(self, "acquisition_profile_combo", None)
+        try:
+            if combo is None or not combo.winfo_exists():
+                return
+            self._ensure_acquisition_vars()
+        except Exception:
+            return
+        capabilities = getattr(self, "_active_capabilities", None)
+        allow_fast = fast_profiles_available(
+            connected=bool(getattr(self, "_connected", False)),
+            simulator=bool(
+                getattr(self, "debug", None) is not None
+                and self.debug.get()
+                or getattr(capabilities, "model_family", "") == "smu-iv"
+            ),
+            supports_fast_acquisition=bool(
+                getattr(capabilities, "supports_fast_acquisition", False)
+            ),
+        )
+        values = (
+            [PROFILE_STANDARD, PROFILE_FAST, PROFILE_CUSTOM]
+            if allow_fast
+            else [PROFILE_STANDARD]
+        )
+        combo.configure(values=values)
+        if self.acquisition_profile.get() not in values:
+            self.acquisition_profile.set(PROFILE_STANDARD)
+            self._apply_acquisition_profile_state()
+
     def _build_fast_acquisition_controls(self) -> None:
         parent = self.dynamic_box
         frame = ttk.Frame(parent, style="Card.TFrame")
@@ -140,6 +175,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._build_advanced_rows(advanced)
         if self.acquisition_advanced_visible.get():
             advanced.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0))
+        self._refresh_acquisition_availability()
 
     def _build_advanced_rows(self, parent) -> None:
         ttk.Label(

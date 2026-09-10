@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pytest
 
 import keith_ivt.core.sweep_runner as sweep_runner
@@ -251,6 +253,118 @@ def test_constant_time_skips_recognised_overflow_and_keeps_next_valid_read(monke
     assert [point.measured_value for point in result.points] == pytest.approx([0.002, 0.003])
     assert all(point.measured_value != 9.91e37 for point in result.points)
     assert result.warnings == ["Skipped 1 Keithley overflow measurement(s)."]
+
+
+def _finite_config(**changes) -> SweepConfig:
+    values = dict(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0.0,
+        stop=0.0,
+        step=1.0,
+        compliance=0.01,
+        nplc=0.1,
+        delay_s=0.0,
+        sweep_kind=SweepKind.CONSTANT_TIME,
+        constant_value=0.1,
+        continuous_time=False,
+        duration_s=0.45,
+        interval_s=0.1,
+    )
+    values.update(changes)
+    return SweepConfig(**values)
+
+
+def _overflow_meter(clock, overflow_reads, read_duration_s=0.01):
+    meter = _TimedMeter(clock, read_duration_s=read_duration_s)
+    overflow_pending = False
+
+    def read_with_overflow() -> tuple[float, float]:
+        nonlocal overflow_pending
+        meter.read_starts.append(clock.now)
+        meter.read_count += 1
+        clock.now += meter.read_duration_s
+        overflow_pending = meter.read_count in overflow_reads
+        if overflow_pending:
+            return meter.source_value, float("nan")
+        return meter.source_value, meter.read_count / 1000.0
+
+    def consume_overflow() -> bool:
+        nonlocal overflow_pending
+        marked = overflow_pending
+        overflow_pending = False
+        return marked
+
+    meter.read_source_and_measure = read_with_overflow  # type: ignore[method-assign]
+    meter.consume_measurement_overflow = consume_overflow  # type: ignore[attr-defined]
+    return meter
+
+
+def _run_finite(monkeypatch, meter: _TimedMeter, config: SweepConfig, backstop: int = 50):
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", meter.clock.perf_counter_ns)
+    monkeypatch.setattr(sweep_runner.time, "sleep", meter.clock.sleep)
+    return SweepRunner(meter).run(config, should_stop=lambda: meter.read_count >= backstop)
+
+
+def test_finite_standard_time_overflow_does_not_extend_scheduled_slots(
+    monkeypatch,
+) -> None:
+    clock = _FakeClock()
+    meter = _overflow_meter(clock, {2})
+    result = _run_finite(monkeypatch, meter, _finite_config())
+
+    assert meter.read_count == 5
+    assert len(result.points) == 4
+    assert [point.measured_value for point in result.points] == pytest.approx(
+        [0.001, 0.003, 0.004, 0.005]
+    )
+    assert all(math.isfinite(point.elapsed_s) for point in result.points)
+    assert result.warnings == ["Skipped 1 Keithley overflow measurement(s)."]
+
+
+def test_finite_standard_time_overflow_on_last_slot_still_ends_on_schedule(
+    monkeypatch,
+) -> None:
+    clock = _FakeClock()
+    meter = _overflow_meter(clock, {2, 5})
+    result = _run_finite(monkeypatch, meter, _finite_config())
+
+    assert meter.read_count == 5
+    assert len(result.points) == 3
+    assert [point.measured_value for point in result.points] == pytest.approx(
+        [0.001, 0.003, 0.004]
+    )
+    assert result.warnings == ["Skipped 2 Keithley overflow measurement(s)."]
+
+
+def test_fast_finite_time_with_overflow_stops_by_elapsed_duration(monkeypatch) -> None:
+    clock = _FakeClock()
+    meter = _overflow_meter(clock, {1, 2})
+    config = _finite_config(fast_acquisition=True, duration_s=0.05)
+    result = _run_finite(monkeypatch, meter, config)
+
+    assert meter.read_count < 20
+    assert len(result.points) == meter.read_count - 2
+    assert result.points[-1].elapsed_s >= 0.05
+    assert result.warnings == ["Skipped 2 Keithley overflow measurement(s)."]
+
+
+def test_step_sweep_overflow_is_a_hard_error_not_a_silent_drop(monkeypatch) -> None:
+    clock = _FakeClock()
+    meter = _overflow_meter(clock, {1})
+    config = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0.0,
+        stop=1.0,
+        step=0.5,
+        compliance=0.01,
+        nplc=0.1,
+        delay_s=0.0,
+        sweep_kind=SweepKind.STEP,
+    )
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", clock.perf_counter_ns)
+    monkeypatch.setattr(sweep_runner.time, "sleep", clock.sleep)
+    with pytest.raises(RuntimeError, match="Non-finite measurement readback"):
+        SweepRunner(meter).run(config)
 
 
 def test_unmarked_nonfinite_readback_remains_an_acquisition_error(monkeypatch) -> None:
