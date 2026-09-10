@@ -294,7 +294,9 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.gate_min_spin.setSuffix(suffix)
         self.gate_max_spin.setSuffix(suffix)
         self.trace_plot.setLabel("left", display_unit.axis_label)
-        label = f"Constant baseline ({display_unit.unit})" if display_unit.unit else "Constant baseline"
+        label = (
+            f"Constant baseline ({display_unit.unit})" if display_unit.unit else "Constant baseline"
+        )
         self._form_rows["constant"][0].setText(label)
         self.gate_min_label.setText(f"Min ({display_unit.unit})" if display_unit.unit else "Min")
         self.gate_max_label.setText(f"Max ({display_unit.unit})" if display_unit.unit else "Max")

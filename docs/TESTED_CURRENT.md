@@ -1,5 +1,64 @@
 # Current Test Status
 
+## 2026-09-10 - Three-stage project merge-gate validation (final)
+
+### Map Reconstruction validation
+
+- Merge-gate project/archive focus: **25 passed**
+  (`test_project_io.py` 17 + `test_three_stage_integration.py` 8), run with
+  `--basetemp=.pytest_tmp_three_stage`. The previous Windows host
+  temp-directory ACL (`WinError 5`) is resolved by the writable basetemp; the
+  temp directory was removed after validation and not committed.
+- Extended related set: **33 passed** (adds `test_exporting.py` +
+  `test_preparation.py`).
+- Full scoped Map Reconstruction run: **154 passed**
+  (`tests/map_reconstruction` + `tests/test_map_distribution.py` +
+  `tests/test_map_reconstruction_ui_regressions.py`).
+- v1 parity: literal historical v1 states restore identity (`None`)
+  preparation; Legacy method, geometry, timing, point offset, and map
+  processing preserved; no dark correction introduced.
+- v2 parity: literal historical v2 states restore identity preparation;
+  Phase Window timing, Y phase, X offset/phase, window mode/width, and
+  aggregation preserved.
+- v3 round trip: constant, manual-region, and rolling-quantile preparation
+  (including response direction, value gate, and output convention) plus
+  signal, geometry, method, processing, and display state reproduce the same
+  valid scientific state. Reconstruction mathematics is unchanged (no diff in
+  `methods/` or `models.py`).
+- Invalid preparation: repairable-workspace behavior holds — source data stays
+  available, saved config stays explicit, `PreparedSignal`/`result`/`processed`
+  stay unavailable, and no silent fallback to raw/previous baseline occurs
+  (geometry change and invalid-gate regressions pass).
+- Preparation `None` parity: identity copy is independent and numerically
+  identical to the legacy raw path; SHA-256 source-integrity rejection and
+  archive-member validation pass.
+- Rolling-quantile polarity: negative photocurrent uses the upper dark
+  envelope, positive uses the lower envelope; round trip preserves direction.
+- Reporting/provenance: parameter summary and processed sidecar carry source
+  signal, dark-correction mode, output convention, and mode-specific
+  preparation detail without dumping raw arrays.
+- Scoped `map_reconstruction` coverage for this Map-only run: **93.36%**.
+  The repository 95% gate is the combined `keith_ivt` + `map_reconstruction`
+  full-suite gate, so no meaningless tests were added to inflate this scoped
+  number.
+- Ruff passes for `src/map_reconstruction/` and `tests/map_reconstruction/`;
+  Black passes for all changed Map Reconstruction modules; mypy passes for
+  11 changed source files; `compileall` passes for `src/map_reconstruction`
+  and the touched test modules.
+- Offscreen Qt integration/UI regressions pass (fixtures force
+  `QT_QPA_PLATFORM=offscreen`). Native desktop visual check was not performed
+  in this session.
+- Fixes in this pass (no scientific changes): synchronized the stale
+  `test_exporting` fake window with the intended `signal_preparation` /
+  `prepared_metadata` sidecar contract, removed one pre-existing unused
+  `PreparedSignal` import flagged by Ruff, and applied repo-standard Black
+  wrapping to two pre-existing long lines.
+
+### HappyMeasure validation
+
+- Not rerun; this branch changes only Map Reconstruction sources and optional
+  project/UI components.
+
 ## 2026-09-10 - Three-stage Signal Preparation workspace
 
 ### Map Reconstruction validation

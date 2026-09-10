@@ -17,7 +17,7 @@ from map_reconstruction.display_units import display_unit_for_signal
 from map_reconstruction.importers.happymeasure import import_happymeasure_csv_bytes
 from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.models import TimeSeriesData
-from map_reconstruction.preparation import PreparedSignal, SignalPreparationConfig, prepare_signal
+from map_reconstruction.preparation import SignalPreparationConfig, prepare_signal
 from map_reconstruction.project_io import load_project
 from map_reconstruction.ui._main_window_base import (
     MAX_GUIDES_PER_FAMILY,
@@ -266,7 +266,9 @@ class MapReconstructionWindow(_BaseWindow):
         blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
         try:
             target.distribution_range_combo.setCurrentIndex(
-                target.distribution_range_combo.findData(source.distribution_range_combo.currentData())
+                target.distribution_range_combo.findData(
+                    source.distribution_range_combo.currentData()
+                )
             )
             target.distribution_bin_combo.setCurrentIndex(
                 target.distribution_bin_combo.findData(source.distribution_bin_combo.currentData())
@@ -311,7 +313,9 @@ class MapReconstructionWindow(_BaseWindow):
 
     def _convert_legacy_to_phase_window(self) -> None:
         if self.prepared is None:
-            message = self._preparation_error or "Fix Signal Preparation before converting registration."
+            message = (
+                self._preparation_error or "Fix Signal Preparation before converting registration."
+            )
             self.inspector.set_warning(message)
             self.statusBar().showMessage(message)
             return
