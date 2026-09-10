@@ -5,9 +5,10 @@ import time
 from importlib import import_module
 from typing import Any, Optional
 
+from keith_ivt.acquisition import resolve_time_acquisition
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.services.serial_safety import OutputOffGuard, SerialRetryPolicy
-from keith_ivt.models import SenseMode, SweepConfig
+from keith_ivt.models import SenseMode, SweepConfig, SweepKind
 
 _SERIAL_IMPORT_ERROR: ImportError | None
 try:
@@ -34,6 +35,14 @@ class Keithley2400Serial(SourceMeter):
         self.timeout = timeout
         self.retry_policy = retry_policy or SerialRetryPolicy()
         self._ser: Optional["serial.Serial"] = None
+        self._measurement_only_read = False
+        self._range_telemetry = True
+        self._source_write_each_sample = False
+        self._cached_source_cmd = "VOLT"
+        self._cached_source_value = 0.0
+        self._cached_autorange = True
+        self._cached_measure_range = 0.0
+        self._restore_fast_settings = False
 
     def connect(self) -> None:
         if serial is None:
@@ -51,6 +60,8 @@ class Keithley2400Serial(SourceMeter):
         )
 
     def close(self) -> None:
+        if self._restore_fast_settings and self._ser is not None and self._ser.is_open:
+            self._restore_fast_acquisition_settings()
         if self._ser is not None and self._ser.is_open:
             self._ser.close()
 
@@ -78,14 +89,6 @@ class Keithley2400Serial(SourceMeter):
         return self.query("*IDN?")
 
     def beep(self, frequency_hz: float = 1000.0, duration_s: float = 0.1) -> None:
-        """Request a short instrument-side confirmation beep.
-
-        This is a connection UX action, not part of sweep configuration.  Keep
-        the request bounded so a caller cannot accidentally ask for a very long
-        audible signal.  The 2400 only emits the tone when its beeper is
-        enabled, so an initially disabled beeper is enabled temporarily and
-        restored after the confirmation tone.
-        """
         frequency = float(frequency_hz)
         duration = float(duration_s)
         if not math.isfinite(frequency) or frequency <= 0:
@@ -118,6 +121,16 @@ class Keithley2400Serial(SourceMeter):
     def configure_for_sweep(self, config: SweepConfig) -> None:
         src = config.source_scpi
         meas = config.measure_scpi
+        acquisition = resolve_time_acquisition(config)
+        self._measurement_only_read = bool(acquisition.measurement_only_read)
+        self._range_telemetry = bool(acquisition.range_telemetry)
+        self._source_write_each_sample = bool(acquisition.source_write_each_sample)
+        self._cached_source_cmd = src
+        self._cached_source_value = float(config.constant_value)
+        self._cached_autorange = bool(config.auto_measure_range)
+        self._cached_measure_range = float(config.measure_range)
+        self._restore_fast_settings = bool(acquisition.apply_instrument_overrides)
+
         self.write(f":ROUT:TERM {config.terminal.value}")
         self.write(
             ":SYST:RSEN ON" if config.sense_mode is SenseMode.FOUR_WIRE else ":SYST:RSEN OFF"
@@ -125,10 +138,7 @@ class Keithley2400Serial(SourceMeter):
         self.write(f":SOUR:FUNC {src}")
         self.write(f":SENS:FUNC '{meas}'")
         self.write(f":SENS:{meas}:PROT {config.compliance:.12g}")
-        self.write(f":SENS:{meas}:NPLC {config.nplc:.12g}")
-        # SweepRunner applies SweepConfig.delay_s once between set_source and
-        # readback.  The 2400 source delay is a second device-action delay, so
-        # disable both its automatic and programmed delay here.
+        self.write(f":SENS:{meas}:NPLC {acquisition.nplc:.12g}")
         self.write(":SOUR:DEL:AUTO OFF")
         self.write(":SOUR:DEL 0")
         if config.auto_source_range:
@@ -141,16 +151,55 @@ class Keithley2400Serial(SourceMeter):
         else:
             self.write(f":SENS:{meas}:RANG:AUTO OFF")
             self.write(f":SENS:{meas}:RANG {config.measure_range:.12g}")
-        self.write(f":FORM:ELEM {src},{meas}")
+
+        if acquisition.apply_instrument_overrides:
+            self.write(f":TRIG:DEL {acquisition.trigger_delay_s:.12g}")
+            self.write(
+                f":SENS:FUNC:CONC {'ON' if acquisition.concurrent_measurement else 'OFF'}"
+            )
+            if acquisition.digital_filter:
+                self.write(":SENS:AVER:TCON REP")
+                self.write(f":SENS:AVER:COUN {int(acquisition.digital_filter_count)}")
+                self.write(":SENS:AVER:STAT ON")
+            else:
+                self.write(":SENS:AVER:STAT OFF")
+            self.write(f":DISP:ENAB {'ON' if acquisition.display_during_run else 'OFF'}")
+            if acquisition.zero_refresh_before_run:
+                self.write(":SYST:AZER:STAT ONCE")
+            self.write(f":SYST:AZER:STAT {'ON' if acquisition.autozero_during_run else 'OFF'}")
+
+        if (
+            config.sweep_kind is SweepKind.CONSTANT_TIME
+            and acquisition.measurement_only_read
+        ):
+            self.write(f":FORM:ELEM {meas}")
+        else:
+            self.write(f":FORM:ELEM {src},{meas}")
+
+        # When fast/custom disables live range telemetry, take at most one setup
+        # snapshot. Subsequent runner status checks return cached values and do
+        # not add serial round trips to the hot path.
+        if not self._range_telemetry and config.auto_measure_range:
+            try:
+                self._cached_measure_range = float(self.query(f":SENS:{meas}:RANG?"))
+            except Exception:
+                self._cached_measure_range = float(config.measure_range)
 
     def set_source(self, source_cmd: str, value: float) -> None:
+        self._cached_source_cmd = str(source_cmd)
+        self._cached_source_value = float(value)
         self.write(f":SOUR:{source_cmd} {value:.12g}")
 
     def read_source_and_measure(self) -> tuple[float, float]:
+        if self._source_write_each_sample:
+            self.write(f":SOUR:{self._cached_source_cmd} {self._cached_source_value:.12g}")
         raw = self.query(":READ?")
-        # Keithley returns comma-separated ASCII values when FORM:ELEM has two fields.
         parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
-        numbers = [float(p) for p in parts[:2]]
+        numbers = [float(p) for p in parts]
+        if self._measurement_only_read:
+            if not numbers:
+                raise ValueError(f"Could not parse measurement from response: {raw!r}")
+            return self._cached_source_value, numbers[0]
         if len(numbers) < 2:
             raise ValueError(f"Could not parse source/measure pair from response: {raw!r}")
         return numbers[0], numbers[1]
@@ -158,20 +207,56 @@ class Keithley2400Serial(SourceMeter):
     def output_on(self) -> None:
         self.write(":OUTP ON")
 
+    def _restore_fast_acquisition_settings(self) -> None:
+        if not self._restore_fast_settings:
+            return
+        # Best-effort operator-friendly restoration. Safety output state is
+        # handled independently by OutputOffGuard / context-manager cleanup.
+        for command in (
+            ":SENS:AVER:STAT OFF",
+            ":SYST:AZER:STAT ON",
+            ":DISP:ENAB ON",
+        ):
+            try:
+                self.write(command)
+            except Exception:
+                pass
+        self._restore_fast_settings = False
+        self._measurement_only_read = False
+        self._range_telemetry = True
+        self._source_write_each_sample = False
+
     def output_off(self) -> None:
         OutputOffGuard().turn_off(
             lambda: self.write(":OUTP OFF"), context="Keithley2400Serial.output_off"
         )
+        self._restore_fast_acquisition_settings()
 
     def get_current_autorange(self) -> bool:
+        if not self._range_telemetry:
+            return bool(self._cached_autorange)
         raw = self.query(":SENS:CURR:RANG:AUTO?")
-        return raw.strip().upper() in {"1", "ON", "TRUE"}
+        value = raw.strip().upper() in {"1", "ON", "TRUE"}
+        self._cached_autorange = value
+        return value
 
     def set_current_autorange(self, enabled: bool) -> None:
         self.write(f":SENS:CURR:RANG:AUTO {'ON' if enabled else 'OFF'}")
+        self._cached_autorange = bool(enabled)
+        if not enabled:
+            try:
+                self._cached_measure_range = float(self.query(":SENS:CURR:RANG?"))
+            except Exception:
+                pass
 
     def get_current_range(self) -> float:
-        return float(self.query(":SENS:CURR:RANG?"))
+        if not self._range_telemetry:
+            return float(self._cached_measure_range)
+        value = float(self.query(":SENS:CURR:RANG?"))
+        self._cached_measure_range = value
+        return value
 
     def set_current_range(self, range_A: float) -> None:
-        self.write(f":SENS:CURR:RANG {float(range_A):.12g}")
+        value = float(range_A)
+        self.write(f":SENS:CURR:RANG {value:.12g}")
+        self._cached_measure_range = value
