@@ -366,6 +366,66 @@ def test_legacy_flat_preset_normalizes_to_standard_acquisition() -> None:
     assert normalized["sweep"]["acquisition"]["profile"] == "Standard"
 
 
+def _review_text(profile: str, **advanced) -> str:
+    from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
+
+    acquisition = {"profile": profile}
+    acquisition.update(advanced)
+    snapshot = normalize_preset(
+        {
+            "schema_version": PRESET_SCHEMA_VERSION,
+            "hardware": {},
+            "sweep": {"kind": "TIME", "acquisition": acquisition},
+        }
+    )
+    return SettingsPresetMixin._preset_review_message("Probe", snapshot)
+
+
+def test_preset_review_shows_fast_profile() -> None:
+    message = _review_text("Fast")
+
+    assert "[Acquisition]" in message
+    assert "Profile: Fast" in message
+
+
+def test_preset_review_shows_custom_advanced_settings() -> None:
+    message = _review_text(
+        "Custom",
+        zero_refresh_before_run=False,
+        autozero_during_run=True,
+        digital_filter=True,
+        digital_filter_count=5,
+        concurrent_measurement=True,
+        display_during_run=False,
+        measurement_only_read=False,
+        range_telemetry=True,
+        source_write_each_sample=True,
+        trigger_delay_s=0.004,
+    )
+
+    assert "Profile: Custom" in message
+    for label in (
+        "Zero refresh before run: No",
+        "Auto zero during run: Yes",
+        "Digital filter: Yes",
+        "Digital filter count: 5",
+        "Concurrent measurement: Yes",
+        "Instrument display: No",
+        "Measurement-only read: No",
+        "Live range telemetry: Yes",
+        "Source write each sample: Yes",
+        "Trigger delay (s): 0.004",
+    ):
+        assert label in message
+
+
+def test_preset_review_shows_standard_profile_without_advanced_list() -> None:
+    message = _review_text("Standard")
+
+    assert "Profile: Standard" in message
+    assert "Zero refresh before run" not in message
+
+
 def test_descending_step_preset_preserves_negative_step() -> None:
     normalized = normalize_preset(
         {

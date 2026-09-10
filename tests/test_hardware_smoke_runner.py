@@ -67,39 +67,104 @@ def test_acquisition_summary_flags_duplicates_overflow_and_warnings() -> None:
     assert summary["warnings"] == ["Skipped 1 Keithley overflow measurement(s)."]
 
 
+def _fast_sequence(*names: str) -> list[tuple[float, str]]:
+    return [(float(index) * 0.1, name) for index, name in enumerate(names)]
+
+
 def test_fast_scpi_order_accepts_valid_sequence() -> None:
-    commands = [
-        (0.0, ":SENS:FUNC:CONC OFF"),
-        (0.1, ":SENS:AVER:STAT OFF"),
-        (0.2, ":FORM:ELEM CURR"),
-        (0.3, ":READ?"),
-    ]
+    commands = _fast_sequence(
+        ":SENS:FUNC 'CURR'",
+        ":SENS:FUNC:CONC OFF",
+        ":SENS:FUNC 'CURR'",
+        ":SENS:AVER:STAT OFF",
+        ":FORM:ELEM CURR",
+        ":READ?",
+        ":READ?",
+    )
 
     ok, detail = smoke.check_fast_scpi_order(commands)
 
     assert ok is True
-    assert "no per-sample range queries" in detail
+    assert "no hot-path range queries" in detail
 
 
-def test_fast_scpi_order_rejects_missing_or_misordered_commands() -> None:
+def test_fast_scpi_order_accepts_auto_setup_snapshot() -> None:
+    commands = _fast_sequence(
+        ":SENS:FUNC:CONC OFF",
+        ":SENS:FUNC 'CURR'",
+        ":FORM:ELEM CURR",
+        ":SENS:CURR:RANG?",
+        ":READ?",
+        ":READ?",
+    )
+
+    ok, _ = smoke.check_fast_scpi_order(commands, auto_measure_range=True)
+
+    assert ok is True
+
+
+def test_fast_scpi_order_rejects_setup_snapshot_for_fixed_range() -> None:
+    commands = _fast_sequence(
+        ":SENS:FUNC:CONC OFF",
+        ":SENS:FUNC 'CURR'",
+        ":FORM:ELEM CURR",
+        ":SENS:CURR:RANG?",
+        ":READ?",
+    )
+
+    ok, detail = smoke.check_fast_scpi_order(commands, auto_measure_range=False)
+
+    assert ok is False
+    assert "setup" in detail
+
+
+def test_fast_scpi_order_rejects_hot_path_range_queries() -> None:
+    for query in (":SENS:CURR:RANG?", ":SENS:CURR:RANG:AUTO?"):
+        commands = _fast_sequence(
+            ":SENS:FUNC:CONC OFF",
+            ":SENS:FUNC 'CURR'",
+            ":FORM:ELEM CURR",
+            ":READ?",
+            query,
+            ":READ?",
+        )
+
+        ok, detail = smoke.check_fast_scpi_order(commands, auto_measure_range=True)
+
+        assert ok is False
+        assert "hot path" in detail
+
+
+def test_fast_scpi_order_rejects_broken_function_selection() -> None:
+    curr_before_conc_only = _fast_sequence(
+        ":SENS:FUNC 'CURR'",
+        ":SENS:FUNC:CONC OFF",
+        ":FORM:ELEM CURR",
+        ":READ?",
+    )
+    ok, detail = smoke.check_fast_scpi_order(curr_before_conc_only)
+    assert ok is False
+    assert "reselection" in detail
+
+    no_curr = _fast_sequence(
+        ":SENS:FUNC:CONC OFF",
+        ":FORM:ELEM CURR",
+        ":READ?",
+    )
+    ok, _ = smoke.check_fast_scpi_order(no_curr)
+    assert ok is False
+
+    read_before_form = _fast_sequence(
+        ":SENS:FUNC:CONC OFF",
+        ":SENS:FUNC 'CURR'",
+        ":READ?",
+        ":FORM:ELEM CURR",
+    )
+    ok, _ = smoke.check_fast_scpi_order(read_before_form)
+    assert ok is False
+
     ok, _ = smoke.check_fast_scpi_order([(0.0, ":SENS:FUNC:CONC OFF")])
     assert ok is False
-
-    ok, detail = smoke.check_fast_scpi_order(
-        [(0.0, ":FORM:ELEM CURR"), (0.1, ":SENS:FUNC:CONC OFF")]
-    )
-    assert ok is False
-    assert "precede" in detail
-
-    ok, detail = smoke.check_fast_scpi_order(
-        [
-            (0.0, ":SENS:FUNC:CONC OFF"),
-            (0.1, ":FORM:ELEM CURR"),
-            (0.2, ":SENS:CURR:RANG?"),
-        ]
-    )
-    assert ok is False
-    assert "telemetry" in detail
 
 
 def test_make_fast_cfg_is_zero_volt_output_off_by_default() -> None:
@@ -127,3 +192,82 @@ def test_make_cfg_default_remains_zero_volt() -> None:
 
 def test_git_commit_returns_string() -> None:
     assert isinstance(smoke.git_commit(), str)
+
+
+def test_resistor_range_selection_avoids_overrange() -> None:
+    assert smoke.choose_measure_range(10e-6) == pytest.approx(100e-6)
+    assert smoke.choose_measure_range(10e-6) != pytest.approx(1e-6)
+    assert smoke.choose_measure_range(0.1 / 1e6) == pytest.approx(1e-6)
+
+
+def test_resistor_configs_share_identical_measurement_range() -> None:
+    expected_a = 0.1 / 10_000.0
+    resistor_range = smoke.choose_measure_range(expected_a)
+    standard = smoke.make_cfg(
+        "COM3", 57600, smoke.Terminal.REAR, 0.1, 0.2, 3,
+        constant_v=0.1, measure_range=resistor_range,
+    )
+    fast = smoke.make_fast_cfg(
+        "COM3", 57600, smoke.Terminal.REAR,
+        duration_s=0.5, constant_v=0.1, measure_range=resistor_range,
+    )
+
+    assert standard.auto_measure_range is False
+    assert fast.auto_measure_range is False
+    assert standard.measure_range == pytest.approx(resistor_range)
+    assert fast.measure_range == pytest.approx(resistor_range)
+
+
+def test_resistor_near_compliance_is_refused() -> None:
+    with pytest.raises(RuntimeError, match="Refusing Level-1 run"):
+        smoke.check_resistor_compliance(95e-6)
+    smoke.check_resistor_compliance(10e-6)
+
+
+def test_invalid_resistor_values_are_refused() -> None:
+    for bad in ("bad", "ask-me", None, float("nan"), float("inf"), 0.0, -100.0):
+        with pytest.raises(ValueError, match="Invalid --resistor-ohms"):
+            smoke.parse_resistor_ohms(bad)
+    assert smoke.parse_resistor_ohms("10000") == pytest.approx(10_000.0)
+
+
+def test_nanosecond_trace_boundary_preserves_sub_15ms_differences() -> None:
+    base_ns = 1_000_000_000
+    starts_ns = [base_ns + index * 7_000_000 for index in range(4)]
+    starts_s = [stamp_ns * 1e-9 for stamp_ns in starts_ns]
+    summary = smoke.acquisition_summary(
+        "fast_fixed",
+        elapsed=starts_s,
+        measured=[1e-9, 2e-9, 3e-9, 4e-9],
+        warnings=[],
+    )
+
+    assert summary["strictly_increasing"] is True
+    assert summary["duplicate_elapsed_count"] == 0
+    assert summary["median_dt_ms"] == pytest.approx(7.0)
+    assert summary["mean_dt_ms"] == pytest.approx(7.0)
+    assert summary["p95_dt_ms"] == pytest.approx(7.0)
+
+
+def test_nanosecond_trace_boundary_detects_duplicates() -> None:
+    base_ns = 2_000_000_000
+    starts_ns = [base_ns, base_ns + 7_000_000, base_ns + 7_000_000]
+    starts_s = [stamp_ns * 1e-9 for stamp_ns in starts_ns]
+    summary = smoke.acquisition_summary(
+        "fast_fixed",
+        elapsed=starts_s,
+        measured=[1e-9, 2e-9, 3e-9],
+        warnings=[],
+    )
+
+    assert summary["strictly_increasing"] is False
+    assert summary["duplicate_elapsed_count"] == 1
+
+
+def test_diagnostic_clock_is_high_resolution_monotonic() -> None:
+    first = smoke.diagnostic_clock_ns()
+    second = smoke.diagnostic_clock_ns()
+
+    assert isinstance(first, int)
+    assert isinstance(second, int)
+    assert second >= first

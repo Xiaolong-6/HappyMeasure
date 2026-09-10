@@ -20,7 +20,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from keith_ivt.core.current_range import CurrentRangeControl
+from keith_ivt.core.current_range import CURRENT_RANGE_OPTIONS_A, CurrentRangeControl
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind, SweepMode, Terminal
 from keith_ivt.services.measurement_service import MeasurementService
@@ -35,25 +35,31 @@ OVERFLOW_SENTINEL = 9.91e37
 OVERFLOW_TOLERANCE = 0.01e37
 
 
+def diagnostic_clock_ns() -> int:
+    """High-resolution monotonic clock for hardware diagnostic tracing."""
+
+    return time.perf_counter_ns()
+
+
 class TracedKeithley(Keithley2400Serial):
     """Real 2400 driver with timing/SCPI tracing only; no behavior changes."""
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.read_starts: list[float] = []
-        self.read_ends: list[float] = []
-        self.commands: list[tuple[float, str]] = []
+        self.read_starts_ns: list[int] = []
+        self.read_ends_ns: list[int] = []
+        self.commands_ns: list[tuple[int, str]] = []
 
     def _write_once(self, command: str) -> None:
-        self.commands.append((time.monotonic(), command))
+        self.commands_ns.append((diagnostic_clock_ns(), command))
         super()._write_once(command)
 
     def read_source_and_measure(self) -> tuple[float, float]:
-        self.read_starts.append(time.monotonic())
+        self.read_starts_ns.append(diagnostic_clock_ns())
         try:
             return super().read_source_and_measure()
         finally:
-            self.read_ends.append(time.monotonic())
+            self.read_ends_ns.append(diagnostic_clock_ns())
 
 
 class _PowerStatus(ctypes.Structure):
@@ -126,6 +132,7 @@ def make_cfg(
     autorange: bool = False,
     continuous: bool = False,
     constant_v: float = 0.0,
+    measure_range: float | None = None,
 ) -> SweepConfig:
     # Open-circuit smoke defaults to 0 V, 2-wire only; constant_v is only
     # non-zero for the explicit opt-in Level-1 resistor comparison.
@@ -151,7 +158,7 @@ def make_cfg(
         auto_source_range=False,
         auto_measure_range=autorange,
         source_range=SOURCE_RANGE_V,
-        measure_range=CURRENT_RANGE_A,
+        measure_range=CURRENT_RANGE_A if measure_range is None else measure_range,
     )
 
 
@@ -163,6 +170,7 @@ def make_fast_cfg(
     duration_s: float = FAST_DURATION_S,
     auto_measure_range: bool = False,
     constant_v: float = 0.0,
+    measure_range: float | None = None,
 ) -> SweepConfig:
     """Build a Fast Constant-Time config for release validation (0 V default)."""
     return SweepConfig(
@@ -187,7 +195,7 @@ def make_fast_cfg(
         auto_source_range=False,
         auto_measure_range=auto_measure_range,
         source_range=SOURCE_RANGE_V,
-        measure_range=FAST_MEASURE_RANGE_A,
+        measure_range=FAST_MEASURE_RANGE_A if measure_range is None else measure_range,
         fast_acquisition=True,
     )
 
@@ -200,6 +208,43 @@ def is_overflow_reading(value: float) -> bool:
     except (TypeError, ValueError):
         return False
     return abs(abs(numeric) - OVERFLOW_SENTINEL) <= OVERFLOW_TOLERANCE
+
+
+def choose_measure_range(expected_A: float) -> float:
+    """Select a conservative fixed current range for an expected reading."""
+
+    try:
+        target = abs(float(expected_A)) * 5.0
+    except (TypeError, ValueError):
+        raise ValueError(f"Cannot choose a range for {expected_A!r}.") from None
+    if not math.isfinite(target):
+        raise ValueError(f"Cannot choose a range for {expected_A!r}.")
+    for range_A in CURRENT_RANGE_OPTIONS_A:
+        if range_A >= target:
+            return range_A
+    raise ValueError(f"No fixed current range covers {expected_A:.3g} A.")
+
+
+def parse_resistor_ohms(raw: Any) -> float:
+    """Parse an operator-supplied resistor value, refusing anything unsafe."""
+
+    try:
+        value = float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid --resistor-ohms value: {raw!r}.") from None
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"Invalid --resistor-ohms value: {raw!r}.")
+    return value
+
+
+def check_resistor_compliance(expected_A: float) -> None:
+    """Refuse a Level-1 run whose expected current approaches compliance."""
+
+    if not math.isfinite(expected_A) or expected_A >= COMPLIANCE_A * 0.9:
+        raise RuntimeError(
+            f"Refusing Level-1 run: expected {expected_A:.3g} A too close "
+            f"to {COMPLIANCE_A:.3g} A compliance."
+        )
 
 
 def acquisition_summary(
@@ -234,27 +279,51 @@ def acquisition_summary(
     }
 
 
-def check_fast_scpi_order(commands: list[tuple[float, str]]) -> tuple[bool, str]:
-    """Verify the Fast V-source contract from a traced command sequence."""
+RANGE_TELEMETRY_QUERIES = frozenset({":SENS:CURR:RANG?", ":SENS:CURR:RANG:AUTO?"})
+
+
+def check_fast_scpi_order(
+    commands: list[tuple[float, str]], *, auto_measure_range: bool = False
+) -> tuple[bool, str]:
+    """Verify the Fast V-source/I-measure contract from a traced sequence.
+
+    Requires ``CONC OFF < final CURR selection < FORM CURR < first READ``.
+    Setup (before the first ``:READ?``) may hold one range snapshot for Fast
+    Auto; the hot path (first ``:READ?`` onward) must hold none.
+    """
 
     names = [command for _t, command in commands]
     if ":FORM:ELEM CURR" not in names:
         return False, "measurement-only :FORM:ELEM CURR not found"
     try:
-        conc = names.index(":SENS:FUNC:CONC OFF")
-        form = names.index(":FORM:ELEM CURR")
+        conc_idx = names.index(":SENS:FUNC:CONC OFF")
+        form_idx = names.index(":FORM:ELEM CURR")
+        first_read_idx = names.index(":READ?")
     except ValueError as exc:
         return False, f"missing Fast setup command: {exc}"
-    if conc > form:
-        return False, ":SENS:FUNC:CONC OFF must precede :FORM:ELEM CURR"
-    telemetry = [
-        command
-        for command in names
-        if command in {":SENS:CURR:RANG:AUTO?", ":SENS:CURR:RANG?"}
+    curr_after_conc = [
+        index
+        for index, command in enumerate(names)
+        if index > conc_idx and command == ":SENS:FUNC 'CURR'"
     ]
-    if telemetry:
-        return False, f"range telemetry queries in Fast hot path: {telemetry}"
-    return True, "CONC OFF before FORM CURR; no per-sample range queries"
+    if not curr_after_conc:
+        return False, "no :SENS:FUNC 'CURR' reselection after :SENS:FUNC:CONC OFF"
+    curr_idx = curr_after_conc[-1]
+    if not conc_idx < curr_idx < form_idx < first_read_idx:
+        return False, "require CONC OFF < CURR selection < FORM CURR < first READ?"
+    setup_queries = [
+        command for command in names[:first_read_idx] if command in RANGE_TELEMETRY_QUERIES
+    ]
+    if not auto_measure_range and setup_queries:
+        return False, f"fixed-range Fast must not snapshot range at setup: {setup_queries}"
+    if len(setup_queries) > 1:
+        return False, f"at most one setup range snapshot allowed: {setup_queries}"
+    hot_path_queries = [
+        command for command in names[first_read_idx:] if command in RANGE_TELEMETRY_QUERIES
+    ]
+    if hot_path_queries:
+        return False, f"range telemetry queries in Fast hot path: {hot_path_queries}"
+    return True, "CONC OFF < CURR < FORM CURR < first READ; no hot-path range queries"
 
 
 def git_commit() -> str:
@@ -320,13 +389,17 @@ def run_case(
                 output_off = parse_on_off(inst.query(":OUTP?")) is False
             except Exception:
                 output_off = None
+            # Convert to seconds only at the reporting boundary; all
+            # deltas below derive from integer-nanosecond stamps.
             return {
                 "idn": idn,
                 "points": result.points,
                 "warnings": list(result.warnings),
-                "starts": inst.read_starts,
-                "ends": inst.read_ends,
-                "commands": inst.commands,
+                "starts": [stamp_ns * 1e-9 for stamp_ns in inst.read_starts_ns],
+                "ends": [stamp_ns * 1e-9 for stamp_ns in inst.read_ends_ns],
+                "commands": [
+                    (stamp_ns * 1e-9, command) for stamp_ns, command in inst.commands_ns
+                ],
                 "output_off": output_off,
             }
 
@@ -677,7 +750,9 @@ def main() -> int:
                     measured=[p.measured_value for p in data["points"]],
                     warnings=data["warnings"],
                 )
-                scpi_ok, scpi_detail = check_fast_scpi_order(data["commands"])
+                scpi_ok, scpi_detail = check_fast_scpi_order(
+                    data["commands"], auto_measure_range=auto
+                )
                 data_ok = (
                     summary["point_count"] > 0
                     and summary["overflow_count"] == 0
@@ -705,29 +780,27 @@ def main() -> int:
         if resistor_arg is not None:
             if str(resistor_arg).strip().lower() == "ask":
                 resistor_arg = input("Resistor value in ohms for the Level-1 check: ").strip()
-            try:
-                resistor_ohms = float(resistor_arg)
-            except (TypeError, ValueError):
-                raise RuntimeError(f"Invalid --resistor-ohms value: {resistor_arg!r}")
-            if not math.isfinite(resistor_ohms) or resistor_ohms <= 0:
-                raise RuntimeError(f"Invalid --resistor-ohms value: {resistor_arg!r}")
+            resistor_ohms = parse_resistor_ohms(resistor_arg)
             expected_a = 0.1 / resistor_ohms
-            if expected_a >= COMPLIANCE_A * 0.9:
-                raise RuntimeError(
-                    f"Refusing Level-1 run: expected {expected_a:.3g} A too close "
-                    f"to {COMPLIANCE_A:.3g} A compliance."
-                )
+            check_resistor_compliance(expected_a)
+            # Both runs share one conservative fixed range derived from the
+            # expected current, so the comparison stays scientifically valid.
+            resistor_range = choose_measure_range(expected_a)
             tolerance = float(args.resistor_tolerance)
             std_r = run_case(
                 args.port, args.baud,
-                make_cfg(args.port, args.baud, terminal, 0.1, 0.2, 10, constant_v=0.1),
+                make_cfg(
+                    args.port, args.baud, terminal, 0.1, 0.2, 10,
+                    constant_v=0.1, measure_range=resistor_range,
+                ),
                 log,
                 control=CurrentRangeControl(),
             )
             fast_r = run_case(
                 args.port, args.baud,
                 make_fast_cfg(
-                    args.port, args.baud, terminal, duration_s=1.0, constant_v=0.1
+                    args.port, args.baud, terminal, duration_s=1.0,
+                    constant_v=0.1, measure_range=resistor_range,
                 ),
                 log,
                 control=CurrentRangeControl(),
@@ -750,6 +823,7 @@ def main() -> int:
             resistor_results = {
                 "resistor_ohms": resistor_ohms,
                 "expected_A": expected_a,
+                "measure_range_A": resistor_range,
                 "standard_median_A": std_med,
                 "fast_median_A": fast_med,
                 "standard_relative_error": _rel_err(std_med),

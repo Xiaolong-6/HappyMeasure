@@ -448,8 +448,9 @@ class SettingsPresetMixin(UiMixinTyping):
         for name in sorted(load_presets().keys(), key=lambda n: (n != "Default", n.lower())):
             self.preset_list.insert("", END, values=(name,))
 
-    def _fast_preset_review(self, name: str, data: dict) -> dict | None:
-        """Review the exact Hardware + visible Sweep snapshot before saving."""
+    @staticmethod
+    def _preset_review_message(name: str, data: dict) -> str:
+        """Render the operator-facing Save Preset review text for a snapshot."""
         hardware = data["hardware"]
         sweep = data["sweep"]
         parameters = sweep["parameters"]
@@ -479,6 +480,27 @@ class SettingsPresetMixin(UiMixinTyping):
         if "debug_model" in sweep:
             lines.append(f"Debug model: {display(sweep['debug_model'])}")
 
+        acquisition = sweep.get("acquisition") or {}
+        profile = str(acquisition.get("profile", "Standard"))
+        lines.extend(["", "[Acquisition]", f"Profile: {profile}"])
+        if profile == "Custom":
+            acquisition_labels = {
+                "zero_refresh_before_run": "Zero refresh before run",
+                "autozero_during_run": "Auto zero during run",
+                "digital_filter": "Digital filter",
+                "digital_filter_count": "Digital filter count",
+                "concurrent_measurement": "Concurrent measurement",
+                "display_during_run": "Instrument display",
+                "measurement_only_read": "Measurement-only read",
+                "range_telemetry": "Live range telemetry",
+                "source_write_each_sample": "Source write each sample",
+                "trigger_delay_s": "Trigger delay (s)",
+            }
+            lines.extend(
+                f"{label}: {display(acquisition.get(key))}"
+                for key, label in acquisition_labels.items()
+            )
+
         parameter_labels = {
             "start": "Start",
             "stop": "Stop",
@@ -497,10 +519,15 @@ class SettingsPresetMixin(UiMixinTyping):
                 for key, value in parameters.items()
             )
 
-        message = f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(
+        return f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(
             lines
         )
-        if messagebox.askyesno("Review Sweep Preset", message):
+
+    def _fast_preset_review(self, name: str, data: dict) -> dict | None:
+        """Review the exact Hardware + visible Sweep snapshot before saving."""
+        if messagebox.askyesno(
+            "Review Sweep Preset", self._preset_review_message(name, data)
+        ):
             return data
         return None
 
