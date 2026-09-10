@@ -116,12 +116,7 @@ class SweepResult:
 
 
 def make_source_values(start: float, stop: float, step: float) -> list[float]:
-    """Generate source values using ``step`` as a positive magnitude.
-
-    Sweep direction is derived exclusively from ``start`` and ``stop``.  A
-    negative user-entered step is therefore accepted and normalized to its
-    magnitude before the direction is applied.
-    """
+    """Generate source values using ``step`` as a positive magnitude."""
     if not all(math.isfinite(float(value)) for value in (start, stop, step)):
         raise ValueError("Start, stop, and step must be finite.")
     if step == 0:
@@ -146,7 +141,6 @@ def make_source_values(start: float, stop: float, step: float) -> list[float]:
 
 
 def make_hysteresis_values(values: list[float]) -> list[float]:
-    """Return a forward-then-reverse source sequence without duplicating the turn point."""
     if not values:
         return []
     if len(values) == 1:
@@ -155,12 +149,6 @@ def make_hysteresis_values(values: list[float]) -> list[float]:
 
 
 def source_values_for_config(config: SweepConfig) -> list[float]:
-    """Generate the actual finite source sequence used by the sweep runner.
-
-    Hysteresis is intentionally limited to finite Step and Adaptive sweeps. Time
-    sweeps keep their fixed-value sampling semantics, and continuous Time mode
-    has no precomputed sequence.
-    """
     if config.sweep_kind is SweepKind.CONSTANT_TIME:
         if config.continuous_time:
             return []
@@ -196,18 +184,16 @@ def serial_round_trip_seconds(
     framing_bits: int = 10,
     turnaround_s: float = 0.055,
 ) -> float:
-    """Return a practical serial round-trip time estimate for one point.
-
-    For a software-driven 2400 sweep, each point usually sends a new source
-    command, then a ``:READ?`` query, then receives an ASCII response with the
-    formatted source/measurement pair.  At RS-232 rates this transfer time is
-    often a visible part of the point-to-point cadence.
-    """
+    """Return a practical serial round-trip time estimate for one point."""
     try:
         baud = max(1200.0, float(baud_rate))
     except (TypeError, ValueError):
         baud = 9600.0
-    total_chars = max(0, int(source_chars)) + max(0, int(query_chars)) + max(0, int(response_chars))
+    total_chars = (
+        max(0, int(source_chars))
+        + max(0, int(query_chars))
+        + max(0, int(response_chars))
+    )
     serial_s = (total_chars * max(1, int(framing_bits))) / baud
     return serial_s + max(0.0, float(turnaround_s))
 
@@ -219,7 +205,6 @@ def minimum_interval_seconds(
     delay_s: float = 0.0,
     baud_rate: int = 9600,
 ) -> float:
-    """Estimated real-world per-point duration for ETA/user information."""
     aperture_s = max(0.0, float(nplc)) / float(line_frequency_hz)
     serial_s = serial_round_trip_seconds(baud_rate=baud_rate)
     extra_overhead = serial_s if overhead_s is None else max(0.0, float(overhead_s))
@@ -231,7 +216,6 @@ def minimum_allowed_interval_seconds(
     line_frequency_hz: float = 50.0,
     delay_s: float = 0.0,
 ) -> float:
-    """Return the physical/configured lower bound used by validation."""
     aperture_s = max(0.0, float(nplc)) / float(line_frequency_hz)
     return aperture_s + max(0.0, float(delay_s))
 
@@ -275,7 +259,9 @@ def validate_config(config: SweepConfig) -> None:
             raise ValueError(f"{label} must be finite.")
     if config.fast_acquisition and config.custom_acquisition:
         raise ValueError("Fast and Custom acquisition profiles cannot both be active.")
-    if (config.fast_acquisition or config.custom_acquisition) and config.sweep_kind is not SweepKind.CONSTANT_TIME:
+    if (
+        config.fast_acquisition or config.custom_acquisition
+    ) and config.sweep_kind is not SweepKind.CONSTANT_TIME:
         raise ValueError("Fast/Custom acquisition profiles are available only for Time sweeps.")
     if config.trigger_delay_s < 0:
         raise ValueError("Trigger delay must be zero or positive.")
@@ -292,21 +278,22 @@ def validate_config(config: SweepConfig) -> None:
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
         if not math.isfinite(float(config.constant_value)):
             raise ValueError("Constant value must be finite.")
-        if not math.isfinite(float(config.interval_s)):
-            raise ValueError("Interval must be finite.")
-        if config.interval_s <= 0:
-            raise ValueError("Interval must be positive.")
-        if not config.continuous_time and not math.isfinite(float(config.duration_s)):
-            raise ValueError("Duration must be finite.")
         if not config.continuous_time:
-            source_values_for_config(config)
-        effective_nplc = 0.1 if config.fast_acquisition else config.nplc
-        effective_delay = 0.0 if config.fast_acquisition else config.delay_s
-        min_interval = minimum_allowed_interval_seconds(effective_nplc, delay_s=effective_delay)
-        if config.interval_s < min_interval:
-            raise ValueError(
-                f"Interval is too short for NPLC={effective_nplc}. Use at least about {min_interval:.3f} s."
+            if not math.isfinite(float(config.duration_s)) or config.duration_s <= 0:
+                raise ValueError("Duration must be positive and finite.")
+        if not config.fast_acquisition:
+            if not math.isfinite(float(config.interval_s)) or config.interval_s <= 0:
+                raise ValueError("Interval must be positive and finite.")
+            if not config.continuous_time:
+                source_values_for_config(config)
+            min_interval = minimum_allowed_interval_seconds(
+                config.nplc, delay_s=config.delay_s
             )
+            if config.interval_s < min_interval:
+                raise ValueError(
+                    f"Interval is too short for NPLC={config.nplc}. "
+                    f"Use at least about {min_interval:.3f} s."
+                )
     elif config.sweep_kind is SweepKind.ADAPTIVE:
         source_values_for_config(config)
     else:
