@@ -1,21 +1,21 @@
 # Current Test Status
 
-## 2026-09-10 - Three-stage Signal Preparation workspace (in progress)
+## 2026-09-10 - Three-stage Signal Preparation workspace
 
 ### Map Reconstruction validation
 
-- Added Qt-free preparation and project-v3 coverage. The focused preparation
-  suite reports **6 passed**; the existing non-project Map UI regressions report
-  **23 passed**. Project/archive tests are currently blocked by the host
-  temporary-directory ACL (`WinError 5`) while pytest creates its `tmp_path`
-  fixture.
+- The scoped Map Reconstruction run reports **105 passed, 7 deselected**,
+  including **6 preparation tests** and **23 non-project UI regressions**.
+  Project/archive tests are currently blocked by the host temporary-directory
+  ACL (`WinError 5`) while pytest creates its `tmp_path` fixture.
 - Offscreen Qt construction passed with the three-page stack at **1024×650**;
   the processing section is hosted by Analysis and the raw/prepared trace is
   hosted by Preparation.
-- `compileall` passes for the changed Map Reconstruction sources.
-- Full Map Reconstruction coverage, Ruff, Black, mypy, offscreen Qt smoke and
-  screenshot review remain to be rerun after the host pytest temp-directory
-  permission is corrected.
+- Ruff, Black, mypy, and `compileall` pass for the changed Map Reconstruction
+  sources. Temporary synthetic screenshots for all three pages were generated,
+  visually inspected, and removed.
+- A partial focused coverage run reported 70%, but it is not a coverage gate:
+  the full Map Reconstruction coverage run is blocked by the same host ACL.
 
 ### HappyMeasure validation
 
