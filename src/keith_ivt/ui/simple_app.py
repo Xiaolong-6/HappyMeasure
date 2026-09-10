@@ -182,9 +182,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.status = StringVar(value="Ready")
         self.instrument_status = StringVar(value="Not connected")
         self.version_text = StringVar(value=f"v{__version__}")
-        self.backup_text = StringVar(
-            value="Backup: --"
-        )  # retained for restore/legacy messages; not shown in the status bar
+        self.backup_text = StringVar(value="Backup: --")
         self.last_save_text = StringVar(value="Last save: --")
         self.status_connection_text = StringVar(value="No instr")
         self.measurement_status_text = StringVar(value="Src -- · Meas -- · Cmpl --")
@@ -212,7 +210,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             self.root.after(500, lambda: self._check_for_updates_async(prompt_install=True))
 
     def _normalize_ui_font_setting(self) -> None:
-        """Use only fonts present on the current system; default to Verdana."""
         try:
             families = set(tkfont.families(self.root))
         except Exception:
@@ -223,10 +220,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
                 "Verdana" if "Verdana" in families else sorted(families)[0]
             )
 
-    # ------------------------------------------------------------------
-    # Style and layout
-    # ------------------------------------------------------------------
-
     def _build_layout(self) -> None:
         self.root.rowconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=0)
@@ -234,43 +227,36 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.root.columnconfigure(0, weight=0)
         self.root.columnconfigure(1, weight=1)
         self._workspace_column = 1
-
-        # Navigation is a persistent side rail.  Opening it reserves a real
-        # grid column so it pushes the workspace right, instead of floating
-        # over the panels.
         self._build_navigation_drawer()
-
         self.main_pane = ttk.PanedWindow(
             self.root, orient="horizontal", style="Nordic.TPanedwindow"
         )
         self.main_pane.grid(row=0, column=self._workspace_column, sticky="nsew")
-
         self.content_frame = ttk.Frame(self.main_pane, style="Card.TFrame", width=450)
         self.plot_frame = ttk.Frame(self.main_pane, style="Card.TFrame", width=820)
         self.main_pane.add(self.content_frame, weight=1)
         self.main_pane.add(self.plot_frame, weight=3)
-
         self._build_content_scaffold()
         self._build_plot_panel()
         self._build_operator_bar()
         self._build_status_bar()
 
-    # ------------------------------------------------------------------
-    # Config factory
-    # ------------------------------------------------------------------
     def _make_config(self) -> SweepConfig:
         self._restore_all_numeric_entry_defaults()
         sweep_kind = self._sweep_kind_from_ui()
         if sweep_kind is SweepKind.ADAPTIVE:
             self._sync_adaptive_logic_text()
+        acquisition_kwargs = self._acquisition_profile_config_kwargs(sweep_kind)
+        effective_nplc = 0.1 if acquisition_kwargs["fast_acquisition"] else float(self.nplc.get())
+        effective_delay = 0.0 if acquisition_kwargs["fast_acquisition"] else float(self.delay_s.get())
         return SweepConfig(
             mode=self._mode_from_ui(),
             start=float(self.start.get()),
             stop=float(self.stop.get()),
             step=float(self.step.get()),
             compliance=float(self.compliance.get()),
-            nplc=float(self.nplc.get()),
-            delay_s=float(self.delay_s.get()),
+            nplc=effective_nplc,
+            delay_s=effective_delay,
             port=self.port.get(),
             baud_rate=int(self.baud_rate.get()),
             terminal=Terminal(self._terminal_scpi(self.terminal.get())),
@@ -299,13 +285,12 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             adaptive_segments=self.adaptive_segments.get(),
             adaptive_remove_duplicates=bool(self.adaptive_remove_duplicates.get()),
             debug_model=self.debug_model.get(),
+            **acquisition_kwargs,
         )
 
     def _show_plot_more_menu(self) -> None:
         menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
-        layout_menu = make_touch_menu(
-            self.root, self.ui_font_family.get(), int(self.ui_font_size.get())
-        )
+        layout_menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
         for label in ["Auto", "Horizontal", "Vertical"]:
             layout_menu.add_radiobutton(
                 label=label, variable=self.arrangement, value=label, command=self._redraw_all_plots
@@ -318,7 +303,6 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         popup_menu(menu, x, y)
 
     def log_event(self, message: str) -> None:
-        """Record a user-visible UI event and mirror it to the central app logger."""
         logger = logging.getLogger("keith_ivt.ui.events")
         try:
             line = self.app_log.write(message)
