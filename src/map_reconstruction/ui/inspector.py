@@ -7,7 +7,14 @@ from typing import TypeVar
 from PySide6 import QtCore, QtGui, QtWidgets  # type: ignore[import-not-found]
 
 from map_reconstruction.display_units import DisplayUnit
-from map_reconstruction.models import DualOffsetParams, ScanPattern, TimeSeriesData
+from map_reconstruction.models import (
+    Aggregation,
+    DualOffsetParams,
+    PhaseWindowParams,
+    ScanPattern,
+    TimeSeriesData,
+    WindowMode,
+)
 from map_reconstruction.processing import (
     BaselineMode,
     ColorRangeMode,
@@ -27,6 +34,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
     signalChanged = QtCore.Signal(str)
     geometryChanged = QtCore.Signal()
     registrationChanged = QtCore.Signal()
+    convertPhaseWindowRequested = QtCore.Signal()
     processingChanged = QtCore.Signal()
     pointPeriodEdited = QtCore.Signal(float)
     resetTraceRequested = QtCore.Signal()
@@ -137,11 +145,16 @@ class ReconstructionInspector(QtWidgets.QWidget):
         method_row = QtWidgets.QHBoxLayout()
         method_label = QtWidgets.QLabel("Method")
         method_label.setObjectName("fieldLabel")
-        method_value = QtWidgets.QLabel("Dual Offset")
-        method_value.setObjectName("methodValue")
+        self.method_combo = self._enum_combo(
+            (
+                ("Dual Offset (Legacy)", "dual_offset"),
+                ("Dual Offset — Phase Window", "dual_offset_phase_window"),
+            )
+        )
+        self.method_combo.setToolTip("Legacy projects remain Legacy until explicitly converted.")
         method_row.addWidget(method_label)
         method_row.addStretch(1)
-        method_row.addWidget(method_value)
+        method_row.addWidget(self.method_combo)
         registration_layout.addLayout(method_row)
         registration_layout.addSpacing(4)
 
@@ -161,11 +174,23 @@ class ReconstructionInspector(QtWidgets.QWidget):
             QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows
         )
         self.point_offset_spin = self._int_spin(0, 0, 100000)
+        self.x_period_offset_spin = self._int_spin(0, 0, 100000)
+        self.y_phase_spin = self._phase_spin(0.0)
+        self.x_phase_spin = self._phase_spin(0.0)
+        self.window_mode_combo = self._enum_combo(
+            (
+                ("Fraction of period", WindowMode.FRACTION),
+                ("Fixed duration", WindowMode.FIXED_DURATION),
+            )
+        )
+        self.window_fraction_spin = self._percent_spin(65.0)
+        self.window_duration_spin = self._float_spin()
         self.row_offset_slider = self._offset_slider()
         self.point_offset_slider = self._offset_slider()
         row_offset_control = self._paired_offset(self.row_offset_spin, self.row_offset_slider)
         point_offset_control = self._paired_offset(self.point_offset_spin, self.point_offset_slider)
-        row_timing = self._form_layout()
+        self.row_timing_form = self._form_layout()
+        row_timing = self.row_timing_form
         registration_layout.addWidget(self._subsection_header("ROW TIMING"))
         self._add_form_row(
             row_timing,
@@ -181,9 +206,16 @@ class ReconstructionInspector(QtWidgets.QWidget):
             "Number of row intervals separating YA and YB. T_row = (YB - YA) / Rows apart.",
         )
         self._add_form_row(row_timing, "Row offset", row_offset_control)
+        self._add_form_row(
+            row_timing,
+            "Y phase",
+            self.y_phase_spin,
+            "Fractional row-period alignment relative to YA.",
+        )
         registration_layout.addLayout(row_timing)
         registration_layout.addSpacing(7)
-        point_timing = self._form_layout()
+        self.point_timing_form = self._form_layout()
+        point_timing = self.point_timing_form
         registration_layout.addWidget(self._subsection_header("POINT TIMING"))
         self._add_form_row(
             point_timing,
@@ -199,8 +231,34 @@ class ReconstructionInspector(QtWidgets.QWidget):
             "Number of pixel intervals separating XA and XB. T_point = (XB - XA) / Points apart.",
         )
         self._add_form_row(point_timing, "Point period", self.point_period_spin)
-        self._add_form_row(point_timing, "Point offset", point_offset_control)
+        self.point_offset_control = point_offset_control
+        self._add_form_row(point_timing, "Point offset", self.point_offset_control)
+        self._add_form_row(
+            point_timing,
+            "X offset",
+            self.x_period_offset_spin,
+            "Integer point-period offset of the first acquisition-window center.",
+        )
+        self._add_form_row(
+            point_timing,
+            "X phase",
+            self.x_phase_spin,
+            "Fractional point-period alignment of the acquisition-window center.",
+        )
         registration_layout.addLayout(point_timing)
+        self.phase_window_section = QtWidgets.QWidget()
+        phase_form = self._form_layout()
+        self._add_form_row(phase_form, "Window mode", self.window_mode_combo)
+        self._add_form_row(phase_form, "Window width", self.window_fraction_spin)
+        self._add_form_row(phase_form, "Window duration", self.window_duration_spin)
+        self.phase_window_section.setLayout(phase_form)
+        registration_layout.addWidget(self.phase_window_section)
+        self.convert_phase_button = QtWidgets.QPushButton("Convert to Phase Window")
+        self.convert_phase_button.setToolTip(
+            "Explicitly preserve the current Legacy acquisition windows."
+        )
+        self.convert_phase_button.clicked.connect(self.convertPhaseWindowRequested)
+        registration_layout.addWidget(self.convert_phase_button)
         root.addWidget(registration_section)
 
         processing_section, processing_layout = self._inspector_section("MAP VALUES")
@@ -303,7 +361,16 @@ class ReconstructionInspector(QtWidgets.QWidget):
         qc_grid.setVerticalSpacing(5)
         self.qc_values: dict[str, QtWidgets.QLabel] = {}
         for row, name in enumerate(
-            ("Row period", "Point period", "Unused / row", "Valid pixels", "Median samples/pixel")
+            (
+                "Row period",
+                "Point period",
+                "Unused / row",
+                "Valid pixels",
+                "0 samples",
+                "1 sample",
+                "Median samples/pixel",
+                "P10 samples/pixel",
+            )
         ):
             label = QtWidgets.QLabel(name)
             label.setObjectName("fieldLabel")
@@ -338,6 +405,11 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.row_offset_spin,
             self.points_apart_spin,
             self.point_offset_spin,
+            self.x_period_offset_spin,
+            self.y_phase_spin,
+            self.x_phase_spin,
+            self.window_fraction_spin,
+            self.window_duration_spin,
         ):
             if isinstance(geometry_widget, QtWidgets.QComboBox):
                 geometry_widget.currentIndexChanged.connect(self.geometryChanged)
@@ -352,6 +424,8 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.row_offset_slider.valueChanged.connect(self.row_offset_spin.setValue)
         self.point_offset_slider.valueChanged.connect(self.point_offset_spin.setValue)
         self.points_apart_spin.valueChanged.connect(self._sync_point_period_from_anchors)
+        self.method_combo.currentIndexChanged.connect(self._method_changed)
+        self.window_mode_combo.currentIndexChanged.connect(self._phase_window_changed)
         for spin in (self.row_a_spin, self.row_b_spin, self.point_a_spin, self.point_b_spin):
             spin.valueChanged.connect(self._mark_anchors_user_edited)
             spin.editingFinished.connect(self._anchor_spin_finished)
@@ -376,6 +450,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
             processing_spin.editingFinished.connect(self._processing_changed)
         self.custom_expression_edit.editingFinished.connect(self._processing_changed)
         self._update_processing_fields()
+        self._update_phase_window_fields()
 
     @staticmethod
     def _inspector_section(title: str) -> tuple[QtWidgets.QFrame, QtWidgets.QVBoxLayout]:
@@ -463,10 +538,24 @@ class ReconstructionInspector(QtWidgets.QWidget):
 
     @staticmethod
     def _percent_spin(value: float) -> QtWidgets.QDoubleSpinBox:
-        spin = ReconstructionInspector._value_spin()
+        spin = QtWidgets.QDoubleSpinBox()
+        spin.setDecimals(1)
         spin.setRange(0.0, 100.0)
         spin.setValue(value)
+        spin.setSingleStep(0.1)
         spin.setSuffix(" %")
+        spin.setButtonSymbols(QtWidgets.QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        spin.setKeyboardTracking(False)
+        spin.setFixedWidth(128)
+        return spin
+
+    @staticmethod
+    def _phase_spin(value: float) -> QtWidgets.QDoubleSpinBox:
+        """Return a compact phase editor whose visible range is ``[0, 100)``."""
+
+        spin = ReconstructionInspector._percent_spin(value)
+        spin.setMaximum(99.9)
+        spin.setToolTip("Phase wraps at 100%; use the arrows for 0.1% adjustment.")
         return spin
 
     @staticmethod
@@ -554,6 +643,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
 
         widgets = (
             self.signal_combo,
+            self.method_combo,
             self.rows_spin,
             self.cols_spin,
             self.scan_combo,
@@ -568,6 +658,12 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.point_b_spin,
             self.points_apart_spin,
             self.point_offset_spin,
+            self.x_period_offset_spin,
+            self.y_phase_spin,
+            self.x_phase_spin,
+            self.window_mode_combo,
+            self.window_fraction_spin,
+            self.window_duration_spin,
             self.transform_combo,
             self.baseline_combo,
             self.normalization_combo,
@@ -585,6 +681,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
         try:
             self.signal_combo.setCurrentText(state.signal)
+            self._set_combo_value(self.method_combo, state.method)
             self.rows_spin.setValue(state.rows)
             self.cols_spin.setValue(state.columns)
             self._update_offset_ranges()
@@ -600,6 +697,12 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.point_b_spin.setValue(state.point_b_s)
             self.points_apart_spin.setValue(state.points_apart)
             self.point_offset_spin.setValue(state.point_offset)
+            self.x_period_offset_spin.setValue(state.x_period_offset)
+            self.y_phase_spin.setValue(state.y_phase_fraction * 100.0)
+            self.x_phase_spin.setValue(state.x_phase_fraction * 100.0)
+            self._set_combo_value(self.window_mode_combo, state.window_mode)
+            self.window_fraction_spin.setValue(state.window_fraction * 100.0)
+            self.window_duration_spin.setValue(state.window_duration_s or 0.0)
             config = state.processing
             self._set_combo_value(self.transform_combo, config.transform)
             self._set_combo_value(self.baseline_combo, config.baseline_mode)
@@ -631,6 +734,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self.color_max_spin.setValue((config.color_max or 0.0) * processed_scale)
             self._sync_point_period_from_anchors()
             self._update_processing_fields()
+            self._update_phase_window_fields()
             self._anchors_user_edited = True
         finally:
             del blockers
@@ -728,6 +832,33 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.point_offset_spin.setRange(0, point_max)
         self.row_offset_slider.setRange(0, row_max)
         self.point_offset_slider.setRange(0, point_max)
+        self.x_period_offset_spin.setRange(0, 100000)
+
+    def _method_changed(self, *_args: object) -> None:
+        if (
+            self.method_combo.currentData() == "dual_offset_phase_window"
+            and self.x_period_offset_spin.value() == 0
+            and self.x_phase_spin.value() == 0.0
+        ):
+            self.x_phase_spin.setValue(47.5)
+        self._update_phase_window_fields()
+        self.registrationChanged.emit()
+
+    def _phase_window_changed(self, *_args: object) -> None:
+        self._update_phase_window_fields()
+        self.registrationChanged.emit()
+
+    def _update_phase_window_fields(self) -> None:
+        phase_window = self.method_combo.currentData() == "dual_offset_phase_window"
+        self.convert_phase_button.setVisible(not phase_window)
+        self.phase_window_section.setVisible(phase_window)
+        self.row_timing_form.setRowVisible(self.y_phase_spin, phase_window)
+        self.point_timing_form.setRowVisible(self.point_offset_control, not phase_window)
+        self.point_timing_form.setRowVisible(self.x_period_offset_spin, phase_window)
+        self.point_timing_form.setRowVisible(self.x_phase_spin, phase_window)
+        fixed = WindowMode(self.window_mode_combo.currentData()) is WindowMode.FIXED_DURATION
+        self.window_fraction_spin.setVisible(phase_window and not fixed)
+        self.window_duration_spin.setVisible(phase_window and fixed)
 
     def _sync_point_period_from_anchors(self, *_args: object) -> None:
         period = (
@@ -762,7 +893,30 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self._syncing = False
         self._sync_point_period_from_anchors()
 
-    def current_params(self) -> DualOffsetParams:
+    def current_params(self) -> DualOffsetParams | PhaseWindowParams:
+        if self.method_combo.currentData() == "dual_offset_phase_window":
+            return PhaseWindowParams(
+                rows=self.rows_spin.value(),
+                cols=self.cols_spin.value(),
+                row_a_s=self.row_a_spin.value(),
+                row_b_s=self.row_b_spin.value(),
+                rows_apart=self.rows_apart_spin.value(),
+                row_offset=self.row_offset_spin.value(),
+                y_phase_fraction=self.y_phase_spin.value() / 100.0,
+                point_a_s=self.point_a_spin.value(),
+                point_b_s=self.point_b_spin.value(),
+                points_apart=self.points_apart_spin.value(),
+                x_period_offset=self.x_period_offset_spin.value(),
+                x_phase_fraction=self.x_phase_spin.value() / 100.0,
+                window_mode=self.window_mode_combo.currentData(),
+                window_fraction=self.window_fraction_spin.value() / 100.0,
+                window_duration_s=self.window_duration_spin.value(),
+                scan_pattern=ScanPattern(self.scan_combo.currentData()),
+                first_row_ltr=self.first_row_check.isChecked(),
+                aggregation=(
+                    Aggregation.MEDIAN if self.median_check.isChecked() else Aggregation.MEAN
+                ),
+            )
         return DualOffsetParams(
             rows=self.rows_spin.value(),
             cols=self.cols_spin.value(),
@@ -875,9 +1029,19 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.qc_values["Point period"].setText(f"{point_period:.4f} s")
         self.qc_values["Unused / row"].setText(f"{unused:.3f} s")
 
-    def set_qc(self, valid_percent: float, median_samples: float) -> None:
+    def set_qc(
+        self,
+        valid_percent: float,
+        median_samples: float,
+        zero_percent: float,
+        one_percent: float,
+        p10_samples: float,
+    ) -> None:
         self.qc_values["Valid pixels"].setText(f"{valid_percent:.0f} %")
+        self.qc_values["0 samples"].setText(f"{zero_percent:.1f} %")
+        self.qc_values["1 sample"].setText(f"{one_percent:.1f} %")
         self.qc_values["Median samples/pixel"].setText(f"{median_samples:.3g}")
+        self.qc_values["P10 samples/pixel"].setText(f"{p10_samples:.3g}")
 
     def set_warning(self, message: str) -> None:
         self.qc_label.setText(message)

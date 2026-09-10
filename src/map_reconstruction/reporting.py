@@ -14,7 +14,7 @@ from map_reconstruction.display_units import (
     display_unit_for_signal,
     scientific_unit_for_signal,
 )
-from map_reconstruction.models import ReconstructionResult, TimeSeriesData
+from map_reconstruction.models import ReconstructionResult, TimeSeriesData, WindowMode
 from map_reconstruction.processing import (
     BaselineMode,
     ColorRangeMode,
@@ -42,6 +42,21 @@ class ReportMap:
 
 def _format_value(value: float, unit: str) -> str:
     return f"{value:.6g}" + (f" {unit}" if unit else "")
+
+
+def _format_duration(value_s: float) -> str:
+    """Format a timing value compactly without claiming false precision."""
+
+    if abs(value_s) < 0.1:
+        return f"{value_s * 1_000.0:.1f} ms"
+    return f"{value_s:.4f} s"
+
+
+def _format_phase(fraction: float, period_s: float | None) -> str:
+    """Format a canonical phase fraction with its optional physical offset."""
+
+    percent = f"{fraction * 100.0:.1f} %"
+    return percent if period_s is None else f"{percent} ({_format_duration(fraction * period_s)})"
 
 
 def _raw_processing_unit(state: ProjectState) -> str:
@@ -208,14 +223,14 @@ def format_parameter_summary(
 
     row_period = "—"
     point_period = "—"
-    unused = "—"
+    row_slack = "—"
     valid = "—"
     median_samples = "—"
     warnings: list[str] = []
     if result is not None:
         row_period = f"{result.timing.row_period_s:.4f} s"
         point_period = f"{result.timing.point_period_s:.4f} s"
-        unused = (
+        row_slack = (
             f"{result.timing.row_period_s - state.columns * result.timing.point_period_s:.3f} s"
         )
         finite = np.isfinite(result.values)
@@ -229,6 +244,55 @@ def format_parameter_summary(
     sample_count = str(data.sample_count) if data is not None else "—"
     elapsed = f"{data.time_s[0]:.3f} - {data.time_s[-1]:.3f} s" if data is not None else "—"
     geometry = f"{state.rows} × {state.columns}" if state.is_geometry_set else "—"
+    legacy = state.method == "dual_offset"
+    registration = [
+        "Registration",
+        "------------",
+        f"Method: {'Dual Offset (Legacy)' if legacy else 'Dual Offset — Phase Window'}",
+        f"YA: {state.row_a_s:.3f} s",
+        f"YB: {state.row_b_s:.3f} s",
+        f"Rows apart: {state.rows_apart}",
+        f"Row period: {row_period}",
+        f"Row offset: {state.row_offset}",
+    ]
+    if legacy:
+        registration.extend(
+            (
+                f"XA: {state.point_a_s:.3f} s",
+                f"XB: {state.point_b_s:.3f} s",
+                f"Points apart: {state.points_apart}",
+                f"Point period: {point_period}",
+                f"Point offset: {state.point_offset}",
+                f"Unused / row: {row_slack}",
+            )
+        )
+    else:
+        timing = result.timing if result is not None else None
+        registration.extend(
+            (
+                f"Y phase: {_format_phase(state.y_phase_fraction, timing.row_period_s if timing else None)}",
+                f"XA: {state.point_a_s:.3f} s",
+                f"XB: {state.point_b_s:.3f} s",
+                f"Points apart: {state.points_apart}",
+                f"Point period: {point_period}",
+                f"X offset: {state.x_period_offset}",
+                f"X phase: {_format_phase(state.x_phase_fraction, timing.point_period_s if timing else None)}",
+                "Window mode: "
+                + (
+                    "Fraction of point period"
+                    if state.window_mode is WindowMode.FRACTION
+                    else "Fixed duration"
+                ),
+                "Window width: "
+                + (
+                    _format_phase(state.window_fraction, timing.point_period_s if timing else None)
+                    if state.window_mode is WindowMode.FRACTION
+                    else _format_duration(state.window_duration_s or 0.0)
+                ),
+                f"Aggregation: {state.aggregation.capitalize()}",
+                f"Point-train slack / row: {row_slack}",
+            )
+        )
     lines = [
         "Map Reconstruction Parameters",
         "============================",
@@ -248,20 +312,7 @@ def format_parameter_summary(
         f"Aggregation: {state.aggregation.capitalize()}",
         f"Flip Y display: {'Yes' if state.flip_y else 'No'}",
         "",
-        "Registration",
-        "------------",
-        "Method: Dual Offset",
-        f"YA: {state.row_a_s:.3f} s",
-        f"YB: {state.row_b_s:.3f} s",
-        f"Rows apart: {state.rows_apart}",
-        f"Row period: {row_period}",
-        f"Row offset: {state.row_offset}",
-        f"XA: {state.point_a_s:.3f} s",
-        f"XB: {state.point_b_s:.3f} s",
-        f"Points apart: {state.points_apart}",
-        f"Point period: {point_period}",
-        f"Point offset: {state.point_offset}",
-        f"Unused / row: {unused}",
+        *registration,
         "",
         "Processing",
         "----------",

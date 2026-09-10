@@ -67,6 +67,16 @@ class ScanPattern(str, Enum):
     SERPENTINE = "serpentine"
 
 
+class WindowMode(str, Enum):
+    FRACTION = "fraction"
+    FIXED_DURATION = "fixed_duration"
+
+
+class Aggregation(str, Enum):
+    MEDIAN = "median"
+    MEAN = "mean"
+
+
 @dataclass(slots=True)
 class DualOffsetParams:
     rows: int
@@ -122,11 +132,84 @@ class TimingSolution:
     pixel1_phase_s: float
 
 
+@dataclass(frozen=True, slots=True)
+class PhaseWindowTimingSolution:
+    """Explicit timing for the phase-window reconstruction method."""
+
+    row_period_s: float
+    point_period_s: float
+    row0_s: float
+    first_window_center_phase_s: float
+    window_width_s: float
+
+
+@dataclass(slots=True)
+class PhaseWindowParams:
+    """Independent period, phase, and acquisition-window parameters."""
+
+    rows: int
+    cols: int
+    row_a_s: float
+    row_b_s: float
+    rows_apart: int
+    row_offset: int
+    y_phase_fraction: float
+    point_a_s: float
+    point_b_s: float
+    points_apart: int
+    x_period_offset: int
+    x_phase_fraction: float
+    window_mode: WindowMode = WindowMode.FRACTION
+    window_fraction: float = 0.65
+    window_duration_s: float | None = None
+    scan_pattern: ScanPattern = ScanPattern.SAME_DIRECTION
+    first_row_ltr: bool = True
+    aggregation: Aggregation = Aggregation.MEDIAN
+
+    def __post_init__(self) -> None:
+        for name in ("rows", "cols", "rows_apart", "points_apart"):
+            value = getattr(self, name)
+            if int(value) != value or value < 1:
+                raise ValueError(f"{name} must be a positive integer.")
+            setattr(self, name, int(value))
+        for name in ("row_offset", "x_period_offset"):
+            value = getattr(self, name)
+            if int(value) != value or value < 0:
+                raise ValueError(f"{name} must be a non-negative integer.")
+            setattr(self, name, int(value))
+        if self.row_offset >= self.rows:
+            raise ValueError("row_offset must be zero-based and within the map rows.")
+        anchors = (self.row_a_s, self.row_b_s, self.point_a_s, self.point_b_s)
+        if not all(np.isfinite(float(value)) for value in anchors):
+            raise ValueError("Timing anchors must be finite.")
+        self.row_a_s, self.row_b_s, self.point_a_s, self.point_b_s = map(float, anchors)
+        for name in ("y_phase_fraction", "x_phase_fraction"):
+            value = float(getattr(self, name))
+            if not np.isfinite(value):
+                raise ValueError(f"{name} must be finite.")
+            setattr(self, name, value % 1.0)
+        self.window_mode = WindowMode(self.window_mode)
+        self.aggregation = Aggregation(self.aggregation)
+        self.scan_pattern = ScanPattern(self.scan_pattern)
+        self.first_row_ltr = bool(self.first_row_ltr)
+        self.window_fraction = float(self.window_fraction)
+        if self.window_mode is WindowMode.FRACTION:
+            if not np.isfinite(self.window_fraction) or not 0 < self.window_fraction <= 1:
+                raise ValueError("window_fraction must be greater than zero and at most one.")
+            self.window_duration_s = None
+        else:
+            if self.window_duration_s is None or not np.isfinite(float(self.window_duration_s)):
+                raise ValueError("Fixed-duration windows require a finite window_duration_s.")
+            self.window_duration_s = float(self.window_duration_s)
+            if self.window_duration_s <= 0:
+                raise ValueError("window_duration_s must be greater than zero.")
+
+
 @dataclass(slots=True)
 class ReconstructionResult:
     values: np.ndarray
     sample_counts: np.ndarray
-    timing: TimingSolution
+    timing: TimingSolution | PhaseWindowTimingSolution
     warnings: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:

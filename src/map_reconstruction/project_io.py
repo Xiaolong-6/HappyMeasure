@@ -14,7 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from map_reconstruction.models import DualOffsetParams, ScanPattern
+from map_reconstruction.models import (
+    Aggregation,
+    DualOffsetParams,
+    PhaseWindowParams,
+    ScanPattern,
+    WindowMode,
+)
 from map_reconstruction.processing import (
     BaselineMode,
     ColorRangeMode,
@@ -25,6 +31,7 @@ from map_reconstruction.processing import (
 )
 
 PROJECT_SCHEMA = "map-reconstruction-project-v1"
+PROJECT_SCHEMA_V2 = "map-reconstruction-project-v2"
 PROJECT_JSON_PATH = "project.json"
 RAW_CSV_PATH = "source/raw_timeseries.csv"
 
@@ -97,6 +104,13 @@ class ProjectState:
     point_offset: int
     processing: MapProcessingConfig
     flip_y: bool
+    method: str = "dual_offset"
+    y_phase_fraction: float = 0.0
+    x_period_offset: int = 0
+    x_phase_fraction: float = 0.0
+    window_mode: WindowMode = WindowMode.FRACTION
+    window_fraction: float = 0.65
+    window_duration_s: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "original_filename", _filename(self.original_filename))
@@ -130,6 +144,33 @@ class ProjectState:
             self, "point_offset", _integer(self.point_offset, "registration.point_offset")
         )
         object.__setattr__(self, "flip_y", _boolean(self.flip_y, "display.flip_y"))
+        if self.method not in ("dual_offset", "dual_offset_phase_window"):
+            raise ValueError("Unsupported Map Reconstruction registration method.")
+        object.__setattr__(
+            self,
+            "y_phase_fraction",
+            _finite_float(self.y_phase_fraction, "registration.y_phase_fraction") % 1.0,
+        )
+        object.__setattr__(
+            self,
+            "x_phase_fraction",
+            _finite_float(self.x_phase_fraction, "registration.x_phase_fraction") % 1.0,
+        )
+        object.__setattr__(
+            self, "x_period_offset", _integer(self.x_period_offset, "registration.x_period_offset")
+        )
+        object.__setattr__(self, "window_mode", WindowMode(self.window_mode))
+        if self.window_duration_s is not None:
+            object.__setattr__(
+                self,
+                "window_duration_s",
+                _finite_float(self.window_duration_s, "registration.window_duration_s"),
+            )
+        object.__setattr__(
+            self,
+            "window_fraction",
+            _finite_float(self.window_fraction, "registration.window_fraction"),
+        )
         if not isinstance(self.processing, MapProcessingConfig):
             raise ValueError("Invalid project field processing.")
         if bool(self.rows) != bool(self.columns):
@@ -137,21 +178,43 @@ class ProjectState:
                 "Invalid project geometry: rows and columns must both be set or both be zero."
             )
         if self.rows:
-            DualOffsetParams(
-                rows=self.rows,
-                cols=self.columns,
-                row_a_s=self.row_a_s,
-                row_b_s=self.row_b_s,
-                rows_apart=self.rows_apart,
-                row_offset=self.row_offset,
-                point_a_s=self.point_a_s,
-                point_b_s=self.point_b_s,
-                points_apart=self.points_apart,
-                point_offset=self.point_offset,
-                scan_pattern=self.scan_pattern,
-                first_row_ltr=self.first_row_ltr,
-                use_median=self.aggregation == "median",
-            )
+            if self.method == "dual_offset":
+                DualOffsetParams(
+                    rows=self.rows,
+                    cols=self.columns,
+                    row_a_s=self.row_a_s,
+                    row_b_s=self.row_b_s,
+                    rows_apart=self.rows_apart,
+                    row_offset=self.row_offset,
+                    point_a_s=self.point_a_s,
+                    point_b_s=self.point_b_s,
+                    points_apart=self.points_apart,
+                    point_offset=self.point_offset,
+                    scan_pattern=self.scan_pattern,
+                    first_row_ltr=self.first_row_ltr,
+                    use_median=self.aggregation == "median",
+                )
+            else:
+                PhaseWindowParams(
+                    rows=self.rows,
+                    cols=self.columns,
+                    row_a_s=self.row_a_s,
+                    row_b_s=self.row_b_s,
+                    rows_apart=self.rows_apart,
+                    row_offset=self.row_offset,
+                    y_phase_fraction=self.y_phase_fraction,
+                    point_a_s=self.point_a_s,
+                    point_b_s=self.point_b_s,
+                    points_apart=self.points_apart,
+                    x_period_offset=self.x_period_offset,
+                    x_phase_fraction=self.x_phase_fraction,
+                    window_mode=self.window_mode,
+                    window_fraction=self.window_fraction,
+                    window_duration_s=self.window_duration_s,
+                    scan_pattern=self.scan_pattern,
+                    first_row_ltr=self.first_row_ltr,
+                    aggregation=Aggregation(self.aggregation),
+                )
         elif self.row_offset or self.point_offset:
             raise ValueError("Invalid project offsets for unset geometry.")
 
@@ -165,7 +228,9 @@ class ProjectState:
             for key, value in asdict(self.processing).items()
         }
         return {
-            "schema": PROJECT_SCHEMA,
+            "schema": (
+                PROJECT_SCHEMA_V2 if self.method == "dual_offset_phase_window" else PROJECT_SCHEMA
+            ),
             "application": {"name": "Map Reconstruction", "version": application_version},
             "created_at": datetime.now(UTC).isoformat(),
             "source": {
@@ -182,7 +247,7 @@ class ProjectState:
                 "aggregation": self.aggregation,
             },
             "registration": {
-                "method": "dual_offset",
+                "method": self.method,
                 "row_a_s": self.row_a_s,
                 "row_b_s": self.row_b_s,
                 "rows_apart": self.rows_apart,
@@ -190,7 +255,18 @@ class ProjectState:
                 "point_a_s": self.point_a_s,
                 "point_b_s": self.point_b_s,
                 "points_apart": self.points_apart,
-                "point_offset": self.point_offset,
+                **(
+                    {
+                        "y_phase_fraction": self.y_phase_fraction,
+                        "x_period_offset": self.x_period_offset,
+                        "x_phase_fraction": self.x_phase_fraction,
+                        "window_mode": self.window_mode.value,
+                        "window_fraction": self.window_fraction,
+                        "window_duration_s": self.window_duration_s,
+                    }
+                    if self.method == "dual_offset_phase_window"
+                    else {"point_offset": self.point_offset}
+                ),
             },
             "processing": processing,
             "display": {"flip_y": self.flip_y},
@@ -200,13 +276,16 @@ class ProjectState:
     def from_project_dict(cls, payload: object) -> "ProjectState":
         root = _mapping(payload, "project")
         schema = root.get("schema")
-        if not isinstance(schema, str) or schema != PROJECT_SCHEMA:
+        if not isinstance(schema, str) or schema not in (PROJECT_SCHEMA, PROJECT_SCHEMA_V2):
             raise ValueError(f"Unsupported Map Reconstruction project schema: {schema!r}")
         source = _mapping(root.get("source"), "source")
         geometry = _mapping(root.get("geometry"), "geometry")
         registration = _mapping(root.get("registration"), "registration")
-        if registration.get("method") != "dual_offset":
+        method = registration.get("method")
+        if method not in ("dual_offset", "dual_offset_phase_window"):
             raise ValueError("Unsupported Map Reconstruction registration method.")
+        if schema == PROJECT_SCHEMA and method != "dual_offset":
+            raise ValueError("Version 1 projects must use Legacy Dual Offset.")
         display = _mapping(root.get("display"), "display")
         processing = _processing_from_dict(_mapping(root.get("processing"), "processing"))
         try:
@@ -232,9 +311,40 @@ class ProjectState:
             points_apart=_integer(
                 registration.get("points_apart"), "registration.points_apart", minimum=1
             ),
-            point_offset=_integer(registration.get("point_offset"), "registration.point_offset"),
+            point_offset=_integer(registration.get("point_offset", 0), "registration.point_offset"),
             processing=processing,
             flip_y=_boolean(display.get("flip_y"), "display.flip_y"),
+            method=method,
+            y_phase_fraction=(
+                _finite_float(registration.get("y_phase_fraction"), "registration.y_phase_fraction")
+                if method == "dual_offset_phase_window"
+                else 0.0
+            ),
+            x_period_offset=(
+                _integer(registration.get("x_period_offset"), "registration.x_period_offset")
+                if method == "dual_offset_phase_window"
+                else 0
+            ),
+            x_phase_fraction=(
+                _finite_float(registration.get("x_phase_fraction"), "registration.x_phase_fraction")
+                if method == "dual_offset_phase_window"
+                else 0.0
+            ),
+            window_mode=(
+                WindowMode(registration.get("window_mode"))
+                if method == "dual_offset_phase_window"
+                else WindowMode.FRACTION
+            ),
+            window_fraction=(
+                _finite_float(registration.get("window_fraction"), "registration.window_fraction")
+                if method == "dual_offset_phase_window"
+                else 0.65
+            ),
+            window_duration_s=(
+                registration.get("window_duration_s")
+                if method == "dual_offset_phase_window"
+                else None
+            ),
         )
 
 

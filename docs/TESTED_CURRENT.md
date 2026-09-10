@@ -1,5 +1,20 @@
 # Current Test Status
 
+## 2026-09-09 - Dual Offset — Phase Window
+
+- 654 tests collected; 653 passed and 1 expected conditional skip. The final
+  full validation script passed with combined `keith_ivt` +
+  `map_reconstruction` coverage of **95.10%**.
+- Focused coverage includes period derivation, independent Y/X phase,
+  canonical fractional phases, fraction/fixed windows, `[start, end)` sample
+  selection, mean/median aggregation, empty windows as `NaN`/zero samples,
+  scan orientation, fit validation, and Legacy conversion parity.
+- Project tests cover unchanged v1 loading plus explicit v2 Phase Window
+  registration round trips. Qt regressions cover method selection, band and
+  used-sample overlay updates, sampling QC, and explicit Legacy conversion.
+- Ruff, Black, compileall, and mypy for changed Map Reconstruction sources
+  passed. Native drag and visual legibility review remain operator checks.
+
 ## 2026-09-09 - Map Reconstruction PDF partial-NaN rendering
 
 - 637 tests collected; 636 passed and 1 expected conditional skip in the full
