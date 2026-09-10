@@ -1,0 +1,207 @@
+from __future__ import annotations
+
+from dataclasses import replace
+
+import pytest
+
+from keith_ivt.acquisition import FAST_NPLC, resolve_time_acquisition
+from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
+from keith_ivt.core.sweep_runner import SweepRunner
+from keith_ivt.instrument.serial_2400 import Keithley2400Serial
+from keith_ivt.models import SweepConfig, SweepKind, SweepMode, validate_config
+
+
+def _time_config(**changes) -> SweepConfig:
+    base = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0.0,
+        stop=0.0,
+        step=1.0,
+        compliance=1e-3,
+        nplc=1.0,
+        delay_s=0.25,
+        sweep_kind=SweepKind.CONSTANT_TIME,
+        constant_value=0.0,
+        duration_s=0.025,
+        interval_s=0.5,
+        continuous_time=False,
+        auto_source_range=False,
+        auto_measure_range=False,
+        source_range=20.0,
+        measure_range=1e-3,
+    )
+    return replace(base, **changes)
+
+
+def test_fast_profile_resolves_benchmark_backed_settings() -> None:
+    config = _time_config(fast_acquisition=True, interval_s=0.0)
+    validate_config(config)  # Interval is intentionally irrelevant in Fast.
+    settings = resolve_time_acquisition(config)
+    assert settings.nplc == pytest.approx(FAST_NPLC)
+    assert settings.software_delay_s == 0.0
+    assert settings.as_fast_as_possible is True
+    assert settings.zero_refresh_before_run is True
+    assert settings.autozero_during_run is False
+    assert settings.digital_filter is False
+    assert settings.concurrent_measurement is False
+    assert settings.display_during_run is True
+    assert settings.measurement_only_read is True
+    assert settings.range_telemetry is False
+    assert settings.source_write_each_sample is False
+    assert settings.trigger_delay_s == 0.0
+
+
+def test_standard_profile_preserves_historical_time_settings() -> None:
+    config = _time_config(nplc=0.2, delay_s=0.03)
+    settings = resolve_time_acquisition(config)
+    assert settings.apply_instrument_overrides is False
+    assert settings.nplc == pytest.approx(0.2)
+    assert settings.software_delay_s == pytest.approx(0.03)
+    assert settings.measurement_only_read is False
+    assert settings.range_telemetry is True
+
+
+def test_custom_profile_uses_explicit_advanced_settings() -> None:
+    config = _time_config(
+        custom_acquisition=True,
+        nplc=0.5,
+        delay_s=0.02,
+        zero_refresh_before_run=False,
+        autozero_during_run=True,
+        digital_filter=True,
+        digital_filter_count=3,
+        concurrent_measurement=True,
+        display_during_run=False,
+        measurement_only_read=False,
+        range_telemetry=True,
+        source_write_each_sample=True,
+        trigger_delay_s=0.004,
+    )
+    settings = resolve_time_acquisition(config)
+    assert settings.apply_instrument_overrides is True
+    assert settings.nplc == pytest.approx(0.5)
+    assert settings.software_delay_s == pytest.approx(0.02)
+    assert settings.zero_refresh_before_run is False
+    assert settings.autozero_during_run is True
+    assert settings.digital_filter is True
+    assert settings.digital_filter_count == 3
+    assert settings.concurrent_measurement is True
+    assert settings.display_during_run is False
+    assert settings.measurement_only_read is False
+    assert settings.range_telemetry is True
+    assert settings.source_write_each_sample is True
+    assert settings.trigger_delay_s == pytest.approx(0.004)
+
+
+def test_fast_and_custom_are_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="cannot both"):
+        validate_config(_time_config(fast_acquisition=True, custom_acquisition=True))
+
+
+def test_fast_profile_configures_measurement_only_without_per_point_range_queries() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    commands: list[str] = []
+    query_commands: list[str] = []
+    meter.write = commands.append  # type: ignore[method-assign]
+
+    def fake_query(command: str) -> str:
+        query_commands.append(command)
+        if command == ":READ?":
+            return "-4.200000E-04"
+        raise AssertionError(f"Unexpected query: {command}")
+
+    meter.query = fake_query  # type: ignore[method-assign]
+    config = _time_config(fast_acquisition=True)
+    meter.configure_for_sweep(config)
+
+    assert ":SENS:CURR:NPLC 0.1" in commands
+    assert ":SENS:FUNC:CONC OFF" in commands
+    assert ":SENS:AVER:STAT OFF" in commands
+    assert ":DISP:ENAB ON" in commands
+    assert ":SYST:AZER:STAT ONCE" in commands
+    assert "*WAI" in commands
+    assert ":SYST:AZER:STAT OFF" in commands
+    assert ":TRIG:DEL 0" in commands
+    assert ":FORM:ELEM CURR" in commands
+    assert not any("BAUD" in command.upper() for command in commands)
+
+    meter.set_source("VOLT", 0.25)
+    source, measured = meter.read_source_and_measure()
+    assert source == pytest.approx(0.25)
+    assert measured == pytest.approx(-4.2e-4)
+    assert query_commands == [":READ?"]
+
+    # Range-state calls used by SweepRunner must stay cache-only in Fast.
+    assert meter.get_current_autorange() is False
+    assert meter.get_current_range() == pytest.approx(1e-3)
+    assert query_commands == [":READ?"]
+
+
+def test_standard_profile_keeps_two_field_readback() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    commands: list[str] = []
+    meter.write = commands.append  # type: ignore[method-assign]
+    meter.query = lambda command: "0.25,-4.2E-4"  # type: ignore[method-assign]
+    meter.configure_for_sweep(_time_config())
+    assert ":FORM:ELEM VOLT,CURR" in commands
+    assert ":SYST:AZER:STAT ONCE" not in commands
+    source, measured = meter.read_source_and_measure()
+    assert source == pytest.approx(0.25)
+    assert measured == pytest.approx(-4.2e-4)
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+class _FastMeter:
+    def __init__(self, clock: _Clock) -> None:
+        self.clock = clock
+        self.source_sets: list[float] = []
+        self.reads = 0
+
+    def reset(self) -> None:
+        pass
+
+    def configure_for_sweep(self, config: SweepConfig) -> None:
+        pass
+
+    def output_on(self) -> None:
+        pass
+
+    def output_off(self) -> None:
+        pass
+
+    def set_source(self, source_cmd: str, value: float) -> None:
+        self.source_sets.append(float(value))
+
+    def read_source_and_measure(self) -> tuple[float, float]:
+        self.clock.now += 0.01
+        self.reads += 1
+        return 0.0, float(self.reads)
+
+    def get_current_autorange(self) -> bool:
+        return False
+
+    def get_current_range(self) -> float:
+        return 1e-3
+
+
+def test_fast_finite_time_sweep_is_duration_based_and_has_no_interval_wait(monkeypatch) -> None:
+    import keith_ivt.core.sweep_runner as runner_module
+
+    clock = _Clock()
+    meter = _FastMeter(clock)
+    monkeypatch.setattr(runner_module.time, "monotonic", clock.monotonic)
+    config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
+    control = CurrentRangeControl(
+        CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)
+    )
+    result = SweepRunner(meter).run(config, current_range_control=control)
+    assert [point.elapsed_s for point in result.points] == pytest.approx([0.01, 0.02, 0.03])
+    assert meter.source_sets == [0.0]
+    assert meter.reads == 3
