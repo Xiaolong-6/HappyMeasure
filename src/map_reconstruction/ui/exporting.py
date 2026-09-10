@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import base64
+import html
 import json
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
-from PySide6 import QtWidgets  # type: ignore[import-not-found]
+from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
 
 from map_reconstruction.display_units import scientific_unit_for_signal
 from map_reconstruction.project_io import save_project
-from map_reconstruction.reporting import generate_pdf_report, write_parameter_summary
+from map_reconstruction.reporting import format_parameter_summary, write_parameter_summary
 
 
 def export_paths(base_path: Path) -> tuple[Path, Path, Path]:
@@ -233,43 +235,118 @@ def export_parameter_summary(window: Any) -> None:
     window.statusBar().showMessage(f"Exported parameter summary to {path}")
 
 
-def export_pdf_report(window: Any) -> None:
+def _widget_png_data_uri(widget: QtWidgets.QWidget) -> str:
+    """Return a widget snapshot as an inline PNG suitable for an HTML report."""
+
+    pixmap = widget.grab()
+    if pixmap.isNull():
+        raise ValueError("The report figure could not be rendered.")
+    buffer = QtCore.QBuffer()
+    if not buffer.open(QtCore.QIODevice.OpenModeFlag.WriteOnly):
+        raise OSError("Could not create the report image buffer.")
+    try:
+        if not pixmap.save(buffer, "PNG"):
+            raise OSError("Could not encode a report figure as PNG.")
+        encoded = base64.b64encode(cast(bytes, buffer.data())).decode("ascii")
+    finally:
+        buffer.close()
+    return f"data:image/png;base64,{encoded}"
+
+
+def _html_figure(title: str, data_uri: str, description: str) -> str:
+    """Format one accessible, self-contained report figure."""
+
+    return "\n".join(
+        (
+            "<figure>",
+            f'<img src="{data_uri}" alt="{html.escape(description)}">',
+            f"<figcaption>{html.escape(title)}</figcaption>",
+            "</figure>",
+        )
+    )
+
+
+def export_html_report(window: Any) -> None:
+    """Export a portable report with the current scientific views and settings."""
+
     if window.data is None or window.result is None:
         QtWidgets.QMessageBox.information(
             window,
             "No reconstruction",
-            "Reconstruct a valid raw map before exporting a PDF report.",
+            "Reconstruct a valid raw map before exporting an HTML report.",
         )
         return
     path, _ = QtWidgets.QFileDialog.getSaveFileName(
         window,
-        "Export PDF reconstruction report",
-        f"{_source_stem(window)}_map_report.pdf",
-        "PDF files (*.pdf)",
+        "Export HTML reconstruction report",
+        f"{_source_stem(window)}_map_report.html",
+        "HTML files (*.html)",
     )
     if not path:
         return
     try:
         state = window._project_state()
+        summary = format_parameter_summary(state, window.data, window.result, window.processed)
         previous_trace = window.trace_view.trace_source_combo.currentText()
         try:
-            # The report labels this panel as the raw time trace. Force Raw only
-            # for rendering, then restore the operator's on-screen selection.
+            # The report labels this panel as raw time trace. Force Raw only for
+            # rendering, then restore the operator's on-screen selection.
             window.trace_view.trace_source_combo.setCurrentText("Raw")
             window.trace_view._refresh_trace_curve()
-            generate_pdf_report(
-                Path(path),
-                state,
-                window.data,
-                window.result,
-                window.processed,
-                count_widget=window.count_plot,
-                trace_widget=window.raw_plot,
+            figures = "\n".join(
+                (
+                    _html_figure(
+                        "Reconstructed map",
+                        _widget_png_data_uri(window.analysis_map_views.map_plot),
+                        "Current reconstructed map",
+                    ),
+                    _html_figure(
+                        "Samples per pixel",
+                        _widget_png_data_uri(window.analysis_map_views.count_plot),
+                        "Current sample-count map",
+                    ),
+                    _html_figure(
+                        "Raw time trace",
+                        _widget_png_data_uri(window.raw_plot),
+                        "Raw source time trace",
+                    ),
+                )
             )
         finally:
             window.trace_view.trace_source_combo.setCurrentText(previous_trace)
             window.trace_view._refresh_trace_curve()
+        document = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map Reconstruction Report</title>
+<style>
+body {{ max-width: 1180px; margin: 2rem auto; padding: 0 1rem; color: #172033; background: #fff; font: 16px/1.45 system-ui, sans-serif; }}
+h1 {{ margin-bottom: .2rem; }}
+.note {{ color: #4b5563; }}
+pre {{ overflow-x: auto; padding: 1rem; border: 1px solid #d1d5db; border-radius: 6px; background: #f8fafc; white-space: pre-wrap; }}
+.figures {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.25rem; }}
+figure {{ margin: 0; padding: .75rem; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }}
+img {{ display: block; width: 100%; height: auto; }}
+figcaption {{ margin-top: .5rem; font-weight: 600; }}
+</style>
+</head>
+<body>
+<h1>Map Reconstruction Report</h1>
+<p class="note">Self-contained HTML export. The figures show the current Analysis display; the raw trace is rendered as Raw for this report only.</p>
+<h2>Reproducibility and QC summary</h2>
+<pre>{html.escape(summary)}</pre>
+<h2>Current views</h2>
+<section class="figures">{figures}</section>
+</body>
+</html>
+"""
+        destination = Path(path)
+        if not destination.suffix:
+            destination = destination.with_suffix(".html")
+        destination.write_text(document, encoding="utf-8", newline="\n")
     except (OSError, ValueError) as exc:
-        QtWidgets.QMessageBox.critical(window, "PDF export failed", str(exc))
+        QtWidgets.QMessageBox.critical(window, "HTML export failed", str(exc))
         return
-    window.statusBar().showMessage(f"Exported PDF report to {path}")
+    window.statusBar().showMessage(f"Exported HTML report to {destination}")

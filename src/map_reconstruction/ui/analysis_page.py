@@ -24,13 +24,17 @@ class MapAnalysisPage(QtWidgets.QWidget):
     exportProcessedRequested = QtCore.Signal()
     exportSummaryRequested = QtCore.Signal()
     exportPdfRequested = QtCore.Signal()
+    saveProjectRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("mapAnalysisPage")
-        root = QtWidgets.QHBoxLayout(self)
-        root.setContentsMargins(14, 10, 14, 10)
-        root.setSpacing(14)
+        root = QtWidgets.QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(0)
+        self.workspace_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.workspace_splitter.setObjectName("analysisWorkspaceSplitter")
+        root.addWidget(self.workspace_splitter)
         sidebar = QtWidgets.QFrame()
         sidebar.setObjectName("stageSidebar")
         layout = QtWidgets.QVBoxLayout(sidebar)
@@ -108,6 +112,12 @@ class MapAnalysisPage(QtWidgets.QWidget):
         )
         self.color_manual_pair = self._pair("Min", self.color_min_spin, "Max", self.color_max_spin)
         self._add_row(figure, "Palette", self.palette_combo, "palette")
+        self.invert_palette_check = QtWidgets.QCheckBox("Invert")
+        figure.setWidget(
+            figure.rowCount() - 1,
+            QtWidgets.QFormLayout.ItemRole.FieldRole,
+            self._palette_with_invert(),
+        )
         self._add_row(figure, "Color limits", self.color_range_combo, "color_range")
         self._add_row(figure, "Percentile", self.color_percentile_pair, "color_percentile")
         self._add_row(figure, "Manual range", self.color_manual_pair, "color_manual")
@@ -116,9 +126,11 @@ class MapAnalysisPage(QtWidgets.QWidget):
         layout.addWidget(self.flip_y_check)
         layout.addSpacing(8)
         layout.addWidget(self._header("EXPORT"))
+        self.save_project_button = QtWidgets.QPushButton("Save Project")
         self.export_processed_button = QtWidgets.QPushButton("Export processed map")
         self.export_figure_button = QtWidgets.QPushButton("Export parameter summary")
-        self.export_report_button = QtWidgets.QPushButton("Export report")
+        self.export_report_button = QtWidgets.QPushButton("Export HTML report")
+        layout.addWidget(self.save_project_button)
         layout.addWidget(self.export_processed_button)
         layout.addWidget(self.export_figure_button)
         layout.addWidget(self.export_report_button)
@@ -126,13 +138,23 @@ class MapAnalysisPage(QtWidgets.QWidget):
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        scroll.setMinimumWidth(300)
+        scroll.setMinimumWidth(280)
         scroll.setWidget(sidebar)
-        root.addWidget(scroll, 0)
-        self.views_host = QtWidgets.QWidget()
-        self.views_layout = QtWidgets.QVBoxLayout(self.views_host)
-        self.views_layout.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(self.views_host, 1)
+        self.workspace_splitter.addWidget(scroll)
+        self.map_host = QtWidgets.QWidget()
+        self.map_host.setMinimumWidth(300)
+        self.map_layout = QtWidgets.QVBoxLayout(self.map_host)
+        self.map_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_splitter.addWidget(self.map_host)
+        self.diagnostics_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.diagnostics_splitter.setObjectName("analysisDiagnosticsSplitter")
+        self.diagnostics_splitter.setMinimumWidth(300)
+        self.workspace_splitter.addWidget(self.diagnostics_splitter)
+        self.workspace_splitter.setStretchFactor(0, 25)
+        self.workspace_splitter.setStretchFactor(1, 40)
+        self.workspace_splitter.setStretchFactor(2, 35)
+        self.workspace_splitter.setSizes([300, 480, 420])
+        self.diagnostics_splitter.setSizes([360, 460])
 
         for processing_combo in (
             self.transform_combo,
@@ -149,6 +171,7 @@ class MapAnalysisPage(QtWidgets.QWidget):
         ):
             processing_spin.editingFinished.connect(self.processingChanged)
         self.palette_combo.currentIndexChanged.connect(self.displayChanged)
+        self.invert_palette_check.toggled.connect(self.displayChanged)
         self.flip_y_check.stateChanged.connect(self.displayChanged)
         self.color_range_combo.currentIndexChanged.connect(self._color_changed)
         for color_spin in (
@@ -158,10 +181,40 @@ class MapAnalysisPage(QtWidgets.QWidget):
             self.color_max_spin,
         ):
             color_spin.editingFinished.connect(self.colorLimitsChanged)
+        self.save_project_button.clicked.connect(self.saveProjectRequested)
         self.export_processed_button.clicked.connect(self.exportProcessedRequested)
         self.export_figure_button.clicked.connect(self.exportSummaryRequested)
         self.export_report_button.clicked.connect(self.exportPdfRequested)
         self._update_visibility()
+
+    def set_export_availability(
+        self, *, source_available: bool, raw_available: bool, processed_available: bool
+    ) -> None:
+        """Keep stage-local exports available only for their scientific inputs."""
+
+        self.save_project_button.setEnabled(source_available)
+        self.export_processed_button.setEnabled(processed_available)
+        self.export_figure_button.setEnabled(source_available)
+        self.export_report_button.setEnabled(raw_available)
+
+    def attach_views(self, views: QtWidgets.QWidget) -> None:
+        """Attach the one Analysis map/QC view set to the stage splitters."""
+
+        map_stack = getattr(views, "map_stack")
+        count_stack = getattr(views, "count_stack")
+        distribution_stack = getattr(views, "distribution_stack")
+        self.map_layout.addWidget(map_stack)
+        self.diagnostics_splitter.addWidget(count_stack)
+        self.diagnostics_splitter.addWidget(distribution_stack)
+
+    def _palette_with_invert(self) -> QtWidgets.QWidget:
+        host = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(host)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        layout.addWidget(self.palette_combo, 1)
+        layout.addWidget(self.invert_palette_check)
+        return host
 
     @staticmethod
     def _header(text: str) -> QtWidgets.QLabel:

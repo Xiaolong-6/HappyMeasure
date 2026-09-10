@@ -23,15 +23,29 @@ StopCallback = Callable[[], bool]
 PauseCallback = Callable[[], bool]
 StableRead = tuple[float, float] | None
 
+
+class SkippedOverflowRead:
+    """Marker for a recognised Constant-Time overflow that was not stored."""
+
+
+SKIPPED_OVERFLOW_READ = SkippedOverflowRead()
+
 MIN_RANGE_STABILIZATION_ATTEMPTS = 50
 
 
+def _acquisition_clock_ns() -> int:
+    """Return the high-resolution monotonic clock used for acquired samples."""
+
+    return time.perf_counter_ns()
+
+
 def _interruptible_sleep(seconds: float, should_stop: StopCallback | None = None) -> None:
-    deadline = time.monotonic() + max(0.0, float(seconds))
-    while time.monotonic() < deadline:
+    deadline_ns = _acquisition_clock_ns() + round(max(0.0, float(seconds)) * 1e9)
+    while _acquisition_clock_ns() < deadline_ns:
         if should_stop is not None and should_stop():
             return
-        time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+        remaining_s = max(0.0, (deadline_ns - _acquisition_clock_ns()) * 1e-9)
+        time.sleep(min(0.05, remaining_s))
 
 
 def wait_until_deadline(
@@ -60,17 +74,22 @@ def wait_until_deadline(
 
 
 def _wait_until_deadline(
-    deadline: float,
+    deadline_ns: int,
     should_stop: StopCallback | None = None,
     should_pause: PauseCallback | None = None,
 ) -> bool:
-    return wait_until_deadline(
-        deadline,
-        should_stop,
-        should_pause,
-        monotonic=time.monotonic,
-        sleep=time.sleep,
-    )
+    while True:
+        if should_stop is not None and should_stop():
+            return False
+        if should_pause is not None and should_pause():
+            return True
+        remaining_ns = deadline_ns - _acquisition_clock_ns()
+        if remaining_ns <= 0:
+            return False
+        before_sleep_ns = _acquisition_clock_ns()
+        time.sleep(min(0.05, remaining_ns * 1e-9))
+        if _acquisition_clock_ns() <= before_sleep_ns:
+            return False
 
 
 class SweepRunner:
@@ -93,15 +112,15 @@ class SweepRunner:
         acquisition = resolve_time_acquisition(config)
         values = (
             []
-            if config.sweep_kind is SweepKind.CONSTANT_TIME
-            and acquisition.as_fast_as_possible
+            if config.sweep_kind is SweepKind.CONSTANT_TIME and acquisition.as_fast_as_possible
             else source_values_for_config(config)
         )
         points: list[SweepPoint] = []
-        t0: float | None = None
+        t0_ns: int | None = None
         stopped_by_operator = False
         discard_remaining = 0
         last_actual_range_A: float | None = None
+        overflow_count = 0
 
         def _should_stop() -> bool:
             nonlocal stopped_by_operator
@@ -124,9 +143,11 @@ class SweepRunner:
             if config.sweep_kind is SweepKind.CONSTANT_TIME:
                 index = 0
                 self.instrument.set_source(config.source_scpi, config.constant_value)
-                t0 = time.monotonic()
-                next_deadline = t0
+                t0_ns = _acquisition_clock_ns()
+                next_deadline_ns = t0_ns
+                elapsed_before_pause_ns = 0
                 fast_finite = acquisition.as_fast_as_possible and not is_continuous_time
+                duration_ns = round(config.duration_s * 1e9)
                 total = 0 if (is_continuous_time or fast_finite) else len(values)
                 while not _should_stop() and (is_continuous_time or fast_finite or index < total):
                     was_paused = False
@@ -138,14 +159,13 @@ class SweepRunner:
                     if _should_stop():
                         break
                     if was_paused:
-                        next_deadline = time.monotonic()
+                        next_deadline_ns = _acquisition_clock_ns()
                         if fast_finite:
                             # Paused time is not acquisition time. Move the
                             # duration origin forward by the pause duration via
                             # a fresh origin at resume while preserving elapsed
                             # time already acquired.
-                            elapsed_before_pause = points[-1].elapsed_s if points else 0.0
-                            t0 = next_deadline - elapsed_before_pause
+                            t0_ns = next_deadline_ns - elapsed_before_pause_ns
                     if acquisition.source_write_each_sample:
                         self.instrument.set_source(config.source_scpi, config.constant_value)
                     _interruptible_sleep(acquisition.software_delay_s, _should_stop)
@@ -162,32 +182,48 @@ class SweepRunner:
                     )
                     if stable_read is None:
                         break
+                    assert t0_ns is not None
+                    elapsed_ns = _acquisition_clock_ns() - t0_ns
+                    if isinstance(stable_read, SkippedOverflowRead):
+                        overflow_count += 1
+                        elapsed_before_pause_ns = elapsed_ns
+                        if fast_finite and elapsed_ns >= duration_ns:
+                            break
+                        if acquisition.as_fast_as_possible:
+                            continue
+                        next_deadline_ns += round(max(0.0, config.interval_s) * 1e9)
+                        now_ns = _acquisition_clock_ns()
+                        if next_deadline_ns < now_ns:
+                            next_deadline_ns = now_ns
+                        if _wait_until_deadline(next_deadline_ns, _should_stop, should_pause):
+                            continue
+                        continue
                     reported_source, measured = stable_read
                     index += 1
-                    assert t0 is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
-                        elapsed_s=time.monotonic() - t0,
+                        elapsed_s=elapsed_ns * 1e-9,
                         timestamp=datetime.now().isoformat(timespec="milliseconds"),
                     )
                     points.append(point)
                     if on_point is not None:
                         on_point(point, index, total)
-                    if fast_finite and point.elapsed_s >= config.duration_s:
+                    elapsed_before_pause_ns = elapsed_ns
+                    if fast_finite and elapsed_ns >= duration_ns:
                         break
                     if not is_continuous_time and not fast_finite and index >= total:
                         break
                     if acquisition.as_fast_as_possible:
                         continue
-                    next_deadline += max(0.0, config.interval_s)
-                    now = time.monotonic()
-                    if next_deadline < now:
-                        next_deadline = now
-                    if _wait_until_deadline(next_deadline, _should_stop, should_pause):
+                    next_deadline_ns += round(max(0.0, config.interval_s) * 1e9)
+                    now_ns = _acquisition_clock_ns()
+                    if next_deadline_ns < now_ns:
+                        next_deadline_ns = now_ns
+                    if _wait_until_deadline(next_deadline_ns, _should_stop, should_pause):
                         continue
             else:
-                t0 = time.monotonic()
+                t0_ns = _acquisition_clock_ns()
                 total = len(values)
                 for index, source_value in enumerate(values, start=1):
                     if _should_stop():
@@ -213,12 +249,16 @@ class SweepRunner:
                     )
                     if stable_read is None:
                         break
+                    if isinstance(stable_read, SkippedOverflowRead):
+                        raise RuntimeError(
+                            "Unexpected overflow skip outside Constant Time acquisition."
+                        )
                     reported_source, measured = stable_read
-                    assert t0 is not None
+                    assert t0_ns is not None
                     point = SweepPoint(
                         source_value=reported_source,
                         measured_value=measured,
-                        elapsed_s=time.monotonic() - t0,
+                        elapsed_s=(_acquisition_clock_ns() - t0_ns) * 1e-9,
                         timestamp=datetime.now().isoformat(timespec="milliseconds"),
                     )
                     points.append(point)
@@ -229,7 +269,12 @@ class SweepRunner:
             if config.output_off_after_run or stopped_by_operator or run_failed:
                 self._safe_output_off_preserving_error()
 
-        return SweepResult(config=config, points=points)
+        warnings = (
+            [f"Skipped {overflow_count} Keithley overflow measurement(s)."]
+            if overflow_count
+            else []
+        )
+        return SweepResult(config=config, points=points, warnings=warnings)
 
     def _read_stable_at_source(
         self,
@@ -238,7 +283,7 @@ class SweepRunner:
         discard_remaining: int,
         last_actual_range_A: float | None,
         should_stop: StopCallback | None,
-    ) -> tuple[StableRead, int, float | None]:
+    ) -> tuple[StableRead | SkippedOverflowRead, int, float | None]:
         max_attempts = max(
             MIN_RANGE_STABILIZATION_ATTEMPTS,
             int(config.discard_after_range_change) + 5,
@@ -255,6 +300,14 @@ class SweepRunner:
             if should_stop is not None and should_stop():
                 return None, discard_remaining, last_actual_range_A
             reported_source, measured = self.instrument.read_source_and_measure()
+            overflow_marker = getattr(
+                self.instrument, "consume_measurement_overflow", lambda: False
+            )
+            if not math.isfinite(float(measured)) and overflow_marker():
+                if config.sweep_kind is SweepKind.CONSTANT_TIME and math.isfinite(
+                    float(reported_source)
+                ):
+                    return SKIPPED_OVERFLOW_READ, discard_remaining, last_actual_range_A
             reported_source, measured = self._validated_readback(reported_source, measured)
             discard_remaining, last_actual_range_A, should_discard = self._range_discard_decision(
                 config,

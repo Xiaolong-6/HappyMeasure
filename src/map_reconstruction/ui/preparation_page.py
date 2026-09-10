@@ -24,7 +24,6 @@ class SignalPreparationPage(QtWidgets.QWidget):
     exportRequested = QtCore.Signal()
     openCsvRequested = QtCore.Signal()
     openProjectRequested = QtCore.Signal()
-    saveProjectRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -55,7 +54,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.mode_combo = QtWidgets.QComboBox()
         self.mode_combo.addItem("None", DarkCorrectionMode.NONE)
         self.mode_combo.addItem("Constant", DarkCorrectionMode.CONSTANT)
-        self.mode_combo.addItem("Manual dark regions", DarkCorrectionMode.MANUAL_REGIONS)
+        self.mode_combo.addItem("Manual regions", DarkCorrectionMode.MANUAL_REGIONS)
         self.mode_combo.addItem("Rolling quantile", DarkCorrectionMode.ROLLING_QUANTILE)
 
         self.constant_baseline_spin = self._value_spin()
@@ -101,14 +100,11 @@ class SignalPreparationPage(QtWidgets.QWidget):
         source_actions = QtWidgets.QGridLayout()
         self.open_csv_button = QtWidgets.QPushButton("Open CSV")
         self.open_project_button = QtWidgets.QPushButton("Open Project")
-        self.save_project_button = QtWidgets.QPushButton("Save Project")
         self.open_csv_button.setObjectName("primaryAction")
         self.open_csv_button.clicked.connect(self.openCsvRequested)
         self.open_project_button.clicked.connect(self.openProjectRequested)
-        self.save_project_button.clicked.connect(self.saveProjectRequested)
         source_actions.addWidget(self.open_csv_button, 0, 0)
         source_actions.addWidget(self.open_project_button, 0, 1)
-        source_actions.addWidget(self.save_project_button, 1, 0, 1, 2)
         side_layout.addLayout(source_actions)
 
         side_layout.addSpacing(8)

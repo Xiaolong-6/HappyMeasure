@@ -48,8 +48,8 @@ from map_reconstruction.project_io import ProjectState, load_project
 from map_reconstruction.preparation import PreparedSignal, SignalPreparationConfig, prepare_signal
 from map_reconstruction.ui.exporting import (
     export_both,
+    export_html_report,
     export_parameter_summary,
-    export_pdf_report,
     export_prepared,
     export_processed,
     export_project,
@@ -160,11 +160,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
         right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.map_views = MapViews(self)
-        self.analysis_map_views = MapViews(self)
+        self.analysis_map_views = MapViews(self, presentation="analysis")
+        assert self.map_views.qc_tabs is not None
         distribution_index = self.map_views.qc_tabs.indexOf(self.map_views.distribution_stack)
         if distribution_index >= 0:
             self.map_views.qc_tabs.removeTab(distribution_index)
-        self.analysis_page.views_layout.addWidget(self.analysis_map_views)
+        self.analysis_page.attach_views(self.analysis_map_views)
         self.trace_view = TraceView(parent=self)
         right.addWidget(self.map_views)
         right.addWidget(self.trace_view)
@@ -183,7 +184,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.preparation_page.exportRequested.connect(lambda: export_prepared(self))
         self.preparation_page.openCsvRequested.connect(self._choose_file)
         self.preparation_page.openProjectRequested.connect(self._choose_project)
-        self.preparation_page.saveProjectRequested.connect(self._export_project)
         self.workflow_header.stageSelected.connect(self._select_stage)
         self.inspector.geometryChanged.connect(self._reconstruct)
         self.inspector.registrationChanged.connect(self._reconstruct)
@@ -192,7 +192,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.analysis_page.colorLimitsChanged.connect(self._color_limits_changed)
         self.analysis_page.exportProcessedRequested.connect(self._export_processed_map)
         self.analysis_page.exportSummaryRequested.connect(self._export_parameter_summary)
-        self.analysis_page.exportPdfRequested.connect(self._export_pdf_report)
+        self.analysis_page.exportPdfRequested.connect(self._export_html_report)
+        self.analysis_page.saveProjectRequested.connect(self._export_project)
         self.map_views.distributionControlsChanged.connect(self._distribution_controls_changed)
         self.map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
         self.analysis_map_views.distributionControlsChanged.connect(
@@ -211,7 +212,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.exportBothRequested.connect(self._export_both_maps)
         self.inspector.exportProjectRequested.connect(self._export_project)
         self.inspector.exportSummaryRequested.connect(self._export_parameter_summary)
-        self.inspector.exportPdfRequested.connect(self._export_pdf_report)
+        self.inspector.exportPdfRequested.connect(self._export_html_report)
         self.trace_view.anchorMoved.connect(self._anchor_moved)
         self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
         self._set_loaded_view(False)
@@ -231,8 +232,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.analysis_page.flip_y_check.setChecked(self.flip_y_check.isChecked())
             del blocker
         palette = self.analysis_page.palette_combo.currentText()
-        self.map_views.set_palette(palette)
-        self.analysis_map_views.set_palette(palette)
+        inverted = self.analysis_page.invert_palette_check.isChecked()
+        self.map_views.set_palette(palette, inverted=inverted)
+        self.analysis_map_views.set_palette(palette, inverted=inverted)
         if self.processed is not None:
             self._refresh_processed_display()
             self._update_distribution()
@@ -502,6 +504,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         source_available = self.data is not None and bool(self._raw_source_bytes)
         self.inspector.set_export_availability(raw_available, processed_available, source_available)
+        self.analysis_page.set_export_availability(
+            source_available=source_available,
+            raw_available=raw_available,
+            processed_available=processed_available,
+        )
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
@@ -886,14 +893,16 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage("Raw map reconstructed; no finite processed values.")
 
-    def _invalidate_reconstruction(self, message: str) -> None:
+    def _invalidate_reconstruction(
+        self, message: str, *, analysis_message: str | None = None
+    ) -> None:
         self.result = None
         self.params = None
         self.processed = None
         self._active_color_limits = None
         self.inspector.clear_qc(message)
         self.map_views.clear_processed_views(message)
-        self.analysis_map_views.clear_processed_views(message)
+        self.analysis_map_views.clear_processed_views(analysis_message or message)
         self.trace_view.clear_guides()
         self._set_export_availability()
         self.statusBar().showMessage(message)
@@ -987,8 +996,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     def _export_parameter_summary(self) -> None:
         export_parameter_summary(self)
 
-    def _export_pdf_report(self) -> None:
-        export_pdf_report(self)
+    def _export_html_report(self) -> None:
+        export_html_report(self)
 
     def _export_map(self) -> None:
         self._export_raw_map()

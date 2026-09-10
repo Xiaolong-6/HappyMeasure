@@ -386,3 +386,22 @@ Hardware command intent is covered by `drivers/command_plan.py` and `instrument/
 
 Regression command:
 `set PYTHONPATH=src && python -m pytest tests\test_delay_timing_regression.py tests\test_core_coverage_gaps.py tests\test_settings_v2.py tests\test_data_import_export_store.py tests\test_mock_visa_command_sequence.py tests\test_pre_hardware_safety.py tests\test_services_drivers_more.py -q`
+## 2026-09-10 Map workflow close-out
+
+- `SweepRunner` acquisition timing, deadlines, and pause rebasing use the
+  `_acquisition_clock_ns()` wrapper around `time.perf_counter_ns()`. Keep all
+  timing in that clock family; `datetime.now()` remains display metadata only.
+- Keithley 2400 overflow is driver-marked while normalised to `NaN`. Only a
+  marked overflow in Constant Time becomes a skipped gap and a
+  `SweepResult.warnings` entry; other non-finite readbacks still fail safely.
+  Do not let a `NaN` reach HappyMeasure CSV or Map Reconstruction input.
+- Stage-local Map actions are Preparation: open/import and prepared trace;
+  Reconstruction: raw reconstructed map; Analysis: project save, processed
+  map, parameter summary, and HTML report. Project save requires archived
+  source bytes but not a successful reconstruction, preserving repairable
+  drafts.
+- Analysis uses one horizontal controls/map/diagnostics splitter and a nested
+  vertical Samples / pixel/Distribution splitter. The analysis `MapViews` is
+  presentation-only and shares the same processed map, sample counts, histogram
+  configuration, and colour limits as before; do not create duplicate science
+  state or reintroduce diagnostic tabs in Analysis.

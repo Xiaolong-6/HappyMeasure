@@ -1,30 +1,40 @@
 # Current Test Status
 
-## 2026-09-10 - Map workflow UI remediation and 2401 detection
+## 2026-09-10 - Map workflow close-out and elapsed-time remediation
 
 ### Map Reconstruction validation
 
-- Focused preparation and offscreen ownership/conditional-visibility checks:
-  **11 passed**. The preparation regression covers an estimated baseline that
-  remains visible while subtraction is off, plus independent sign inversion.
-- Screenshot review generated all three workflow stages at 1920×1000,
-  1600×900, and 1280×800, then removed the temporary assets. The offscreen Qt
-  font backend rendered text as glyph boxes, so this was layout-only review;
+- Scoped Map Reconstruction gate: **151 passed**, using a repository-local
+  pytest base temporary directory to avoid the Windows system-temp ACL issue.
+- The Analysis workspace is now a horizontal controls/map/diagnostics splitter
+  with a vertical Samples / pixel + Distribution diagnostics splitter. Focused
+  regressions cover simultaneous diagnostics, usable region minima, one source
+  of scientific state, distribution-only histogram controls, display-only
+  colour limits, stage-local exports, repairable preparation errors, HTML
+  reporting, and reversible palette inversion.
+- Offscreen screenshots for all three stages at 1280×800, 1600×900, and
+  1920×1000 showed the resizable regions without major clipping. The offscreen
+  Qt font backend rendered text as glyph boxes, so this was layout-only review;
   no native desktop window was inspected.
-- The broader project/UI temporary-directory tests remain blocked on this host
-  by Windows `WinError 5` cleanup ACL failures; this is recorded separately
-  from passing non-`tmp_path` focused tests.
 
 ### HappyMeasure validation
 
-- Focused driver/connection/SCPI suite: **28 passed**
-  (`test_fast_acquisition_profile`, `test_connection_beep_power_guard`, and
-  `test_mock_visa_command_sequence`). MODEL 2401 now receives the full
-  2400-series capability family and one real-connection beep; simulator
-  connection remains silent. Fast/Custom setup restores the intended sense
-  function immediately after `:SENS:FUNC:CONC`, and the 9.91E+37 sentinel is
-  converted to `NaN` before it reaches result data.
-- No real hardware was used.
+- Focused hardware/acquisition gate: **76 passed** (Fast profile, 2401
+  connection/beep, SCPI command ordering, Constant-Time timing and pause,
+  CSV round trips, range labels/telemetry wording, and front-panel contracts).
+- `SweepRunner` now uses `time.perf_counter_ns()` for acquisition timestamps,
+  deadline scheduling, and pause bookkeeping. CSV writes 17 significant
+  elapsed-time digits; Data Table displays the same precision. Regression
+  coverage preserves closely-spaced timestamps through HappyMeasure export,
+  re-import, and Map Reconstruction import.
+- A recognised Keithley overflow is omitted only from Constant-Time result
+  points, recorded as an acquisition warning/CSV metadata, and followed by the
+  next read; unrelated non-finite readback remains an error. Step/Adaptive
+  behavior remains conservative.
+- The operator, not this validation session, physically retested the Fast
+  2401 V-source/current-measure SCPI sequence and reported normal current
+  measurement without persistent `9.91E+37`.
+- Ruff, Black, mypy, and compileall passed for all changed modules.
 
 ## 2026-09-10 - Fast Acquisition merge blockers (final)
 

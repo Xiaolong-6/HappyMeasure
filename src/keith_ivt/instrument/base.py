@@ -44,6 +44,15 @@ class SourceMeter(ABC):
     def set_current_range(self, range_A: float) -> None:
         raise NotImplementedError("Current range control is not supported by this instrument.")
 
+    def consume_measurement_overflow(self) -> bool:
+        """Return and clear a driver-recognised measurement overflow marker.
+
+        Drivers leave ordinary non-finite readbacks unmarked so the runner can
+        treat those as unexpected acquisition errors.
+        """
+
+        return False
+
     def __enter__(self) -> "SourceMeter":
         self.connect()
         return self

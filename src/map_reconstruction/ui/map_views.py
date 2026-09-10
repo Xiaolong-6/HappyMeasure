@@ -29,8 +29,13 @@ class MapViews(QtWidgets.QWidget):
     distributionControlsChanged = QtCore.Signal()
     useMapLimitsRequested = QtCore.Signal()
 
-    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+    def __init__(
+        self, parent: QtWidgets.QWidget | None = None, *, presentation: str = "reconstruction"
+    ) -> None:
         super().__init__(parent)
+        if presentation not in {"reconstruction", "analysis"}:
+            raise ValueError(f"Unsupported map presentation: {presentation!r}")
+        self.presentation = presentation
         self.setMinimumSize(0, 0)
         self.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Ignored
@@ -38,10 +43,6 @@ class MapViews(QtWidgets.QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QtWidgets.QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        map_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
-        root.addWidget(map_splitter)
         self.map_stack, self.map_plot, self.map_image, self.map_color_bar = self._make_image_panel(
             "Reconstructed map",
             "No reconstruction yet",
@@ -56,9 +57,6 @@ class MapViews(QtWidgets.QWidget):
                 "Samples",
             )
         )
-        self.qc_tabs = QtWidgets.QTabWidget()
-        self.qc_tabs.setDocumentMode(True)
-        self.qc_tabs.addTab(self.count_stack, "Samples / pixel")
         (
             self.distribution_stack,
             self.distribution_plot,
@@ -67,11 +65,20 @@ class MapViews(QtWidgets.QWidget):
             self.median_line,
             self.distribution_stats,
         ) = self._make_distribution_panel()
-        self.qc_tabs.addTab(self.distribution_stack, "Distribution")
-        map_splitter.addWidget(self.map_stack)
-        map_splitter.addWidget(self.qc_tabs)
-        map_splitter.setStretchFactor(0, 1)
-        map_splitter.setStretchFactor(1, 1)
+        self.qc_tabs: QtWidgets.QTabWidget | None = None
+        if self.presentation == "reconstruction":
+            root = QtWidgets.QVBoxLayout(self)
+            root.setContentsMargins(0, 0, 0, 0)
+            self.map_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+            root.addWidget(self.map_splitter)
+            self.qc_tabs = QtWidgets.QTabWidget()
+            self.qc_tabs.setDocumentMode(True)
+            self.qc_tabs.addTab(self.count_stack, "Samples / pixel")
+            self.qc_tabs.addTab(self.distribution_stack, "Distribution")
+            self.map_splitter.addWidget(self.map_stack)
+            self.map_splitter.addWidget(self.qc_tabs)
+            self.map_splitter.setStretchFactor(0, 1)
+            self.map_splitter.setStretchFactor(1, 1)
         self._set_loaded(False)
 
     @staticmethod
@@ -332,7 +339,7 @@ class MapViews(QtWidgets.QWidget):
         self.map_stack.setCurrentIndex(1)
         return True
 
-    def set_palette(self, palette: str) -> None:
+    def set_palette(self, palette: str, *, inverted: bool = False) -> None:
         """Change only the map rendering palette; scientific arrays are untouched."""
 
         names = {
@@ -344,7 +351,11 @@ class MapViews(QtWidgets.QWidget):
             "Grayscale": "gray",
         }
         try:
-            color_map = pg.colormap.get(names.get(palette, "viridis"))
+            source_map = pg.colormap.get(names.get(palette, "viridis"))
+            colors = source_map.getLookupTable(0.0, 1.0, 256)
+            if inverted:
+                colors = colors[::-1]
+            color_map = pg.ColorMap(np.linspace(0.0, 1.0, len(colors)), colors)
         except Exception:  # pragma: no cover - backend-specific colormap registry
             return
         self.map_color_bar.setColorMap(color_map)

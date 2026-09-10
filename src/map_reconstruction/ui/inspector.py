@@ -80,7 +80,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.both_export_action = QtGui.QAction("Both", self)
         self.project_export_action = QtGui.QAction("Project...", self)
         self.summary_export_action = QtGui.QAction("Parameter summary...", self)
-        self.pdf_export_action = QtGui.QAction("PDF report...", self)
+        self.pdf_export_action = QtGui.QAction("HTML report...", self)
         self.raw_export_action.triggered.connect(self.exportRawRequested)
         self.processed_export_action.triggered.connect(self.exportProcessedRequested)
         self.both_export_action.triggered.connect(self.exportBothRequested)
@@ -427,6 +427,10 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.qc_label.setWordWrap(True)
         self.qc_label.setVisible(False)
         reconstruction_layout.addWidget(self.qc_label)
+        self.export_reconstructed_button = QtWidgets.QPushButton("Export reconstructed map")
+        self.export_reconstructed_button.setEnabled(False)
+        self.export_reconstructed_button.clicked.connect(self.exportRawRequested)
+        reconstruction_layout.addWidget(self.export_reconstructed_button)
         root.addWidget(reconstruction_section)
         root.addStretch(1)
 
@@ -685,6 +689,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.project_export_action.setEnabled(source_available)
         self.summary_export_action.setEnabled(source_available)
         self.pdf_export_action.setEnabled(raw_available)
+        self.export_reconstructed_button.setEnabled(raw_available)
 
     @property
     def anchors_user_edited(self) -> bool:

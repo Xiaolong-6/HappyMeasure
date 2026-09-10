@@ -125,8 +125,7 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
     assert ":SYST:AZER:STAT OFF" in commands
     autozero_sequence = [":SYST:AZER:STAT ONCE", "*WAI", ":SYST:AZER:STAT OFF"]
     assert any(
-        commands[offset : offset + 3] == autozero_sequence
-        for offset in range(len(commands) - 2)
+        commands[offset : offset + 3] == autozero_sequence for offset in range(len(commands) - 2)
     )
     assert ":TRIG:DEL 0" in commands
     assert ":FORM:ELEM CURR" in commands
@@ -168,6 +167,7 @@ def test_keithley_overflow_sentinel_is_returned_as_nan_not_a_scientific_value() 
     assert measured != measured
     assert meter._normalise_measurement(1e30) == pytest.approx(1e30)
 
+
 def test_standard_profile_keeps_two_field_readback() -> None:
     meter = Keithley2400Serial("COM_FAKE")
     commands: list[str] = []
@@ -187,6 +187,9 @@ class _Clock:
 
     def monotonic(self) -> float:
         return self.now
+
+    def perf_counter_ns(self) -> int:
+        return round(self.now * 1e9)
 
 
 class _FastMeter:
@@ -261,7 +264,7 @@ def test_fast_finite_time_sweep_is_duration_based_and_has_no_interval_wait(monke
 
     clock = _Clock()
     meter = _FastMeter(clock)
-    monkeypatch.setattr(runner_module.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(runner_module, "_acquisition_clock_ns", clock.perf_counter_ns)
     config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
     control = CurrentRangeControl(
         CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)

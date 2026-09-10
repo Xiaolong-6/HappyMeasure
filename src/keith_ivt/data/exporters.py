@@ -18,7 +18,7 @@ def _point_fingerprint(result: SweepResult) -> str:
     h = hashlib.sha256()
     for p in result.points:
         h.update(
-            f"{getattr(p, 'elapsed_s', 0.0):.12g},{p.source_value:.12g},{p.measured_value:.12g}\n".encode(
+            f"{getattr(p, 'elapsed_s', 0.0):.17g},{p.source_value:.12g},{p.measured_value:.12g}\n".encode(
                 "utf-8"
             )
         )
@@ -122,6 +122,7 @@ def result_metadata(result: SweepResult) -> dict:
         "data_fingerprint": data_fingerprint,
         "config_fingerprint": config_fingerprint,
         "trace_uid": f"{config_fingerprint}-{data_fingerprint}",
+        "acquisition_warnings": list(result.warnings),
     }
 
 
@@ -140,7 +141,7 @@ def save_csv(result: SweepResult, path: str | Path) -> Path:
         for point in result.points:
             writer.writerow(
                 [
-                    f"{getattr(point, 'elapsed_s', 0.0):.12g}",
+                    f"{getattr(point, 'elapsed_s', 0.0):.17g}",
                     f"{point.source_value:.12g}",
                     f"{point.measured_value:.12g}",
                 ]
@@ -240,7 +241,7 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
             writer.writerow(["Elapsed_s", x_header] + labels)
             for row_idx, x in enumerate(first_axis):
                 p0 = first.points[row_idx]
-                row = [f"{getattr(p0, 'elapsed_s', 0.0):.12g}", f"{x:.12g}"]
+                row = [f"{getattr(p0, 'elapsed_s', 0.0):.17g}", f"{x:.12g}"]
                 for result in results:
                     row.append(f"{result.points[row_idx].measured_value:.12g}")
                 writer.writerow(row)
@@ -268,7 +269,7 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
                             result.config.mode.value,
                             result.config.sweep_kind.value,
                             point_idx,
-                            f"{getattr(point, 'elapsed_s', 0.0):.12g}",
+                            f"{getattr(point, 'elapsed_s', 0.0):.17g}",
                             f"{point.source_value:.12g}",
                             f"{point.measured_value:.12g}",
                         ]

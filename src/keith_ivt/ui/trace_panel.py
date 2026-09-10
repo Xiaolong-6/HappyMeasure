@@ -269,7 +269,7 @@ class TracePanelMixin(UiMixinTyping):
                 END,
                 values=(
                     i,
-                    f"{getattr(pt, 'elapsed_s', 0.0):.12g}",
+                    f"{getattr(pt, 'elapsed_s', 0.0):.17g}",
                     f"{pt.source_value:.12g}",
                     f"{pt.measured_value:.12g}",
                 ),

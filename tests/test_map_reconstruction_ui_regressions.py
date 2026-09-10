@@ -12,12 +12,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 PySide6 = pytest.importorskip("PySide6")
 pytest.importorskip("pyqtgraph")
 
-from PySide6 import QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from map_reconstruction.models import TimeSeriesData
 from map_reconstruction.project_io import save_project
 import map_reconstruction.reporting as reporting
 from map_reconstruction.reporting import generate_pdf_report, select_report_map
+from map_reconstruction.ui.exporting import export_html_report
 from map_reconstruction.ui.main_window import MAX_GUIDES_PER_FAMILY, MapReconstructionWindow
 
 
@@ -69,6 +70,72 @@ def test_signal_selection_keeps_raw_trace_and_map_in_sync(application) -> None:
     assert window.raw_plot.getAxis("left").label.toPlainText().strip() == "Voltage (V)"
     assert window.map_color_bar.getAxis("right").label.toPlainText().strip() == "Voltage (V)"
     window.close()
+
+
+def test_html_report_embeds_current_views_and_reproducibility_summary(
+    application, monkeypatch
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    window._select_stage(2)
+    window.show()
+    application.processEvents()
+    report_path = Path.cwd() / ".html_report_regression.html"
+    monkeypatch.setattr(
+        QtWidgets.QFileDialog,
+        "getSaveFileName",
+        staticmethod(lambda *_args: (str(report_path), "HTML files (*.html)")),
+    )
+
+    try:
+        export_html_report(window)
+
+        document = report_path.read_text(encoding="utf-8")
+        assert "Map Reconstruction Report" in document
+        assert "Signal Preparation" in document
+        assert "Samples per pixel" in document
+        assert document.count("data:image/png;base64,") == 3
+    finally:
+        report_path.unlink(missing_ok=True)
+        window.close()
+
+
+def test_palette_inversion_is_reversible(application) -> None:
+    window = MapReconstructionWindow()
+    views = window.analysis_map_views
+
+    views.set_palette("Viridis")
+    normal = views.map_color_bar.colorMap().getLookupTable(0.0, 1.0, 16)
+    views.set_palette("Viridis", inverted=True)
+    inverted = views.map_color_bar.colorMap().getLookupTable(0.0, 1.0, 16)
+    views.set_palette("Viridis")
+    restored = views.map_color_bar.colorMap().getLookupTable(0.0, 1.0, 16)
+
+    np.testing.assert_array_equal(inverted, normal[::-1])
+    np.testing.assert_array_equal(restored, normal)
+    window.close()
+
+
+def test_analysis_uses_resizable_map_and_simultaneous_diagnostics(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        analysis = window.analysis_page
+        workspace = analysis.workspace_splitter
+        diagnostics = analysis.diagnostics_splitter
+
+        assert workspace.orientation() is QtCore.Qt.Orientation.Horizontal
+        assert workspace.count() == 3
+        assert workspace.widget(1) is analysis.map_host
+        assert workspace.widget(2) is diagnostics
+        assert diagnostics.orientation() is QtCore.Qt.Orientation.Vertical
+        assert diagnostics.count() == 2
+        assert diagnostics.widget(0) is window.analysis_map_views.count_stack
+        assert diagnostics.widget(1) is window.analysis_map_views.distribution_stack
+        assert window.analysis_map_views.qc_tabs is None
+        assert workspace.widget(0).minimumWidth() >= 280
+        assert analysis.map_host.minimumWidth() >= 300
+        assert diagnostics.minimumWidth() >= 300
+    finally:
+        window.close()
 
 
 def test_fresh_geometry_is_unset(application) -> None:

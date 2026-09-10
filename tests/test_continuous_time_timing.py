@@ -19,6 +19,9 @@ class _FakeClock:
     def monotonic(self) -> float:
         return self.now
 
+    def perf_counter_ns(self) -> int:
+        return round(self.now * 1e9)
+
     def sleep(self, seconds: float) -> None:
         self.now += max(0.0, float(seconds))
 
@@ -116,7 +119,7 @@ def _continuous_config(**changes) -> SweepConfig:
 
 
 def _run_for_reads(monkeypatch, meter: _TimedMeter, config: SweepConfig, reads: int):
-    monkeypatch.setattr(sweep_runner.time, "monotonic", meter.clock.monotonic)
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", meter.clock.perf_counter_ns)
     monkeypatch.setattr(sweep_runner.time, "sleep", meter.clock.sleep)
     return SweepRunner(meter).run(config, should_stop=lambda: meter.read_count >= reads)
 
@@ -207,7 +210,7 @@ def test_continuous_pause_rebases_deadline_and_does_not_catch_up(monkeypatch) ->
         if index == 1:
             pause_until = 1.0
 
-    monkeypatch.setattr(sweep_runner.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", clock.perf_counter_ns)
     monkeypatch.setattr(sweep_runner.time, "sleep", clock.sleep)
     result = SweepRunner(meter).run(
         _continuous_config(interval_s=0.1),
@@ -219,6 +222,46 @@ def test_continuous_pause_rebases_deadline_and_does_not_catch_up(monkeypatch) ->
     assert len(result.points) == 2
     assert meter.read_starts[0] == pytest.approx(0.0)
     assert 1.0 <= meter.read_starts[1] < 1.1
+
+
+def test_constant_time_skips_recognised_overflow_and_keeps_next_valid_read(monkeypatch) -> None:
+    clock = _FakeClock()
+    meter = _TimedMeter(clock, read_duration_s=0.01)
+    overflow_pending = False
+
+    def read_with_one_overflow() -> tuple[float, float]:
+        nonlocal overflow_pending
+        meter.read_starts.append(clock.now)
+        meter.read_count += 1
+        clock.now += meter.read_duration_s
+        overflow_pending = meter.read_count == 1
+        return meter.source_value, float("nan") if overflow_pending else meter.read_count / 1000.0
+
+    def consume_overflow() -> bool:
+        nonlocal overflow_pending
+        marked = overflow_pending
+        overflow_pending = False
+        return marked
+
+    meter.read_source_and_measure = read_with_one_overflow  # type: ignore[method-assign]
+    meter.consume_measurement_overflow = consume_overflow  # type: ignore[attr-defined]
+    result = _run_for_reads(monkeypatch, meter, _continuous_config(), reads=3)
+
+    assert meter.read_count == 3
+    assert [point.measured_value for point in result.points] == pytest.approx([0.002, 0.003])
+    assert all(point.measured_value != 9.91e37 for point in result.points)
+    assert result.warnings == ["Skipped 1 Keithley overflow measurement(s)."]
+
+
+def test_unmarked_nonfinite_readback_remains_an_acquisition_error(monkeypatch) -> None:
+    clock = _FakeClock()
+    meter = _TimedMeter(clock, read_duration_s=0.01)
+    meter.read_source_and_measure = lambda: (0.1, float("nan"))  # type: ignore[method-assign]
+
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", clock.perf_counter_ns)
+    monkeypatch.setattr(sweep_runner.time, "sleep", clock.sleep)
+    with pytest.raises(RuntimeError, match="Non-finite measurement readback"):
+        SweepRunner(meter).run(_continuous_config())
 
 
 def test_fixed_measure_range_skips_redundant_per_point_queries(monkeypatch) -> None:
@@ -333,7 +376,7 @@ def _run_for_reads_with_control(
     reads: int,
     control: CurrentRangeControl,
 ):
-    monkeypatch.setattr(sweep_runner.time, "monotonic", meter.clock.monotonic)
+    monkeypatch.setattr(sweep_runner, "_acquisition_clock_ns", meter.clock.perf_counter_ns)
     monkeypatch.setattr(sweep_runner.time, "sleep", meter.clock.sleep)
     return SweepRunner(meter).run(
         config,
