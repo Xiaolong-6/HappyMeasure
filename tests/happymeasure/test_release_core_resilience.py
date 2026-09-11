@@ -57,7 +57,9 @@ def test_backup_helpers_create_safe_timestamped_csv(tmp_path: Path) -> None:
     assert safe_filename("***", fallback="fallback") == "fallback"
     assert default_backup_dir(tmp_path) == tmp_path / "backups" / "auto"
 
-    path = autosave_result(_small_result("Ge sample / 01"), tmp_path / "custom-backups")
+    path = autosave_result(
+        _small_result("Ge sample / 01"), tmp_path / "custom-backups"
+    )
 
     assert path.exists()
     assert path.parent == tmp_path / "custom-backups"
@@ -98,7 +100,9 @@ def test_thread_safe_xy_buffer_is_bounded_thread_safe_and_clearable() -> None:
             value = float(offset + index)
             buffer.append(value, -value)
 
-    threads = [threading.Thread(target=worker, args=(offset,)) for offset in (0, 1000, 2000)]
+    threads = [
+        threading.Thread(target=worker, args=(offset,)) for offset in (0, 1000, 2000)
+    ]
     for thread in threads:
         thread.start()
     for thread in threads:
@@ -106,7 +110,9 @@ def test_thread_safe_xy_buffer_is_bounded_thread_safe_and_clearable() -> None:
 
     x_values, y_values = buffer.get_snapshot()
     assert len(buffer) == len(x_values) == len(y_values) == 200
-    assert all(x_value == -y_value for x_value, y_value in zip(x_values, y_values))
+    assert all(
+        x_value == -y_value for x_value, y_value in zip(x_values, y_values)
+    )
 
     buffer.clear()
     assert buffer.get_snapshot() == ([], [])
@@ -114,7 +120,9 @@ def test_thread_safe_xy_buffer_is_bounded_thread_safe_and_clearable() -> None:
 
 def test_update_check_handles_http_and_unexpected_failures(monkeypatch) -> None:
     def raise_http(_req, timeout):
-        raise error.HTTPError("https://example.invalid", 503, "unavailable", None, None)
+        raise error.HTTPError(
+            "https://example.invalid", 503, "unavailable", None, None
+        )
 
     monkeypatch.setattr(update_check.request, "urlopen", raise_http)
     result = check_github_release("Xiaolong-6", "HappyMeasure", "1.1b6")
@@ -130,7 +138,9 @@ def test_update_check_handles_http_and_unexpected_failures(monkeypatch) -> None:
     assert "broken decoder" in str(result["message"])
 
 
-def test_update_check_handles_empty_missing_invalid_and_ahead_release_metadata(monkeypatch) -> None:
+def test_update_check_handles_empty_missing_invalid_and_ahead_release_metadata(
+    monkeypatch,
+) -> None:
     _install_payload(monkeypatch, [])
     result = check_github_release("Xiaolong-6", "HappyMeasure", "1.1b6")
     assert result["status"] == "current"
@@ -146,7 +156,13 @@ def test_update_check_handles_empty_missing_invalid_and_ahead_release_metadata(m
 
     _install_payload(
         monkeypatch,
-        [{"draft": False, "tag_name": "v1.1b5", "html_url": "https://example.invalid/v1.1b5"}],
+        [
+            {
+                "draft": False,
+                "tag_name": "v1.1b5",
+                "html_url": "https://example.invalid/v1.1b5",
+            }
+        ],
     )
     result = check_github_release("X", "Y", "1.1b6")
     assert result["status"] == "ahead"
@@ -155,12 +171,14 @@ def test_update_check_handles_empty_missing_invalid_and_ahead_release_metadata(m
 
 def test_portable_asset_selection_rejects_invalid_assets_and_prefers_best_match() -> None:
     assert select_portable_zip_asset_details({}) == (None, None, None)
-    assert select_portable_zip_asset_details({"assets": "not-a-list"}) == (None, None, None)
-    assert select_portable_zip_asset_details({"assets": [{"name": "notes.txt", "browser_download_url": "x"}]}) == (
+    assert select_portable_zip_asset_details({"assets": "not-a-list"}) == (
         None,
         None,
         None,
     )
+    assert select_portable_zip_asset_details(
+        {"assets": [{"name": "notes.txt", "browser_download_url": "x"}]}
+    ) == (None, None, None)
 
     weak = {
         "name": "HappyMeasure-win.zip",
@@ -173,7 +191,14 @@ def test_portable_asset_selection_rejects_invalid_assets_and_prefers_best_match(
         "digest": "sha256:" + "A" * 64,
     }
     name, url, digest = select_portable_zip_asset_details(
-        {"assets": ["bad", {"name": "Source code (zip)", "browser_download_url": "source"}, weak, strong]}
+        {
+            "assets": [
+                "bad",
+                {"name": "Source code (zip)", "browser_download_url": "source"},
+                weak,
+                strong,
+            ]
+        }
     )
     assert name == strong["name"]
     assert url == "strong"
