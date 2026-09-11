@@ -8,6 +8,7 @@ HappyMeasure uses a **Core Flat + Nordic Lab** style. The UI should feel like a 
 - The rail reserves column 0 and the workspace uses column 1.
 - Clicking a rail button switches the page; the rail does not auto-hide on outside clicks.
 - Active rail button uses a flat selected background that visually belongs to the page content.
+- Rebuilt/scrollable pages must refresh their scroll region so controls remain reachable on short Windows viewports and larger UI scales.
 
 ## Color and surfaces
 
@@ -22,28 +23,30 @@ HappyMeasure uses a **Core Flat + Nordic Lab** style. The UI should feel like a 
 - Buttons must look clickable: flat surface + thin border or filled status color.
 - Avoid floating text-only buttons unless they are inside a context menu.
 - Remove native ugly focus rings where possible; use consistent flat focus/hover state.
-- Plot-specific controls belong in the plot right-click menu, not the global toolbar.
+- Boolean settings should visually pair the checkbox with its own label; avoid a detached label in one column and an unlabeled checkbox far away.
+- Dependent controls must look disabled when their parent feature is off.
+- Plot-specific controls belong in the plot right-click menu, not the global toolbar or the Traces-column gear.
 
 ## Plot controls
 
-Top toolbar keeps only global actions:
+The top toolbar keeps only global/view-selection actions. View-specific settings stay in the plot context menu.
+
+Typical plot-context actions include:
 
 ```text
-Views: Linear / Log / V/I / dV/dI / Time
-Actions: Layout / Autoscale / Fullscreen / Save Plot / Export Data / Import Data / Clear Traces
-```
-
-Per-view actions stay in the plot context menu:
-
-```text
+Autoscale this view
 Set X range
 Set Y range
-Autoscale this view
 Number format
 X unit
 Y unit
 Plot style
+Time plot settings...   (Time view)
 ```
+
+Time plot settings own display-only policy such as marker `Auto/On/Off`, live `All data/Last N`, and refresh cadence. They must not be placed in the Traces-table column gear and must never imply truncation of stored measurement data.
+
+The Traces gear is reserved for trace-table column visibility/organization. Trace management/export actions belong to the trace list/context, not plot view settings.
 
 ## Naming
 
@@ -52,14 +55,11 @@ Plot style
 - **Import Data** means CSV trace import.
 - **Clear Traces** means removing traces from the current workspace.
 
-
-## Layout lock
-
-The accepted product shell is Core Flat / clean lab:
+## Layout contract
 
 - Push-side rail for navigation, not a hidden drawer.
 - Left content pane configures the current workflow; it should not duplicate global execution buttons.
 - The bottom operator bar is the only Start/Pause/STOP surface.
-- Wide windows use Config | Plot | Traces. Narrow windows stack Traces below Plot automatically.
-- View-specific plot settings live in the plot right-click menu, not in the top toolbar.
-- Buttons must remain visually identifiable: filled green for Start, filled red for STOP, bordered/soft cards for secondary actions.
+- Wide windows use Config | Plot | Traces. Narrow windows stack/reflow without making required actions unreachable.
+- Buttons remain visually identifiable: filled green for Start, filled red for STOP, bordered/soft cards for secondary actions.
+- Advanced Acquisition groups should stay compact and responsive rather than using fixed widths that clip under Windows scaling.
