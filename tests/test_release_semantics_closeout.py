@@ -86,6 +86,7 @@ class _SemanticsBase:
 class _SemanticsHarness(MeasurementSemanticsMixin, _SemanticsBase):
     def __init__(self) -> None:
         self.mode = _Var(SweepMode.VOLTAGE_SOURCE.value)
+        self.sweep_kind = _Var(SweepKind.CONSTANT_TIME.value)
         self._live_config = None
         self._run_state = "idle"
         self._connected = True
@@ -208,6 +209,16 @@ def test_effective_telemetry_follows_profile_not_hidden_raw_variable() -> None:
     assert app._effective_range_telemetry_enabled() is False
     app.range_telemetry.set(True)
     assert app._effective_range_telemetry_enabled() is True
+
+
+def test_non_time_sweeps_ignore_stale_fast_profile_for_range_telemetry() -> None:
+    app = _SemanticsHarness()
+    app.acquisition_profile.set("Fast")
+    app.range_telemetry.set(False)
+
+    for kind in (SweepKind.STEP, SweepKind.ADAPTIVE):
+        app.sweep_kind.set(kind.value)
+        assert app._effective_range_telemetry_enabled() is True
 
 
 def test_keithley_model_parser_does_not_match_serial_number_substrings() -> None:
