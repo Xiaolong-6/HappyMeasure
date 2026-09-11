@@ -8,7 +8,7 @@ This index is the documentation source of truth. Prefer one owner document per c
 - `../AGENTS.md` — machine/developer change discipline and safety invariants
 - `../CONTRIBUTING.md` — contribution and documentation rules
 - `VALIDATION_STATUS.md` — current automated/manual release status
-- `TROUBLESHOOTING.md` — operator troubleshooting
+- `TROUBLESHOOTING.md` — operator troubleshooting, including current Restart UI behavior
 
 ## Measurement and application contracts
 
@@ -19,7 +19,6 @@ This index is the documentation source of truth. Prefer one owner document per c
 - `SETTINGS_COMPATIBILITY.md` — active flat-settings persistence and compatibility rules
 - `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding measurement/driver behavior
 - `NAMING.md` — product and Python namespace rules
-- `RESTART_MECHANISM.md` — UI restart behavior
 
 ## Hardware and safety
 
@@ -41,11 +40,11 @@ Map Reconstruction GUI dependencies are optional (`.[map]`). Its Windows/Python 
 - `RELEASE_CHECKLIST.md` — current release process (`1.1b6` candidate)
 - `RELEASE_NOTES_v1.1b6.md` — current release-candidate notes
 - `CHANGELOG.md` — concise release history
-- `WINDOWS_PORTABLE_BUILD.md` — normal Windows portable build
-- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-specific build notes
+- `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build contract
+- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-only packaging differences/workaround
 - `MANUAL_SMOKE_TESTS.md` — desktop/operator smoke checks
 - `UI_VISUAL_CHECKLIST.md` — visual/responsive checks
-- `UI_DIAGNOSTICS.md` — built-in UI diagnostic scope
+- `UI_DIAGNOSTICS.md` — built-in UI/hardware diagnostic scope
 - `UI_STYLE_GUIDE.md` — UI styling conventions
 - `DOCS_AUDIT.md` — documentation ownership/cleanup record
 
@@ -67,4 +66,6 @@ Historical notes are intentionally retained as release records, not current inst
 - Put current test/manual-gate status in `VALIDATION_STATUS.md`.
 - Do not add date-by-date agent diaries to the repository.
 - Delete migration plans after their decision has become the stable documented architecture.
+- Delete superseded implementation notes after moving any still-current contract into the permanent owner document.
+- Keep release-build special-case documents narrow; common packaging instructions belong in `WINDOWS_PORTABLE_BUILD.md`.
 - When deleting a document, first move any still-valid contract into its permanent owner.
