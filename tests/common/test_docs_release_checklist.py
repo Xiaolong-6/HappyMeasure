@@ -14,7 +14,7 @@ def test_release_checklist_has_current_release_gates() -> None:
     text = _read(DOCS / "RELEASE_CHECKLIST.md")
     for heading in (
         "## 1. Identity and tree hygiene",
-        "## 2. Automated source validation",
+        "## 2. Automated core validation",
         "## 3. Map Reconstruction release gate",
         "## 4. Desktop simulator/UX smoke",
         "## 5. Hardware safety gate",
