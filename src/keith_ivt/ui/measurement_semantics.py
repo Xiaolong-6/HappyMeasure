@@ -13,7 +13,7 @@ from typing import Any
 from keith_ivt.acquisition import resolve_time_acquisition
 from keith_ivt.core.current_range import parse_current_range_label
 from keith_ivt.drivers.base import DriverCapabilities, instrument_model_from_idn
-from keith_ivt.models import SweepMode
+from keith_ivt.models import SweepKind, SweepMode
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 
@@ -48,6 +48,16 @@ class MeasurementSemanticsMixin(UiMixinTyping):
                 return bool(resolve_time_acquisition(live_config).range_telemetry)
             except Exception:
                 pass
+
+        # Fast/Custom are Constant-Time-only profiles. When the operator leaves
+        # Constant Time, a stale acquisition_profile Tk variable must not leak
+        # Fast semantics into Step/Adaptive front-panel range diagnostics.
+        try:
+            if str(self.sweep_kind.get()) != SweepKind.CONSTANT_TIME.value:
+                return True
+        except Exception:
+            pass
+
         try:
             profile = str(self.acquisition_profile.get())
         except Exception:
