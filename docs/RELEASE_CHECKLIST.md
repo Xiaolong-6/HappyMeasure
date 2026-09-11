@@ -28,9 +28,9 @@ Check version consistency in:
 - `docs/CHANGELOG.md`
 - `docs/RELEASE_NOTES_v1.1b6.md`
 
-## 2. Automated source validation
+## 2. Automated core validation
 
-Install:
+Install the core developer dependencies:
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -42,26 +42,32 @@ Run:
 python -m compileall -q src tests
 python -m black --check src tests
 python -m ruff check src tests
-python -m mypy src
-python -m pytest -q
-python -m pytest --cov=keith_ivt --cov-report=term -q
-python tests\run_full_validation.py
+python -m mypy src/keith_ivt src/happymeasure
+python -m pytest -q tests/common tests/happymeasure
+python -m pytest tests/common tests/happymeasure --cov=keith_ivt --cov-report=term -q
 ```
 
 Coverage gate remains `>=95%` for the configured core scope. Do not lower it to close a release.
 
 ## 3. Map Reconstruction release gate
 
-This is mandatory for `1.1b6` because Map Reconstruction has substantial release-visible changes.
+This is mandatory for `1.1b6` because Map Reconstruction has substantial release-visible changes. Map dependencies remain optional for the normal HappyMeasure install, so the Qt suite is intentionally owned by its own gate rather than the core Python matrix.
 
 ```powershell
 python -m pip install -e ".[dev,map]"
 $env:QT_QPA_PLATFORM="offscreen"
 python -c "import PySide6, pyqtgraph"
-python -m pytest -q -k "map_reconstruction or phase_window"
+python -m mypy src/map_reconstruction
+python -m pytest -q tests/map_reconstruction
 ```
 
 CI has a dedicated Windows/Python 3.12 job that installs `.[dev,map]`. A missing dependency must fail the job rather than silently skipping the Qt suite.
+
+For the complete local release validation after both dependency sets are installed, also run:
+
+```powershell
+python tests\run_full_validation.py
+```
 
 ## 4. Desktop simulator/UX smoke
 
