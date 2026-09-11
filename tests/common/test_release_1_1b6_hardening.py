@@ -74,4 +74,5 @@ def test_ci_has_non_skipping_map_qt_release_gate() -> None:
     assert 'pip install -e ".[dev,map]"' in ci
     assert "QT_QPA_PLATFORM: offscreen" in ci
     assert "import PySide6, pyqtgraph" in ci
-    assert 'pytest -q -k "map_reconstruction or phase_window"' in ci
+    assert "python -m mypy src/map_reconstruction" in ci
+    assert "python -m pytest -q tests/map_reconstruction" in ci
