@@ -47,21 +47,27 @@ python -m map_reconstruction
 
 `Run_Map_Reconstruction.bat` is the Windows launcher. Map Reconstruction imports HappyMeasure `single-v2` CSV files and supports self-contained `.hmmap` projects whose embedded source remains authoritative.
 
-## Safe validation path
+## Validation
 
-Install development dependencies:
+Core validation does not require Qt:
 
 ```powershell
 python -m pip install -e ".[dev]"
-python tests\run_full_validation.py
+python -m pytest -q tests/common tests/happymeasure
 ```
 
-For the Map UI gate:
+Map Reconstruction has its own release gate:
 
 ```powershell
 python -m pip install -e ".[dev,map]"
 $env:QT_QPA_PLATFORM="offscreen"
-python -m pytest -q -k "map_reconstruction or phase_window"
+python -m pytest -q tests/map_reconstruction
+```
+
+After both dependency sets are installed, the complete local validation entry point is:
+
+```powershell
+python tests\run_full_validation.py
 ```
 
 Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. The hardware preflight and Hardware Diagnostics must not source voltage/current or run a measurement.
