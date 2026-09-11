@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import math
 
@@ -113,6 +113,7 @@ class SweepPoint:
 class SweepResult:
     config: SweepConfig
     points: list[SweepPoint]
+    warnings: list[str] = field(default_factory=list)
 
 
 def make_source_values(start: float, stop: float, step: float) -> list[float]:
@@ -189,11 +190,7 @@ def serial_round_trip_seconds(
         baud = max(1200.0, float(baud_rate))
     except (TypeError, ValueError):
         baud = 9600.0
-    total_chars = (
-        max(0, int(source_chars))
-        + max(0, int(query_chars))
-        + max(0, int(response_chars))
-    )
+    total_chars = max(0, int(source_chars)) + max(0, int(query_chars)) + max(0, int(response_chars))
     serial_s = (total_chars * max(1, int(framing_bits))) / baud
     return serial_s + max(0.0, float(turnaround_s))
 
@@ -290,9 +287,7 @@ def validate_config(config: SweepConfig) -> None:
                 raise ValueError("Interval must be positive.")
             if not config.continuous_time:
                 source_values_for_config(config)
-            min_interval = minimum_allowed_interval_seconds(
-                config.nplc, delay_s=config.delay_s
-            )
+            min_interval = minimum_allowed_interval_seconds(config.nplc, delay_s=config.delay_s)
             if config.interval_s < min_interval:
                 raise ValueError(
                     f"Interval is too short for NPLC={config.nplc}. "

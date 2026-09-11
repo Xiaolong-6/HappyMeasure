@@ -26,6 +26,7 @@ from keith_ivt.ui.mixin_typing import UiMixinTyping
 class SweepControllerMixin(UiMixinTyping):
     _last_result: SweepResult | None
     _last_backup_path: Path | None
+    _last_live_plot_refresh_at: float | None
 
     def start_sweep(self) -> None:
         if not self._connected:
@@ -62,21 +63,23 @@ class SweepControllerMixin(UiMixinTyping):
         self._y_data.clear()
         self._live_points.clear()
         self._live_config = config
-        self._current_range_control.update_state(
-            CurrentRangeState(
-                autorange=bool(config.auto_measure_range),
-                actual_range_A=(
-                    config.measure_range
-                    if (not config.auto_measure_range and config.measure_range > 0)
-                    else None
-                ),
-                fixed_range_A=(
-                    config.measure_range
-                    if (not config.auto_measure_range and config.measure_range > 0)
-                    else None
-                ),
+        self._last_live_plot_refresh_at = None
+        if config.measure_scpi == "CURR":
+            self._current_range_control.update_state(
+                CurrentRangeState(
+                    autorange=bool(config.auto_measure_range),
+                    actual_range_A=(
+                        config.measure_range
+                        if (not config.auto_measure_range and config.measure_range > 0)
+                        else None
+                    ),
+                    fixed_range_A=(
+                        config.measure_range
+                        if (not config.auto_measure_range and config.measure_range > 0)
+                        else None
+                    ),
+                )
             )
-        )
         self._reset_live_measurement_status()
         try:
             self._measurement_xy.clear()
@@ -86,7 +89,7 @@ class SweepControllerMixin(UiMixinTyping):
             pass
         self._set_run_state("running")
         self._open_front_panel_for_sweep_start()
-        self._redraw_all_plots(live_only=True)
+        self._redraw_all_plots(live_only=True, force=True)
         self.log_event(f"Sweep started: {config.mode.value} / {config.sweep_kind.value}.")
         t = threading.Thread(target=self._run_sweep_thread, args=(config,), daemon=True)
         t.start()
@@ -105,6 +108,14 @@ class SweepControllerMixin(UiMixinTyping):
                 with self._make_instrument(config) as inst:
                     stop_event = getattr(self, "_stop_event", None)
                     pause_event = getattr(self, "_pause_event", None)
+                    # Live current-range control is only valid for I-measure.
+                    # Current-source / V-measure uses a separate voltage range
+                    # subsystem that will be introduced later.
+                    current_range_control = (
+                        getattr(self, "_current_range_control", None)
+                        if config.measure_scpi == "CURR"
+                        else None
+                    )
                     result = MeasurementService.run_source_meter(
                         inst,
                         config,
@@ -117,7 +128,7 @@ class SweepControllerMixin(UiMixinTyping):
                         should_pause=(
                             pause_event.is_set if pause_event is not None else lambda: self._paused
                         ),
-                        current_range_control=getattr(self, "_current_range_control", None),
+                        current_range_control=current_range_control,
                     )
             self._queue.put(("complete", result))
         except Exception as exc:
@@ -244,7 +255,11 @@ class SweepControllerMixin(UiMixinTyping):
                     self.log_event(str(payload))
         except queue.Empty:
             pass
-        if redraw_live and self._run_state in {"running", "paused", "stopping"}:
+        if (
+            redraw_live
+            and self._run_state in {"running", "paused", "stopping"}
+            and self._live_plot_refresh_due()
+        ):
             self._redraw_all_plots(live_only=True)
         self.root.after(35 if processed >= max_messages else 100, self._process_queue)
 

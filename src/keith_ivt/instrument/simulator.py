@@ -335,6 +335,7 @@ class SimulatedKeithley(SourceMeter):
             supports_4wire=True,
             supports_fixed_range=True,
             supports_manual_output=True,
+            supports_fast_acquisition=True,
         )
 
     def connect_profile(self, profile: ConnectionProfile) -> None:

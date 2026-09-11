@@ -54,6 +54,28 @@ def test_single_csv_round_trip(tmp_path: Path) -> None:
     assert loaded[0].points[-1].measured_value == 1.0
 
 
+def test_single_csv_round_trip_keeps_closely_spaced_elapsed_timestamps(tmp_path: Path) -> None:
+    path = tmp_path / "high_resolution_elapsed.csv"
+    result = make_result("high_resolution")
+    result = SweepResult(
+        result.config,
+        [
+            SweepPoint(0.0, 1e-6, elapsed_s=0.031000000027),
+            SweepPoint(0.0, 2e-6, elapsed_s=0.031000900031),
+            SweepPoint(0.0, 3e-6, elapsed_s=0.031001800042),
+        ],
+    )
+
+    save_csv(result, path)
+    loaded = load_csv(path)[0]
+
+    assert [point.elapsed_s for point in loaded.points] == [
+        0.031000000027,
+        0.031000900031,
+        0.031001800042,
+    ]
+
+
 def test_combined_csv_wide_round_trip(tmp_path: Path) -> None:
     path = tmp_path / "combined.csv"
     save_combined_csv([make_result("a", 1.0), make_result("b", 2.0)], path)

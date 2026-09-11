@@ -28,6 +28,19 @@ reconstruction, while processed CSV export writes the scientific processed
 values and a JSON sidecar that records source physical unit separately from
 display unit and scale.
 
+HappyMeasure Time plots keep acquisition data and display policy separate:
+marker visibility, the All data/Last N points window, and live redraw interval
+are applied only while preparing plot coordinates. The authoritative live
+points, completed `SweepResult`, CSV exports, and project data remain full
+length. Queue processing throttles redraw requests on the UI thread and forces
+a final refresh when a sweep completes.
+
+Map Analysis manual color limits are display-only controls. The `Use data min`
+and `Use data max` shortcuts copy finite extremes from the current processed
+map into the display-unit spin boxes without modifying scientific arrays.
+Percentile color limits retain percentile-rank semantics and are labelled
+explicitly in the UI.
+
 The standalone Map Reconstruction UI is composed from focused widgets:
 `ui/main_window.py` coordinates lifecycle and signals, `ui/inspector.py` owns
 controls and immutable configuration snapshots, `ui/trace_view.py` owns the

@@ -256,6 +256,68 @@ def test_incremental_draw_autoscales_live_data_outside_default_view():
     assert ylim[0] < -2e-6 and ylim[1] > 2e-6
 
 
+def test_time_incremental_axes_are_stable_until_data_requires_expansion():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=(4, 3), dpi=100)
+    renderer = FastPlotRenderer(fig)
+    axes = renderer.prepare_axes(num_subplots=1, rows=1, cols=1)
+
+    series = {
+        "ax_index": 0,
+        "key": "live_Time",
+        "x": [0.0, 1.0],
+        "y": [0.0, 1.0],
+        "time_view": True,
+        "style": {"linestyle": "-"},
+    }
+    renderer.draw_incremental(axes, [series], force=True)
+    initial_xlim = axes[0].get_xlim()
+    initial_ylim = axes[0].get_ylim()
+
+    series["x"] = [0.0, 1.01]
+    series["y"] = [0.0, 1.01]
+    renderer.draw_incremental(axes, [series], force=True)
+    assert axes[0].get_xlim() == initial_xlim
+    assert axes[0].get_ylim() == initial_ylim
+
+    series["x"] = [0.0, 3.0]
+    series["y"] = [0.0, 3.0]
+    renderer.draw_incremental(axes, [series], force=True)
+    assert axes[0].get_xlim()[1] > 3.0
+    assert axes[0].get_ylim()[1] > 3.0
+
+
+def test_incremental_draw_force_bypasses_rate_limit():
+    """Completion/settings refreshes must draw even inside the throttle window."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.figure import Figure
+
+    fig = Figure(figsize=(4, 3), dpi=100)
+    renderer = FastPlotRenderer(fig)
+    axes = renderer.prepare_axes(num_subplots=1, rows=1, cols=1)
+    series = [
+        {
+            "ax_index": 0,
+            "key": "live_Linear",
+            "x": [0.0, 1.0],
+            "y": [0.0, 1.0],
+            "style": {"linestyle": "-"},
+        }
+    ]
+
+    renderer.draw_incremental(axes, series)
+    fig.canvas.draw_idle = Mock()
+    renderer.draw_incremental(axes, series, force=True)
+
+    assert fig.canvas.draw_idle.called
+
+
 def test_cached_live_line_recreated_after_figure_clear_same_axis_count():
     """Regression: a full Figure.clear() detaches cached Line2D artists.
 

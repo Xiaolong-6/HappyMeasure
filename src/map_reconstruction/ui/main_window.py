@@ -19,6 +19,7 @@ from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.models import TimeSeriesData
 from map_reconstruction.preparation import SignalPreparationConfig, prepare_signal
 from map_reconstruction.project_io import load_project
+from map_reconstruction.processing import MapProcessingConfig
 from map_reconstruction.ui._main_window_base import (
     MAX_GUIDES_PER_FAMILY,
     MapReconstructionWindow as _BaseWindow,
@@ -26,7 +27,7 @@ from map_reconstruction.ui._main_window_base import (
 from map_reconstruction.ui.exporting import (
     export_both,
     export_parameter_summary,
-    export_pdf_report,
+    export_html_report,
     export_prepared,
     export_raw,
 )
@@ -46,7 +47,7 @@ class MapReconstructionWindow(_BaseWindow):
         header.exportRawRequested.connect(lambda: export_raw(self))
         header.exportBothRequested.connect(lambda: export_both(self))
         header.exportSummaryRequested.connect(lambda: export_parameter_summary(self))
-        header.exportPdfRequested.connect(lambda: export_pdf_report(self))
+        header.exportPdfRequested.connect(lambda: export_html_report(self))
         if initial_path is not None:
             self.load_file(initial_path)
 
@@ -84,7 +85,10 @@ class MapReconstructionWindow(_BaseWindow):
         self.preparation_page.set_prepared(None)
         self.trace_view.set_prepared_signal(None)
         self.preparation_page.set_diagnostics(message)
-        self._invalidate_reconstruction(message)
+        self._invalidate_reconstruction(
+            "Reconstruction unavailable — fix Signal Preparation.",
+            analysis_message="No processed map available.",
+        )
         self.workflow_header.set_status(False, False, False)
 
     def _preparation_changed(self) -> None:
@@ -123,6 +127,8 @@ class MapReconstructionWindow(_BaseWindow):
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
             return
+        if not self._confirm_workspace_replacement():
+            return
 
         preparation_error: str | None = None
         self._restoring_project = True
@@ -134,6 +140,7 @@ class MapReconstructionWindow(_BaseWindow):
                 loaded.state.signal, data.signals[loaded.state.signal]
             )
             self.inspector.restore_project_state(loaded.state, project_unit.scale)
+            self.analysis_page.set_processing_config(loaded.state.processing, project_unit.scale)
             blockers = [
                 QtCore.QSignalBlocker(self.analysis_page.flip_y_check),
                 QtCore.QSignalBlocker(self.preparation_page.signal_combo),
@@ -168,18 +175,22 @@ class MapReconstructionWindow(_BaseWindow):
 
         if preparation_error is not None:
             self._invalidate_reconstruction(
-                f"Project opened, but signal preparation is invalid: {preparation_error}"
+                "Reconstruction unavailable — fix Signal Preparation.",
+                analysis_message="No processed map available.",
             )
             self.preparation_page.set_diagnostics(
                 "Project state restored. Fix Signal Preparation before reconstruction.\n"
                 + preparation_error
             )
+            self._select_stage(0)
             return
         if loaded.state.is_geometry_set:
             self._reconstruct()
+            self._select_stage(1)
         else:
             self._set_export_availability()
             self.statusBar().showMessage("Project opened. Set Rows and Columns to reconstruct.")
+            self._select_stage(0)
 
     def _load_data(
         self,
@@ -199,6 +210,7 @@ class MapReconstructionWindow(_BaseWindow):
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
         self._preparation_error = None
         unit = display_unit_for_signal(preferred, data.signals[preferred])
+        self.analysis_page.set_processing_config(MapProcessingConfig(), unit.scale)
         self.preparation_page.set_display_unit(unit)
         self.preparation_page.set_source(data.time_s, data.signals[preferred])
         self.preparation_config = SignalPreparationConfig()
@@ -252,6 +264,7 @@ class MapReconstructionWindow(_BaseWindow):
         self.workflow_header.set_action_availability(
             source_available, self.prepared is not None, raw_available, processed_available
         )
+        self.preparation_page.export_button.setEnabled(self.prepared is not None)
 
     @staticmethod
     def _copy_distribution_controls(source: MapViews, target: MapViews) -> None:
@@ -337,12 +350,16 @@ class MapReconstructionWindow(_BaseWindow):
                     self.prepared = prepare_signal(
                         self.data, self.signal_combo.currentText(), self.preparation_config
                     )
-                except ValueError as exc:
-                    self._invalidate_reconstruction(str(exc))
+                except ValueError:
+                    self._invalidate_reconstruction(
+                        "Reconstruction unavailable — fix Signal Preparation.",
+                        analysis_message="No processed map available.",
+                    )
                     return
             else:
                 self._invalidate_reconstruction(
-                    self._preparation_error or "Signal preparation is unavailable."
+                    "Reconstruction unavailable — fix Signal Preparation.",
+                    analysis_message="No processed map available.",
                 )
                 return
         super()._reconstruct()
@@ -357,7 +374,7 @@ class MapReconstructionWindow(_BaseWindow):
 def run_app(path: Path | None = None) -> int:
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     window = MapReconstructionWindow(path)
-    window.show()
+    window.showMaximized()
     return app.exec()
 
 

@@ -39,6 +39,19 @@ def test_importer_parses_quoted_metadata_and_sorts_time(tmp_path):
     np.testing.assert_allclose(data.signals["Current_A"], [-1e-9, -2e-9])
 
 
+def test_importer_preserves_closely_spaced_elapsed_timestamps(tmp_path):
+    path = tmp_path / "high_resolution_elapsed.csv"
+    elapsed = [0.031000000027, 0.031000900031, 0.031001800042]
+    write_single(
+        path, rows=[[time_s, 0.0, current] for time_s, current in zip(elapsed, (1e-9, 2e-9, 3e-9))]
+    )
+
+    data = import_happymeasure_csv(path)
+
+    np.testing.assert_allclose(data.time_s, elapsed, rtol=0.0, atol=0.0)
+    assert np.all(np.diff(data.time_s) > 0.0)
+
+
 def test_importer_rejects_combined_schema(tmp_path):
     path = tmp_path / "combined.csv"
     write_single(path, schema="combined-v2")

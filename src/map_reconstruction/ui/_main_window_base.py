@@ -48,8 +48,8 @@ from map_reconstruction.project_io import ProjectState, load_project
 from map_reconstruction.preparation import PreparedSignal, SignalPreparationConfig, prepare_signal
 from map_reconstruction.ui.exporting import (
     export_both,
+    export_html_report,
     export_parameter_summary,
-    export_pdf_report,
     export_prepared,
     export_processed,
     export_project,
@@ -146,28 +146,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.workflow_stack.addWidget(self.analysis_page)
 
         self.inspector = ReconstructionInspector(self)
-        # Move map-domain processing into the dedicated Analysis stage while
-        # retaining the inspector's public control attributes for compatibility.
-        inspector_layout = self.inspector.layout()
-        if inspector_layout is None:  # pragma: no cover - constructor invariant
-            raise RuntimeError("Reconstruction inspector has no root layout.")
-        processing_section = self.inspector.processing_section
-        inspector_layout.removeWidget(processing_section)
-        self.analysis_page.processing_section = processing_section
-        self.analysis_page.sidebar_layout.insertWidget(3, processing_section)
-        self.analysis_page.processing_placeholder.hide()
-        # Retain the historical object-name probe used by downstream UI
-        # smoke tests without duplicating the live processing controls.
-        for object_name in ("colorManualPair", "colorPercentilePair"):
-            compatibility_shadow = QtWidgets.QWidget(self.inspector)
-            compatibility_shadow.setObjectName(object_name)
-            compatibility_shadow.hide()
-        # File/export actions are surfaced once in the workflow header; keep
-        # the legacy widgets as compatibility handles but remove duplicate
-        # large buttons from the stage sidebar.
-        self.inspector.open_button.hide()
-        self.inspector.open_project_button.hide()
-        self.inspector.export_button.hide()
+        # Stage 2 is reconstruction-only. Stage 3 creates and owns its live
+        # processing controls; no widget is reparented between scientific stages.
+        self.inspector.data_section.hide()
+        self.inspector.processing_section.hide()
+        self.inspector.flip_y_check.hide()
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.inspector)
@@ -177,8 +160,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
 
         right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.map_views = MapViews(self)
-        self.analysis_map_views = MapViews(self)
-        self.analysis_page.views_layout.addWidget(self.analysis_map_views)
+        self.analysis_map_views = MapViews(self, presentation="analysis")
+        self.analysis_page.attach_views(self.analysis_map_views)
         self.trace_view = TraceView(parent=self)
         right.addWidget(self.map_views)
         right.addWidget(self.trace_view)
@@ -191,22 +174,24 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         splitter.setSizes([340, 840])
 
         self._expose_compatibility_attributes()
-        self.inspector.signalChanged.connect(self._signal_changed)
         self.preparation_page.signal_combo.currentTextChanged.connect(self._signal_changed)
         self.preparation_page.configurationChanged.connect(self._preparation_changed)
         self.analysis_page.displayChanged.connect(self._display_changed)
-        self.flip_y_check.stateChanged.connect(self._display_changed)
         self.preparation_page.exportRequested.connect(lambda: export_prepared(self))
+        self.preparation_page.openCsvRequested.connect(self._choose_file)
+        self.preparation_page.openProjectRequested.connect(self._choose_project)
         self.workflow_header.stageSelected.connect(self._select_stage)
-        self.workflow_header.openCsvRequested.connect(self._choose_file)
-        self.workflow_header.openProjectRequested.connect(self._choose_project)
-        self.workflow_header.saveRequested.connect(self._export_project)
-        self.workflow_header.exportRequested.connect(self._export_processed_map)
         self.inspector.geometryChanged.connect(self._reconstruct)
         self.inspector.registrationChanged.connect(self._reconstruct)
         self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
-        self.inspector.processingChanged.connect(self._processing_controls_changed)
-        self.inspector.colorLimitsChanged.connect(self._color_limits_changed)
+        self.analysis_page.processingChanged.connect(self._processing_controls_changed)
+        self.analysis_page.colorLimitsChanged.connect(self._color_limits_changed)
+        self.analysis_page.colorMinDataRequested.connect(self._set_color_min_from_data)
+        self.analysis_page.colorMaxDataRequested.connect(self._set_color_max_from_data)
+        self.analysis_page.exportProcessedRequested.connect(self._export_processed_map)
+        self.analysis_page.exportSummaryRequested.connect(self._export_parameter_summary)
+        self.analysis_page.exportPdfRequested.connect(self._export_html_report)
+        self.analysis_page.saveProjectRequested.connect(self._export_project)
         self.map_views.distributionControlsChanged.connect(self._distribution_controls_changed)
         self.map_views.useMapLimitsRequested.connect(self._use_map_limits_for_distribution)
         self.analysis_map_views.distributionControlsChanged.connect(
@@ -225,13 +210,15 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.exportBothRequested.connect(self._export_both_maps)
         self.inspector.exportProjectRequested.connect(self._export_project)
         self.inspector.exportSummaryRequested.connect(self._export_parameter_summary)
-        self.inspector.exportPdfRequested.connect(self._export_pdf_report)
+        self.inspector.exportPdfRequested.connect(self._export_html_report)
         self.trace_view.anchorMoved.connect(self._anchor_moved)
         self.trace_view.anchorMoveFinished.connect(self._anchor_finished)
         self._set_loaded_view(False)
 
     def _select_stage(self, index: int) -> None:
-        self.workflow_stack.setCurrentIndex(max(0, min(index, self.workflow_stack.count() - 1)))
+        index = max(0, min(index, self.workflow_stack.count() - 1))
+        self.workflow_stack.setCurrentIndex(index)
+        self.workflow_header.set_current_stage(index)
 
     def _display_changed(self, *_args: object) -> None:
         """Refresh figure state without touching reconstruction or processing."""
@@ -245,8 +232,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.analysis_page.flip_y_check.setChecked(self.flip_y_check.isChecked())
             del blocker
         palette = self.analysis_page.palette_combo.currentText()
-        self.map_views.set_palette(palette)
-        self.analysis_map_views.set_palette(palette)
+        inverted = self.analysis_page.invert_palette_check.isChecked()
+        self.map_views.set_palette(palette, inverted=inverted)
+        self.analysis_map_views.set_palette(palette, inverted=inverted)
         if self.processed is not None:
             self._refresh_processed_display()
             self._update_distribution()
@@ -256,25 +244,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             self.analysis_map_views.show_sample_counts(self.result.sample_counts, flipped)
 
     def _sync_preparation_controls(self, config: SignalPreparationConfig) -> None:
-        page = self.preparation_page
-        page.mode_combo.setCurrentIndex(page.mode_combo.findData(config.dark_correction_mode))
-        page.constant_baseline_spin.setValue(config.constant_baseline)
-        page.fit_combo.setCurrentIndex(page.fit_combo.findData(config.manual_region_fit))
-        page.direction_combo.setCurrentIndex(
-            page.direction_combo.findData(config.response_direction)
-        )
-        page.quantile_spin.setValue(config.rolling_quantile * 100.0)
-        page.window_spin.setValue(config.rolling_window_s)
-        page.trend_combo.setCurrentIndex(page.trend_combo.findData(config.rolling_trend))
-        page.output_combo.setCurrentIndex(page.output_combo.findData(config.output_convention))
-        page.value_gate_check.setChecked(config.value_gate_enabled)
-        page.gate_min_spin.setValue(
-            config.value_gate_min if np.isfinite(config.value_gate_min) else 0.0
-        )
-        page.gate_max_spin.setValue(
-            config.value_gate_max if np.isfinite(config.value_gate_max) else 0.0
-        )
-        page.set_regions(config.manual_dark_regions)
+        self.preparation_page.set_configuration(config)
 
     def _preparation_changed(self) -> None:
         if self._restoring_project or self.data is None:
@@ -361,6 +331,25 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         for name in inspector_names:
             setattr(self, name, getattr(self.inspector, name))
+        for name in (
+            "transform_combo",
+            "baseline_combo",
+            "normalization_combo",
+            "scale_combo",
+            "color_range_combo",
+            "baseline_value_spin",
+            "baseline_percentile_spin",
+            "custom_expression_edit",
+            "normalization_reference_spin",
+            "percentile_low_spin",
+            "percentile_high_spin",
+            "color_min_spin",
+            "color_max_spin",
+            "flip_y_check",
+        ):
+            setattr(self, name, getattr(self.analysis_page, name))
+        # The visible Preparation selector is the sole source-signal authority.
+        self.signal_combo = self.preparation_page.signal_combo
         view_names = (
             "map_stack",
             "map_plot",
@@ -371,6 +360,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             "count_image",
             "count_color_bar",
             "qc_tabs",
+            "qc_splitter",
             "distribution_stack",
             "distribution_plot",
             "distribution_bars",
@@ -414,6 +404,50 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if path:
             self.load_project_file(Path(path))
 
+    def _workspace_has_meaningful_work(self) -> bool:
+        """Return whether replacing the current source could lose user work."""
+
+        if self.data is None:
+            return False
+        return bool(
+            self.result is not None
+            or self.params is not None
+            or self.processed is not None
+            or self.preparation_config != SignalPreparationConfig()
+            or self.rows_spin.value() > 0
+            or self.cols_spin.value() > 0
+        )
+
+    def _replacement_choice(self) -> str:
+        """Return ``save``, ``discard``, or ``cancel`` from the replacement dialog."""
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("Replace reconstruction workspace?")
+        dialog.setText("Current reconstruction workspace will be replaced.")
+        dialog.setInformativeText("Save the current project before opening the new source?")
+        save = dialog.addButton("Save Project", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        discard = dialog.addButton("Discard", QtWidgets.QMessageBox.ButtonRole.DestructiveRole)
+        cancel = dialog.addButton("Cancel", QtWidgets.QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(cancel)
+        dialog.exec()
+        clicked = dialog.clickedButton()
+        if clicked is save:
+            return "save"
+        if clicked is discard:
+            return "discard"
+        return "cancel"
+
+    def _confirm_workspace_replacement(self) -> bool:
+        """Ask how to handle meaningful work before replacing the source."""
+
+        if not self._workspace_has_meaningful_work():
+            return True
+        choice = self._replacement_choice()
+        if choice == "save":
+            return bool(export_project(self))
+        return choice == "discard"
+
     def load_file(self, path: Path) -> None:
         try:
             raw_bytes = path.read_bytes()
@@ -421,7 +455,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except (OSError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open CSV", str(exc))
             return
-        self._load_data(data, raw_bytes, path.name)
+        if not self._confirm_workspace_replacement():
+            return
+        self._load_data(data, raw_bytes, path.name, reconstruct=False)
+        self._select_stage(0)
+        self.statusBar().showMessage("Set Rows and Columns to reconstruct.")
 
     def load_project_file(self, path: Path) -> None:
         try:
@@ -436,6 +474,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
             return
+        if not self._confirm_workspace_replacement():
+            return
         self._restoring_project = True
         try:
             self._load_data(
@@ -445,6 +485,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 loaded.state.signal, data.signals[loaded.state.signal]
             )
             self.inspector.restore_project_state(loaded.state, project_unit.scale)
+            self.analysis_page.set_processing_config(loaded.state.processing, project_unit.scale)
             self.analysis_page.flip_y_check.setChecked(loaded.state.flip_y)
             self.preparation_config = loaded.state.preparation
             self._sync_preparation_controls(self.preparation_config)
@@ -478,9 +519,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._active_color_limits = None
         self._raw_source_bytes = raw_bytes
         self._loaded_filename = original_filename
+        self._clear_reconstruction_outputs()
         self.workflow_header.set_filename(original_filename)
         self.inspector.set_file_name(original_filename)
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
+        self.inspector.reset_reconstruction()
+        self.processing_config = None
         self.inspector.set_signal_names(data.signal_names, preferred)
         self.preparation_page.set_signals(data.signal_names, preferred)
         self.preparation_config = SignalPreparationConfig()
@@ -489,13 +533,16 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.prepared = prepare_signal(data, preferred, self.preparation_config)
         self.preparation_page.set_source(data.time_s, data.signals[preferred])
         self.preparation_page.set_prepared(self.prepared)
+        self._set_raw_signal(preferred)
         self.trace_view.set_prepared_signal(self.prepared.values)
         self.workflow_header.set_status(True, False, False)
         self._set_anchor_bounds(data)
-        self._set_raw_signal(preferred)
         self._update_processing_units()
         self._create_anchor_lines()
         self._set_loaded_view(True)
+        # Loading a source without valid geometry must not expose the previous
+        # map/count images while the new source waits for reconstruction.
+        self._clear_reconstruction_outputs()
         if reconstruct:
             self._reconstruct()
         if reconstruct and (self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0):
@@ -507,6 +554,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.trace_view.show_loaded(loaded)
         self._set_export_availability()
 
+    def _clear_reconstruction_outputs(self) -> None:
+        """Remove derived output from the previous source before a reload."""
+        self.map_views.clear_processed_views("No reconstruction yet")
+        self.analysis_map_views.clear_processed_views("No processed map available")
+        self.trace_view.clear_guides()
+        self.inspector.clear_qc("Reconstruction unavailable until the new source is ready.")
+
     def _set_export_availability(self) -> None:
         raw_available = self.result is not None
         processed_available = bool(
@@ -514,6 +568,12 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
         source_available = self.data is not None and bool(self._raw_source_bytes)
         self.inspector.set_export_availability(raw_available, processed_available, source_available)
+        self.analysis_page.set_export_availability(
+            source_available=source_available,
+            raw_available=raw_available,
+            processed_available=processed_available,
+        )
+        self.analysis_page.set_data_range_available(processed_available)
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
@@ -626,7 +686,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         )
 
     def _processing_config(self):
-        return self.inspector.current_processing_config(
+        return self.analysis_page.current_processing_config(
             self._raw_display_unit().scale,
             self._normalization_reference_scale(),
             self._processing_display_scale(),
@@ -646,7 +706,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             if transform in (ValueTransform.RAW, ValueTransform.ABSOLUTE, ValueTransform.NEGATE)
             else DisplayUnit(raw.label, "", 1.0)
         )
-        self.inspector.set_processing_units(
+        self.analysis_page.set_processing_units(
             raw,
             normalization_reference,
             DisplayUnit(raw.label, "", 1.0) if dimensionless else raw,
@@ -664,6 +724,30 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.processing_config = config
         if self.processed is not None:
             self._refresh_processed_display(config)
+
+    def _set_color_min_from_data(self) -> None:
+        self._set_color_limit_from_data("min")
+
+    def _set_color_max_from_data(self) -> None:
+        self._set_color_limit_from_data("max")
+
+    def _set_color_limit_from_data(self, which: str) -> None:
+        """Copy a finite processed-data extreme into the display-only manual range."""
+
+        if self.processed is None:
+            return
+        finite_values = self.processed.values[np.isfinite(self.processed.values)]
+        if finite_values.size == 0:
+            return
+        extreme = np.min(finite_values) if which == "min" else np.max(finite_values)
+        value = float(extreme) * self._current_display_unit().scale
+        spin = (
+            self.analysis_page.color_min_spin
+            if which == "min"
+            else self.analysis_page.color_max_spin
+        )
+        spin.setValue(value)
+        self._color_limits_changed()
 
     def _refresh_processed_display(self, config: MapProcessingConfig | None = None) -> None:
         if self.processed is None:
@@ -898,14 +982,16 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage("Raw map reconstructed; no finite processed values.")
 
-    def _invalidate_reconstruction(self, message: str) -> None:
+    def _invalidate_reconstruction(
+        self, message: str, *, analysis_message: str | None = None
+    ) -> None:
         self.result = None
         self.params = None
         self.processed = None
         self._active_color_limits = None
         self.inspector.clear_qc(message)
         self.map_views.clear_processed_views(message)
-        self.analysis_map_views.clear_processed_views(message)
+        self.analysis_map_views.clear_processed_views(analysis_message or message)
         self.trace_view.clear_guides()
         self._set_export_availability()
         self.statusBar().showMessage(message)
@@ -999,8 +1085,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
     def _export_parameter_summary(self) -> None:
         export_parameter_summary(self)
 
-    def _export_pdf_report(self) -> None:
-        export_pdf_report(self)
+    def _export_html_report(self) -> None:
+        export_html_report(self)
 
     def _export_map(self) -> None:
         self._export_raw_map()

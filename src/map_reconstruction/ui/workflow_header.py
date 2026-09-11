@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from PySide6 import QtCore, QtWidgets  # type: ignore[import-not-found]
 
+from map_reconstruction.ui.windows_shell import apply_windows_11_shell
+
 
 class WorkflowHeader(QtWidgets.QWidget):
     stageSelected = QtCore.Signal(int)
@@ -23,96 +25,70 @@ class WorkflowHeader(QtWidgets.QWidget):
         self.setObjectName("workflowHeader")
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(10)
 
         top = QtWidgets.QHBoxLayout()
+        top.setContentsMargins(2, 0, 2, 0)
+        top.setSpacing(12)
         title = QtWidgets.QLabel("Map Reconstruction")
         title.setObjectName("appTitle")
         top.addWidget(title)
         self.file_label = QtWidgets.QLabel("No source loaded")
         self.file_label.setObjectName("workflowFile")
+        self.file_label.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter
+        )
+        self.file_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         top.addWidget(self.file_label, 1)
-        self.prepared_status = QtWidgets.QLabel("Prepared —")
-        self.reconstructed_status = QtWidgets.QLabel("Reconstructed —")
-        self.analyzed_status = QtWidgets.QLabel("Analyzed —")
-        for label in (self.prepared_status, self.reconstructed_status, self.analyzed_status):
-            label.setObjectName("workflowStatus")
-            top.addWidget(label)
-
-        action_row = QtWidgets.QHBoxLayout()
-        action_row.addStretch(1)
-        self.open_button = QtWidgets.QPushButton("Open")
-        self.open_button.setObjectName("headerAction")
-        self.open_button.setToolTip("Open HappyMeasure CSV")
-        self.open_button.setMinimumWidth(58)
-        self.open_button.clicked.connect(self.openCsvRequested)
-        action_row.addWidget(self.open_button)
-
-        self.project_button = QtWidgets.QPushButton("Project")
-        self.project_button.setObjectName("headerAction")
-        self.project_button.setToolTip("Open a saved project")
-        self.project_button.setMinimumWidth(58)
-        self.project_button.clicked.connect(self.openProjectRequested)
-        action_row.addWidget(self.project_button)
-
-        self.save_button = QtWidgets.QPushButton("Save")
-        self.save_button.setObjectName("headerAction")
-        self.save_button.setToolTip("Save project")
-        self.save_button.setMinimumWidth(58)
-        self.save_button.clicked.connect(self.saveRequested)
-        action_row.addWidget(self.save_button)
-
-        self.export_button = QtWidgets.QPushButton("Export")
-        self.export_button.setObjectName("headerAction")
-        self.export_button.setToolTip("Export prepared data, maps, summary, or PDF")
-        self.export_button.setMinimumWidth(58)
-        self.export_menu = QtWidgets.QMenu(self.export_button)
-        self.prepared_action = self.export_menu.addAction("Prepared time trace")
-        self.raw_action = self.export_menu.addAction("Raw reconstructed map")
-        self.processed_action = self.export_menu.addAction("Processed map")
-        self.both_action = self.export_menu.addAction("Both maps")
-        self.export_menu.addSeparator()
-        self.summary_action = self.export_menu.addAction("Parameter summary")
-        self.pdf_action = self.export_menu.addAction("PDF report")
-        self.prepared_action.triggered.connect(self.exportPreparedRequested)
-        self.raw_action.triggered.connect(self.exportRawRequested)
-        # Keep the historical processed-export signal as the canonical path so
-        # the existing composition root does not open two dialogs.
-        self.processed_action.triggered.connect(self.exportRequested)
-        self.both_action.triggered.connect(self.exportBothRequested)
-        self.summary_action.triggered.connect(self.exportSummaryRequested)
-        self.pdf_action.triggered.connect(self.exportPdfRequested)
-        self.export_button.setMenu(self.export_menu)
-        action_row.addWidget(self.export_button)
-
         root.addLayout(top)
-        root.addLayout(action_row)
 
-        nav = QtWidgets.QHBoxLayout()
+        nav_host = QtWidgets.QFrame()
+        nav_host.setObjectName("workflowNavigation")
+        nav = QtWidgets.QHBoxLayout(nav_host)
+        nav.setContentsMargins(4, 4, 4, 4)
+        nav.setSpacing(4)
         self.stage_buttons: list[QtWidgets.QPushButton] = []
-        for index, text in enumerate(("1  Preparation", "2  Reconstruction", "3  Analysis")):
+        labels = (
+            "1   Signal Preparation",
+            "2   Reconstruction",
+            "3   Map Analysis",
+        )
+        for index, text in enumerate(labels):
             button = QtWidgets.QPushButton(text)
+            button.setObjectName("workflowStage")
             button.setCheckable(True)
             button.setAutoExclusive(True)
+            button.setCursor(QtCore.Qt.CursorShape.PointingHandCursor)
+            button.setMinimumHeight(36)
+            button.setAccessibleName(text.replace("   ", " "))
             button.clicked.connect(
                 lambda _checked=False, value=index: self.stageSelected.emit(value)
             )
-            nav.addWidget(button)
+            nav.addWidget(button, 1)
             self.stage_buttons.append(button)
         self.stage_buttons[0].setChecked(True)
-        nav.addStretch(1)
-        root.addLayout(nav)
-        self.set_action_availability(False, False, False, False)
+        root.addWidget(nav_host)
+
+        if parent is not None:
+            # Delay the DWM request until the QMainWindow has finished creating
+            # its central widget and native handle.  The helper is a no-op on
+            # non-Windows platforms and on Windows versions before Windows 11.
+            QtCore.QTimer.singleShot(0, lambda: apply_windows_11_shell(parent.window()))
 
     def set_filename(self, filename: str | None) -> None:
         self.file_label.setText(filename or "No source loaded")
+        self.file_label.setToolTip(filename or "")
+
+    def set_current_stage(self, index: int) -> None:
+        """Keep the checked navigation button aligned with the stack page."""
+
+        if not self.stage_buttons:
+            return
+        index = max(0, min(index, len(self.stage_buttons) - 1))
+        self.stage_buttons[index].setChecked(True)
 
     def set_status(self, prepared: bool, reconstructed: bool, analyzed: bool) -> None:
-        for label, value, name in (
-            (self.prepared_status, prepared, "Prepared"),
-            (self.reconstructed_status, reconstructed, "Reconstructed"),
-            (self.analyzed_status, analyzed, "Analyzed"),
-        ):
-            label.setText(f"{name} {'✓' if value else '—'}")
+        """Compatibility no-op: persistent stage status is not header content."""
 
     def set_action_availability(
         self,
@@ -123,13 +99,5 @@ class WorkflowHeader(QtWidgets.QWidget):
     ) -> None:
         """Keep global actions aligned with the currently reproducible workspace state."""
 
-        self.save_button.setEnabled(source_available)
-        self.prepared_action.setEnabled(prepared_available)
-        self.raw_action.setEnabled(raw_available)
-        self.processed_action.setEnabled(processed_available)
-        self.both_action.setEnabled(raw_available and processed_available)
-        self.summary_action.setEnabled(source_available)
-        self.pdf_action.setEnabled(raw_available)
-        self.export_button.setEnabled(
-            prepared_available or raw_available or processed_available or source_available
-        )
+        # Actions live with the scientific stage which produces their result.
+        del source_available, prepared_available, raw_available, processed_available

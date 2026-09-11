@@ -155,9 +155,7 @@ def test_manual_region_has_bounded_drag_and_numeric_edit_path(application) -> No
     data = _data()
     page.set_display_unit(DisplayUnit("Current", "nA", 1e9))
     page.set_source(data.time_s, data.signals["Current_A"])
-    page.mode_combo.setCurrentIndex(
-        page.mode_combo.findData(DarkCorrectionMode.MANUAL_REGIONS)
-    )
+    page.mode_combo.setCurrentIndex(page.mode_combo.findData(DarkCorrectionMode.MANUAL_REGIONS))
     page._add_region()
 
     assert len(page.configuration().manual_dark_regions) == 1
@@ -189,7 +187,9 @@ def test_invalid_preparation_cannot_be_revived_by_geometry_change(application) -
 
     assert window.prepared is None
     assert window.result is None
-    assert "requires at least 1 valid regions" in window.statusBar().currentMessage()
+    assert "fix Signal Preparation" in window.statusBar().currentMessage()
+    assert "requires at least 1 valid regions" in window.preparation_page.diagnostics.text()
+    assert window.analysis_map_views.map_stack.currentIndex() == 0
     window.close()
 
 
@@ -198,9 +198,7 @@ def test_invalid_gate_does_not_fall_back_to_previous_valid_preparation(applicati
     data = _data()
     window._load_data(data, b"loaded-source", "measurement.csv", reconstruct=False)
     page = window.preparation_page
-    page.mode_combo.setCurrentIndex(
-        page.mode_combo.findData(DarkCorrectionMode.ROLLING_QUANTILE)
-    )
+    page.mode_combo.setCurrentIndex(page.mode_combo.findData(DarkCorrectionMode.ROLLING_QUANTILE))
     assert window.prepared is not None
 
     page.value_gate_check.setChecked(True)
@@ -213,7 +211,8 @@ def test_invalid_gate_does_not_fall_back_to_previous_valid_preparation(applicati
     window._reconstruct()
     assert window.prepared is None
     assert window.result is None
-    assert "min <= max" in window.statusBar().currentMessage()
+    assert "fix Signal Preparation" in window.statusBar().currentMessage()
+    assert "min <= max" in window.preparation_page.diagnostics.text()
     window.close()
 
 
@@ -238,21 +237,15 @@ def test_analysis_histogram_controls_drive_and_sync_both_view_instances(applicat
     window.close()
 
 
-def test_global_export_menu_retains_previous_export_capabilities(application) -> None:
+def test_stage_local_exports_replace_the_global_header_menu(application) -> None:
     window = MapReconstructionWindow()
-    labels = {
-        action.text()
-        for action in window.workflow_header.export_menu.actions()
-        if action.text()
-    }
-    assert {
-        "Prepared time trace",
-        "Raw reconstructed map",
-        "Processed map",
-        "Both maps",
-        "Parameter summary",
-        "PDF report",
-    }.issubset(labels)
+    assert not hasattr(window.workflow_header, "export_menu")
+    assert window.preparation_page.export_button.text() == "Export prepared trace"
+    assert not hasattr(window.preparation_page, "save_project_button")
+    assert window.inspector.export_reconstructed_button.text() == "Export reconstructed map"
+    assert window.analysis_page.save_project_button.text() == "Save Project"
+    assert window.analysis_page.export_processed_button.text() == "Export processed map"
+    assert window.analysis_page.export_report_button.text() == "Export HTML report"
     window.close()
 
 
@@ -278,9 +271,7 @@ def test_project_with_incomplete_manual_preparation_opens_as_repairable_workspac
         point_offset=0,
         processing=MapProcessingConfig(),
         flip_y=False,
-        preparation=SignalPreparationConfig(
-            dark_correction_mode=DarkCorrectionMode.MANUAL_REGIONS
-        ),
+        preparation=SignalPreparationConfig(dark_correction_mode=DarkCorrectionMode.MANUAL_REGIONS),
     )
     save_project(project, state, _raw_csv())
 

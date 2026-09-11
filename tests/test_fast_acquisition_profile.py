@@ -4,9 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from keith_ivt.acquisition import FAST_NPLC, resolve_time_acquisition
+from keith_ivt.acquisition import (
+    FAST_NPLC,
+    fast_profiles_available,
+    resolve_time_acquisition,
+)
 from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
 from keith_ivt.core.sweep_runner import SweepRunner
+from keith_ivt.drivers.base import DriverCapabilities, supports_fast_acquisition_for_idn
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.models import SweepConfig, SweepKind, SweepMode, validate_config
 
@@ -116,6 +121,8 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
 
     assert ":SENS:CURR:NPLC 0.1" in commands
     assert ":SENS:FUNC:CONC OFF" in commands
+    concurrent_index = commands.index(":SENS:FUNC:CONC OFF")
+    assert commands[concurrent_index + 1] == ":SENS:FUNC 'CURR'"
     assert ":SENS:AVER:STAT OFF" in commands
     assert ":DISP:ENAB ON" in commands
     assert ":SYST:AZER:STAT ONCE" in commands
@@ -123,8 +130,7 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
     assert ":SYST:AZER:STAT OFF" in commands
     autozero_sequence = [":SYST:AZER:STAT ONCE", "*WAI", ":SYST:AZER:STAT OFF"]
     assert any(
-        commands[offset : offset + 3] == autozero_sequence
-        for offset in range(len(commands) - 2)
+        commands[offset : offset + 3] == autozero_sequence for offset in range(len(commands) - 2)
     )
     assert ":TRIG:DEL 0" in commands
     assert ":FORM:ELEM CURR" in commands
@@ -140,6 +146,31 @@ def test_fast_profile_configures_measurement_only_without_per_point_range_querie
     assert meter.get_current_autorange() is False
     assert meter.get_current_range() == pytest.approx(1e-3)
     assert query_commands == [":READ?"]
+
+
+def test_custom_concurrent_setup_restores_the_intended_voltage_measurement_function() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    commands: list[str] = []
+    meter.write = commands.append  # type: ignore[method-assign]
+    meter.query = lambda command: "0.25,-4.2E-4"  # type: ignore[method-assign]
+    config = _time_config(
+        mode=SweepMode.CURRENT_SOURCE,
+        fast_acquisition=False,
+        custom_acquisition=True,
+        concurrent_measurement=False,
+    )
+    meter.configure_for_sweep(config)
+    concurrent_index = commands.index(":SENS:FUNC:CONC OFF")
+    assert commands[concurrent_index + 1] == ":SENS:FUNC 'VOLT'"
+
+
+def test_keithley_overflow_sentinel_is_returned_as_nan_not_a_scientific_value() -> None:
+    meter = Keithley2400Serial("COM_FAKE")
+    meter._measurement_only_read = True
+    meter.query = lambda command: "9.91E+37"  # type: ignore[method-assign]
+    _source, measured = meter.read_source_and_measure()
+    assert measured != measured
+    assert meter._normalise_measurement(1e30) == pytest.approx(1e30)
 
 
 def test_standard_profile_keeps_two_field_readback() -> None:
@@ -162,12 +193,18 @@ class _Clock:
     def monotonic(self) -> float:
         return self.now
 
+    def perf_counter_ns(self) -> int:
+        return round(self.now * 1e9)
+
 
 class _FastMeter:
     def __init__(self, clock: _Clock) -> None:
         self.clock = clock
         self.source_sets: list[float] = []
         self.reads = 0
+        self.capabilities = DriverCapabilities(
+            name="test", vendor="test", model_family="test", supports_fast_acquisition=True
+        )
 
     def reset(self) -> None:
         pass
@@ -198,6 +235,9 @@ class _FastMeter:
 
 def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> None:
     meter = Keithley2400Serial("COM_FAKE")
+    meter.capabilities = DriverCapabilities(  # type: ignore[attr-defined]
+        name="test", vendor="test", model_family="test", supports_fast_acquisition=True
+    )
     writes: list[str] = []
     reads: list[str] = []
     meter.write = writes.append  # type: ignore[method-assign]
@@ -230,12 +270,92 @@ def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> Non
     assert len(source_writes) == len(result.points) + 1
 
 
+def test_fast_support_identity_matrix() -> None:
+    assert supports_fast_acquisition_for_idn(
+        "KEITHLEY INSTRUMENTS INC.,MODEL 2401,4612952,B02"
+    )
+    # Only MODEL 2401 is validated for Fast in this release; other 2400-series
+    # remain Standard-only until explicitly re-validated.
+    assert not supports_fast_acquisition_for_idn("Keithley Instruments Inc., Model 2400")
+    assert not supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2410,123")
+    assert supports_fast_acquisition_for_idn("SIMULATED Keithley 2400")
+    assert not supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2450")
+    assert not supports_fast_acquisition_for_idn("Generic IV instrument")
+    assert not supports_fast_acquisition_for_idn("")
+
+
+def test_fast_profile_availability_matrix() -> None:
+    assert fast_profiles_available(connected=False, simulator=False, supports_fast_acquisition=False)
+    assert fast_profiles_available(connected=False, simulator=False, supports_fast_acquisition=True)
+    assert fast_profiles_available(connected=True, simulator=True, supports_fast_acquisition=False)
+    assert fast_profiles_available(
+        connected=True, simulator=False, supports_fast_acquisition=True
+    )
+    assert not fast_profiles_available(
+        connected=True, simulator=False, supports_fast_acquisition=False
+    )
+
+
+class _CapabilityMeter(_FastMeter):
+    def __init__(self, clock: _Clock, supports_fast: bool) -> None:
+        super().__init__(clock)
+        self.capabilities = DriverCapabilities(
+            name="test meter",
+            vendor="test",
+            model_family="test",
+            supports_fast_acquisition=supports_fast,
+        )
+
+
+def test_fast_runtime_guard_rejects_unvalidated_instrument() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
+    with pytest.raises(ValueError, match="not validated"):
+        SweepRunner(meter).run(config)
+
+
+def test_fast_runtime_guard_rejects_unvalidated_custom_overrides() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    config = _time_config(custom_acquisition=True, source_write_each_sample=True)
+    with pytest.raises(ValueError, match="not validated"):
+        SweepRunner(meter).run(config)
+
+
+def test_fast_runtime_guard_allows_standard_on_unvalidated_instrument() -> None:
+    clock = _Clock()
+    meter = _CapabilityMeter(clock, supports_fast=False)
+    control = CurrentRangeControl(
+        CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)
+    )
+    result = SweepRunner(meter).run(
+        _time_config(nplc=0.1, delay_s=0.0, duration_s=0.06, interval_s=0.02),
+        current_range_control=control,
+    )
+    assert len(result.points) == 4
+
+
+def test_fast_runtime_guard_allows_validated_and_legacy_instruments(monkeypatch) -> None:
+    import keith_ivt.core.sweep_runner as runner_module
+
+    for meter in (_CapabilityMeter(_Clock(), True), _FastMeter(_Clock())):
+        clock = meter.clock
+        monkeypatch.setattr(runner_module, "_acquisition_clock_ns", clock.perf_counter_ns)
+        config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
+        control = CurrentRangeControl(
+            CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)
+        )
+        result = SweepRunner(meter).run(config, current_range_control=control)
+        assert len(result.points) == 3
+
+
 def test_fast_finite_time_sweep_is_duration_based_and_has_no_interval_wait(monkeypatch) -> None:
     import keith_ivt.core.sweep_runner as runner_module
 
     clock = _Clock()
     meter = _FastMeter(clock)
-    monkeypatch.setattr(runner_module.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(runner_module, "_acquisition_clock_ns", clock.perf_counter_ns)
     config = _time_config(fast_acquisition=True, duration_s=0.025, interval_s=99.0)
     control = CurrentRangeControl(
         CurrentRangeState(autorange=False, actual_range_A=1e-3, fixed_range_A=1e-3)

@@ -101,6 +101,20 @@ def test_real_2400_connection_beeps_after_idn_and_remains_connected() -> None:
     assert harness._active_capabilities.model_family == "2400-series-smu"
 
 
+def test_real_2401_uses_2400_series_capabilities_and_beeps_once() -> None:
+    probe = _Probe("KEITHLEY INSTRUMENTS INC.,MODEL 2401,123,1.0")
+    harness = _HardwareHarness(probe)
+
+    harness.connect_or_check()
+
+    capabilities = harness._active_capabilities
+    assert capabilities.model_family == "2400-series-smu"
+    assert capabilities.supports_voltage_source is True
+    assert capabilities.supports_current_source is True
+    assert capabilities.supports_4wire is True
+    assert probe.beep_calls == 1
+
+
 def test_beep_failure_does_not_invalidate_connection(monkeypatch) -> None:
     probe = _Probe(
         "KEITHLEY,MODEL 2400,123,1.0",

@@ -21,6 +21,7 @@ class Keithley2400Driver:
         supports_cv=False,
         supports_front_rear=True,
         supports_4wire=True,
+        supports_fast_acquisition=True,
     )
 
     def __init__(self) -> None:

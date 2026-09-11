@@ -1,5 +1,104 @@
 # Current Test Status
 
+## 2026-09-11 - Time plot live/static semantics and acquisition UI follow-up
+
+### HappyMeasure validation
+
+- Focused Time plot regressions pass for pre-coordinate Last-N slicing,
+  preserved full completed/imported traces, full-range extrema envelopes,
+  live-axis stability, and the existing refresh/completion contracts. Live
+  Last-N uses only the display subset; the authoritative 76,677-point
+  sequence remains intact. The pre-existing 50 ms frame-rate sleep test is
+  timing-sensitive when run after the full group, but passes in isolation.
+- Advanced Acquisition regressions pass for labeled Checkbuttons, grouped
+  responsive controls, immediate Digital filter → Filter count dependency,
+  and Standard/Fast disabling. Settings diagnostics rebuild regression also
+  passes, including bottom-button reachability and child-control mouse-wheel
+  scrolling.
+- Ruff and Black checks pass for all changed sources/tests. Native hardware was
+  not connected or exercised in this UI-only follow-up.
+
+### Map Reconstruction validation
+
+- Existing source-handoff lifecycle changes remain in the working tree. The
+  Map UI and release/export tests pass when run with access to the host
+  temporary directory; the sandbox-only run was blocked by its Windows
+  `WinError 5` ACL while pytest created/cleaned `basetemp`.
+
+## 2026-09-11 - Time plot display policy, Map color shortcuts, and export naming
+
+### HappyMeasure validation
+
+- Focused display/export gate: **30 passed** across Time display policies,
+  incremental plot rendering, export naming, and the existing export-log UI.
+- Time marker policy, All data/Last N points slicing, independent trace-length
+  handling, invalid point-count normalization, and forced completion refreshes
+  are display-only. Acquisition points, completed results, and CSV exports are
+  unchanged.
+- Selected-trace CSV naming now constructs a renamed `SweepResult` before
+  naming/saving, so device names containing underscores cannot duplicate a
+  suffix. Constant Time and Adaptive tags contain one kind token and one point
+  count. Export timestamps remain export-time timestamps.
+
+### Map Reconstruction validation
+
+- Full offscreen UI regression gate: **38 passed**. Analysis Manual range now
+  offers Use data min/max shortcuts, Palette exposes Flip color, and percentile
+  controls are explicitly labelled as percentile ranks. The shortcuts copy
+  display-scaled finite processed-data extremes without mutating processed
+  scientific values.
+- Focused HappyMeasure closeout/recovery/layout gate: **58 passed**.
+- Ruff, Black, mypy, and compileall passed for all changed Python sources and
+  tests.
+
+## 2026-09-11 - Map Reconstruction source handoff and QC layout
+
+### Map Reconstruction validation
+
+- Reconstruction now shows only the map and `Samples / pixel`; `Distribution`
+  remains in Analysis, where the three-column workspace keeps its two
+  diagnostics visible together.
+- Loading a new CSV clears old derived map/QC state before the prepared signal
+  is handed to reconstruction. Focused offscreen Qt regressions cover both
+  successful source replacement and the no-geometry waiting state. No
+  measurement, export, or hardware behavior changed.
+
+## 2026-09-10 - Map workflow close-out and elapsed-time remediation
+
+### Map Reconstruction validation
+
+- Scoped Map Reconstruction gate: **151 passed**, using a repository-local
+  pytest base temporary directory to avoid the Windows system-temp ACL issue.
+- The Analysis workspace is now a horizontal controls/map/diagnostics splitter
+  with a vertical Samples / pixel + Distribution diagnostics splitter. Focused
+  regressions cover simultaneous diagnostics, usable region minima, one source
+  of scientific state, distribution-only histogram controls, display-only
+  colour limits, stage-local exports, repairable preparation errors, HTML
+  reporting, and reversible palette inversion.
+- Offscreen screenshots for all three stages at 1280×800, 1600×900, and
+  1920×1000 showed the resizable regions without major clipping. The offscreen
+  Qt font backend rendered text as glyph boxes, so this was layout-only review;
+  no native desktop window was inspected.
+
+### HappyMeasure validation
+
+- Focused hardware/acquisition gate: **76 passed** (Fast profile, 2401
+  connection/beep, SCPI command ordering, Constant-Time timing and pause,
+  CSV round trips, range labels/telemetry wording, and front-panel contracts).
+- `SweepRunner` now uses `time.perf_counter_ns()` for acquisition timestamps,
+  deadline scheduling, and pause bookkeeping. CSV writes 17 significant
+  elapsed-time digits; Data Table displays the same precision. Regression
+  coverage preserves closely-spaced timestamps through HappyMeasure export,
+  re-import, and Map Reconstruction import.
+- A recognised Keithley overflow is omitted only from Constant-Time result
+  points, recorded as an acquisition warning/CSV metadata, and followed by the
+  next read; unrelated non-finite readback remains an error. Step/Adaptive
+  behavior remains conservative.
+- The operator, not this validation session, physically retested the Fast
+  2401 V-source/current-measure SCPI sequence and reported normal current
+  measurement without persistent `9.91E+37`.
+- Ruff, Black, mypy, and compileall passed for all changed modules.
+
 ## 2026-09-10 - Fast Acquisition merge blockers (final)
 
 ### HappyMeasure validation

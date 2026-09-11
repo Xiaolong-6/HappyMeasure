@@ -11,6 +11,8 @@ from keith_ivt.services.serial_safety import OutputOffGuard, SerialRetryPolicy
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind
 
 _SERIAL_IMPORT_ERROR: ImportError | None
+_KEITHLEY_OVERFLOW_SENTINEL = 9.91e37
+_KEITHLEY_OVERFLOW_TOLERANCE = 0.01e37
 try:
     serial: Any = import_module("serial")
 except ImportError as exc:  # pragma: no cover
@@ -42,6 +44,7 @@ class Keithley2400Serial(SourceMeter):
         self._cached_autorange = True
         self._cached_measure_range = 0.0
         self._restore_fast_settings = False
+        self._measurement_overflow_pending = False
 
     def connect(self) -> None:
         if serial is None:
@@ -152,9 +155,11 @@ class Keithley2400Serial(SourceMeter):
 
         if acquisition.apply_instrument_overrides:
             self.write(f":TRIG:DEL {acquisition.trigger_delay_s:.12g}")
-            self.write(
-                f":SENS:FUNC:CONC {'ON' if acquisition.concurrent_measurement else 'OFF'}"
-            )
+            self.write(f":SENS:FUNC:CONC {'ON' if acquisition.concurrent_measurement else 'OFF'}")
+            # On a 2400-series SMU, changing concurrent-function state can
+            # replace the selected function. Restore the configured quantity
+            # after that command; this is setup-only, never a Fast hot-path write.
+            self.write(f":SENS:FUNC '{meas}'")
             if acquisition.digital_filter:
                 self.write(":SENS:AVER:TCON REP")
                 self.write(f":SENS:AVER:COUN {int(acquisition.digital_filter_count)}")
@@ -187,16 +192,33 @@ class Keithley2400Serial(SourceMeter):
         self.write(f":SOUR:{source_cmd} {value:.12g}")
 
     def read_source_and_measure(self) -> tuple[float, float]:
+        self._measurement_overflow_pending = False
         raw = self.query(":READ?")
         parts = [p.strip() for p in raw.replace(";", ",").split(",") if p.strip()]
         numbers = [float(p) for p in parts]
         if self._measurement_only_read:
             if not numbers:
                 raise ValueError(f"Could not parse measurement from response: {raw!r}")
-            return self._cached_source_value, numbers[0]
+            return self._cached_source_value, self._normalise_measurement(numbers[0])
         if len(numbers) < 2:
             raise ValueError(f"Could not parse source/measure pair from response: {raw!r}")
-        return numbers[0], numbers[1]
+        return numbers[0], self._normalise_measurement(numbers[1])
+
+    def _normalise_measurement(self, value: float) -> float:
+        """Convert only the documented Keithley overflow sentinel to NaN."""
+
+        numeric = float(value)
+        if abs(abs(numeric) - _KEITHLEY_OVERFLOW_SENTINEL) <= _KEITHLEY_OVERFLOW_TOLERANCE:
+            self._measurement_overflow_pending = True
+            return math.nan
+        return numeric
+
+    def consume_measurement_overflow(self) -> bool:
+        """Return whether the most recent READ? contained Keithley's overflow sentinel."""
+
+        overflowed = self._measurement_overflow_pending
+        self._measurement_overflow_pending = False
+        return overflowed
 
     def output_on(self) -> None:
         self.write(":OUTP ON")

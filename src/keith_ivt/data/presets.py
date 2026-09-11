@@ -8,7 +8,63 @@ from typing import Any
 from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
 
 PRESETS_PATH = Path("config") / "presets.json"
-PRESET_SCHEMA_VERSION = 2
+PRESET_SCHEMA_VERSION = 3
+
+ACQUISITION_PROFILES = ("Standard", "Fast", "Custom")
+
+
+def default_acquisition_state() -> dict[str, Any]:
+    """Return a fresh conservative Standard acquisition block.
+
+    Old presets without acquisition data normalize to this; Fast is never
+    inferred from NPLC or range settings.
+    """
+
+    return {
+        "profile": "Standard",
+        "zero_refresh_before_run": False,
+        "autozero_during_run": True,
+        "digital_filter": False,
+        "digital_filter_count": 2,
+        "concurrent_measurement": True,
+        "display_during_run": True,
+        "measurement_only_read": False,
+        "range_telemetry": True,
+        "source_write_each_sample": False,
+        "trigger_delay_s": 0.0,
+    }
+
+
+def clean_acquisition_state(raw: Any) -> dict[str, Any]:
+    """Validate a stored acquisition block, falling back to Standard."""
+
+    state = default_acquisition_state()
+    if not isinstance(raw, dict):
+        return state
+    profile = str(raw.get("profile", "Standard")).strip()
+    state["profile"] = profile if profile in ACQUISITION_PROFILES else "Standard"
+    for key in (
+        "zero_refresh_before_run",
+        "autozero_during_run",
+        "digital_filter",
+        "concurrent_measurement",
+        "display_during_run",
+        "measurement_only_read",
+        "range_telemetry",
+        "source_write_each_sample",
+    ):
+        state[key] = _bool_value(raw.get(key), state[key])
+    try:
+        count = int(raw.get("digital_filter_count", 2))
+    except (TypeError, ValueError):
+        count = 2
+    state["digital_filter_count"] = count if count >= 1 else 2
+    try:
+        trigger = float(raw.get("trigger_delay_s", 0.0))
+    except (TypeError, ValueError):
+        trigger = 0.0
+    state["trigger_delay_s"] = trigger if trigger >= 0 else 0.0
+    return state
 
 # Retained as a compatibility name for callers that still import it. New
 # presets use the nested v2 snapshot below, not these legacy flat keys.
@@ -102,6 +158,7 @@ def _snapshot_from_flat(data: dict[str, Any]) -> dict[str, Any]:
     else:
         parameters = {}
     sweep["parameters"] = parameters
+    sweep["acquisition"] = default_acquisition_state()
 
     return {
         "schema_version": PRESET_SCHEMA_VERSION,
@@ -180,9 +237,23 @@ def default_sweep_preset() -> dict[str, Any]:
     return _snapshot_from_flat(asdict(AppSettings()))
 
 
+def _clean_v3(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a v2/v3 snapshot, preserving validated acquisition state."""
+
+    cleaned = _clean_v2(data)
+    raw_sweep = data.get("sweep")
+    raw_acquisition = raw_sweep.get("acquisition") if isinstance(raw_sweep, dict) else None
+    cleaned["sweep"]["acquisition"] = clean_acquisition_state(raw_acquisition)
+    return cleaned
+
+
 def _clean(data: dict[str, Any]) -> dict[str, Any]:
-    if data.get("schema_version") == PRESET_SCHEMA_VERSION:
-        return _clean_v2(data)
+    if isinstance(data, dict) and data.get("schema_version") in (2, PRESET_SCHEMA_VERSION):
+        # v2 presets normalize forward; missing acquisition data means
+        # historical Standard behavior, never inferred Fast.
+        return _clean_v3(data)
+    # Legacy flat presets convert directly; _snapshot_from_flat stamps the
+    # current version with a Standard acquisition block.
     return _snapshot_from_flat(data)
 
 

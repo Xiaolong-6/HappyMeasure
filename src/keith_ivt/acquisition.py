@@ -38,6 +38,20 @@ class TimeAcquisitionSettings:
     trigger_delay_s: float
 
 
+def fast_profiles_available(
+    *, connected: bool, simulator: bool, supports_fast_acquisition: bool
+) -> bool:
+    """Return whether Fast/Custom profiles may be offered for a connection.
+
+    Disconnected sessions keep the existing options (no run is possible
+    anyway); connected real instruments must advertise validated Fast support.
+    """
+
+    if not connected or simulator:
+        return True
+    return bool(supports_fast_acquisition)
+
+
 def resolve_time_acquisition(config: SweepConfig) -> TimeAcquisitionSettings:
     """Resolve Standard/Fast/Custom Constant-Time settings without touching UI state."""
 

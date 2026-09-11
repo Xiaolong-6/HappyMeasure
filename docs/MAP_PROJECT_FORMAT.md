@@ -30,9 +30,12 @@ and the active window width. V2 deliberately omits Legacy-only `point_offset`
 and does not store endpoint or fallback compatibility metadata.
 
 V3 adds a `preparation` object tied to `source.signal`. It stores the active
-time-domain dark-correction mode, constant/manual/rolling parameters, manual
-dark regions, response direction, value gate, and output convention. V1 and V2
-load with identity preparation, preserving their historical numerical semantics.
+baseline model, constant/manual/rolling parameters, manual regions, response
+direction, value gate, and the independent `apply_baseline` / `invert_signal`
+operations. The historic dark-correction mode and output convention are kept in
+the payload for v3 compatibility: active old modes map to subtraction, while
+`dark_minus_measured` additionally maps to inversion. V1 and V2 load with
+identity preparation, preserving their historical numerical semantics.
 Identity preparation continues to save as V1 or V2 so older project semantics
 are not rewritten unnecessarily.
 

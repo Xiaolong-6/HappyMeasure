@@ -81,6 +81,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._y_data: list[float] = []
         self._live_points: list[SweepPoint] = []
         self._live_config: SweepConfig | None = None
+        self._last_live_plot_refresh_at: float | None = None
         self._update_check_in_progress = False
         self._last_update_check_result: dict[str, str | None] | None = None
         self._last_update_check_timestamp: float | None = None
@@ -153,6 +154,18 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self.plot_number_format = StringVar(value="Auto")
         self.plot_x_unit = StringVar(value="Auto")
         self.plot_y_unit = StringVar(value="Auto")
+        self.time_plot_marker_mode = StringVar(
+            value=getattr(self.settings, "time_plot_marker_mode", "Auto")
+        )
+        self.time_plot_history_mode = StringVar(
+            value=getattr(self.settings, "time_plot_history_mode", "Last N points")
+        )
+        self.time_plot_history_points = IntVar(
+            value=getattr(self.settings, "time_plot_history_points", 5000)
+        )
+        self.time_plot_refresh_ms = IntVar(
+            value=getattr(self.settings, "time_plot_refresh_ms", 250)
+        )
         self.trace_column_vars: dict[str, BooleanVar] = {
             "show": BooleanVar(value=True),
             "color": BooleanVar(value=True),
@@ -248,7 +261,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
             self._sync_adaptive_logic_text()
         acquisition_kwargs = self._acquisition_profile_config_kwargs(sweep_kind)
         effective_nplc = 0.1 if acquisition_kwargs["fast_acquisition"] else float(self.nplc.get())
-        effective_delay = 0.0 if acquisition_kwargs["fast_acquisition"] else float(self.delay_s.get())
+        effective_delay = (
+            0.0 if acquisition_kwargs["fast_acquisition"] else float(self.delay_s.get())
+        )
         return SweepConfig(
             mode=self._mode_from_ui(),
             start=float(self.start.get()),
@@ -290,7 +305,9 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
 
     def _show_plot_more_menu(self) -> None:
         menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
-        layout_menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
+        layout_menu = make_touch_menu(
+            self.root, self.ui_font_family.get(), int(self.ui_font_size.get())
+        )
         for label in ["Auto", "Horizontal", "Vertical"]:
             layout_menu.add_radiobutton(
                 label=label, variable=self.arrangement, value=label, command=self._redraw_all_plots

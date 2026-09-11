@@ -7,6 +7,8 @@ from tkinter import ttk
 
 from keith_ivt.data.presets import (
     PRESET_SCHEMA_VERSION,
+    clean_acquisition_state,
+    default_acquisition_state,
     delete_preset,
     load_presets,
     normalize_preset,
@@ -40,6 +42,10 @@ class SettingsPresetMixin(UiMixinTyping):
             default_device_name=self.device_name.get(),
             default_operator=self.operator.get(),
             default_plot_layout=self.arrangement.get(),
+            time_plot_marker_mode=self.time_plot_marker_mode.get(),
+            time_plot_history_mode=self.time_plot_history_mode.get(),
+            time_plot_history_points=int(self.time_plot_history_points.get()),
+            time_plot_refresh_ms=int(self.time_plot_refresh_ms.get()),
             cache_enabled=bool(self.cache_enabled.get()),
             cache_interval_points=int(self.cache_interval_points.get()),
             default_autorange=bool(self.auto_source_range.get() and self.auto_measure_range.get()),
@@ -377,6 +383,10 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_sense_mode": settings.default_sense_mode,
             # Plot & Display
             "default_plot_layout": settings.default_plot_layout,
+            "time_plot_marker_mode": settings.time_plot_marker_mode,
+            "time_plot_history_mode": settings.time_plot_history_mode,
+            "time_plot_history_points": settings.time_plot_history_points,
+            "time_plot_refresh_ms": settings.time_plot_refresh_ms,
             # UI Appearance
             "ui_font_family": settings.ui_font_family,
             "ui_font_size": settings.ui_font_size,
@@ -395,6 +405,9 @@ class SettingsPresetMixin(UiMixinTyping):
                 "default_terminal": ["FRON", "REAR"],
                 "default_sense_mode": ["2W", "4W"],
                 "default_plot_layout": ["Auto", "Horizontal", "Vertical"],
+                "time_plot_marker_mode": ["Auto", "On", "Off"],
+                "time_plot_history_mode": ["All data", "Last N points"],
+                "time_plot_refresh_ms": [100, 250, 500, 1000],
                 "ui_font_family": (
                     self._available_ui_fonts()
                     if hasattr(self, "_available_ui_fonts")
@@ -446,8 +459,9 @@ class SettingsPresetMixin(UiMixinTyping):
         for name in sorted(load_presets().keys(), key=lambda n: (n != "Default", n.lower())):
             self.preset_list.insert("", END, values=(name,))
 
-    def _fast_preset_review(self, name: str, data: dict) -> dict | None:
-        """Review the exact Hardware + visible Sweep snapshot before saving."""
+    @staticmethod
+    def _preset_review_message(name: str, data: dict) -> str:
+        """Render the operator-facing Save Preset review text for a snapshot."""
         hardware = data["hardware"]
         sweep = data["sweep"]
         parameters = sweep["parameters"]
@@ -477,6 +491,27 @@ class SettingsPresetMixin(UiMixinTyping):
         if "debug_model" in sweep:
             lines.append(f"Debug model: {display(sweep['debug_model'])}")
 
+        acquisition = sweep.get("acquisition") or {}
+        profile = str(acquisition.get("profile", "Standard"))
+        lines.extend(["", "[Acquisition]", f"Profile: {profile}"])
+        if profile == "Custom":
+            acquisition_labels = {
+                "zero_refresh_before_run": "Zero refresh before run",
+                "autozero_during_run": "Auto zero during run",
+                "digital_filter": "Digital filter",
+                "digital_filter_count": "Digital filter count",
+                "concurrent_measurement": "Concurrent measurement",
+                "display_during_run": "Instrument display",
+                "measurement_only_read": "Measurement-only read",
+                "range_telemetry": "Live range telemetry",
+                "source_write_each_sample": "Source write each sample",
+                "trigger_delay_s": "Trigger delay (s)",
+            }
+            lines.extend(
+                f"{label}: {display(acquisition.get(key))}"
+                for key, label in acquisition_labels.items()
+            )
+
         parameter_labels = {
             "start": "Start",
             "stop": "Stop",
@@ -495,10 +530,11 @@ class SettingsPresetMixin(UiMixinTyping):
                 for key, value in parameters.items()
             )
 
-        message = f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(
-            lines
-        )
-        if messagebox.askyesno("Review Sweep Preset", message):
+        return f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(lines)
+
+    def _fast_preset_review(self, name: str, data: dict) -> dict | None:
+        """Review the exact Hardware + visible Sweep snapshot before saving."""
+        if messagebox.askyesno("Review Sweep Preset", self._preset_review_message(name, data)):
             return data
         return None
 
@@ -536,6 +572,49 @@ class SettingsPresetMixin(UiMixinTyping):
             delete_preset(name)
             self.refresh_preset_list()
             self.log_event(f"Preset deleted: {name}")
+
+    def _current_acquisition_snapshot(self, kind: str) -> dict:
+        """Capture the acquisition profile truthfully for the active sweep kind."""
+        try:
+            self._ensure_acquisition_vars()
+            profile = self.acquisition_profile.get()
+        except Exception:
+            return default_acquisition_state()
+        if kind != "TIME" or profile not in {"Standard", "Fast", "Custom"}:
+            return default_acquisition_state()
+        try:
+            return {
+                "profile": profile,
+                "zero_refresh_before_run": bool(self.zero_refresh_before_run.get()),
+                "autozero_during_run": bool(self.autozero_during_run.get()),
+                "digital_filter": bool(self.digital_filter.get()),
+                "digital_filter_count": int(self.digital_filter_count.get()),
+                "concurrent_measurement": bool(self.concurrent_measurement.get()),
+                "display_during_run": bool(self.display_during_run.get()),
+                "measurement_only_read": bool(self.measurement_only_read.get()),
+                "range_telemetry": bool(self.range_telemetry.get()),
+                "source_write_each_sample": bool(self.source_write_each_sample.get()),
+                "trigger_delay_s": float(self.trigger_delay_s.get()),
+            }
+        except Exception:
+            return default_acquisition_state()
+
+    def _apply_acquisition_snapshot(self, raw) -> None:
+        """Restore a validated acquisition block without rebuilding pages."""
+        state = clean_acquisition_state(raw)
+        self._ensure_acquisition_vars()
+        self.acquisition_profile.set(state["profile"])
+        self.zero_refresh_before_run.set(state["zero_refresh_before_run"])
+        self.autozero_during_run.set(state["autozero_during_run"])
+        self.digital_filter.set(state["digital_filter"])
+        self.digital_filter_count.set(state["digital_filter_count"])
+        self.concurrent_measurement.set(state["concurrent_measurement"])
+        self.display_during_run.set(state["display_during_run"])
+        self.measurement_only_read.set(state["measurement_only_read"])
+        self.range_telemetry.set(state["range_telemetry"])
+        self.source_write_each_sample.set(state["source_write_each_sample"])
+        self.trigger_delay_s.set(state["trigger_delay_s"])
+        self._apply_acquisition_profile_state()
 
     def _current_preset_snapshot(self) -> dict:
         """Capture only the editable Hardware page and visible Sweep state."""
@@ -577,6 +656,7 @@ class SettingsPresetMixin(UiMixinTyping):
         else:
             parameters = {}
         sweep["parameters"] = parameters
+        sweep["acquisition"] = self._current_acquisition_snapshot(kind)
 
         return {
             "schema_version": PRESET_SCHEMA_VERSION,
@@ -645,6 +725,7 @@ class SettingsPresetMixin(UiMixinTyping):
             elif kind == "ADAPTIVE":
                 self.adaptive_segments.set(parameters["segments"])
                 self.adaptive_remove_duplicates.set(bool(parameters["remove_duplicates"]))
+            self._apply_acquisition_snapshot(sweep.get("acquisition"))
         finally:
             self._applying_preset = False
 
@@ -682,6 +763,10 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_device_name": self.device_name,
             "default_operator": self.operator,
             "default_plot_layout": self.arrangement,
+            "time_plot_marker_mode": self.time_plot_marker_mode,
+            "time_plot_history_mode": self.time_plot_history_mode,
+            "time_plot_history_points": self.time_plot_history_points,
+            "time_plot_refresh_ms": self.time_plot_refresh_ms,
             "cache_enabled": self.cache_enabled,
             "cache_interval_points": self.cache_interval_points,
             "default_autorange": self.autorange,

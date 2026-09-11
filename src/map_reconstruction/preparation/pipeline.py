@@ -9,7 +9,6 @@ from map_reconstruction.models import TimeSeriesData
 from .models import (
     DarkCorrectionMode,
     ManualRegionFit,
-    OutputConvention,
     PhotocurrentPolarity,
     PreparedSignal,
     RollingTrend,
@@ -26,9 +25,8 @@ def _eligible(values: np.ndarray, config: SignalPreparationConfig) -> np.ndarray
 def _apply_convention(
     values: np.ndarray, baseline: np.ndarray, config: SignalPreparationConfig
 ) -> np.ndarray:
-    if config.output_convention is OutputConvention.MEASURED_MINUS_DARK:
-        return values - baseline
-    return baseline - values
+    prepared = values - baseline if config.apply_baseline else values.copy()
+    return -prepared if config.invert_signal else prepared
 
 
 def _manual_baseline(
@@ -50,7 +48,7 @@ def _manual_baseline(
     }[config.manual_region_fit]
     if len(estimates) < degree + 1:
         raise ValueError(
-            f"{config.manual_region_fit.value.title()} dark fit requires at least {degree + 1} valid regions."
+            f"{config.manual_region_fit.value.title()} baseline fit requires at least {degree + 1} valid regions."
         )
     anchors_t = np.asarray([item[0] for item in estimates], dtype=float)
     anchors_b = np.asarray([item[1] for item in estimates], dtype=float)
@@ -120,9 +118,8 @@ def prepare_signal(
 ) -> PreparedSignal:
     """Prepare one imported trace without mutating ``data``.
 
-    ``None`` mode is a strict identity copy: no baseline and no sign conversion
-    are applied. Active modes produce a finite baseline and apply the explicit
-    output convention selected by the operator.
+    A baseline can be estimated and displayed without being subtracted.  The
+    mathematical operation and optional sign inversion are independent.
     """
 
     config = config or SignalPreparationConfig()
@@ -133,7 +130,15 @@ def prepare_signal(
     if time.size == 0:
         raise ValueError("Cannot prepare an empty signal.")
     if config.dark_correction_mode is DarkCorrectionMode.NONE:
-        return PreparedSignal(time, values, signal, None, (), {"mode": "none"})
+        prepared = -values if config.invert_signal else values
+        return PreparedSignal(
+            time,
+            prepared,
+            signal,
+            None,
+            (),
+            {"mode": "none", "apply_baseline": False, "invert_signal": config.invert_signal},
+        )
     warnings: list[str] = []
     if config.dark_correction_mode is DarkCorrectionMode.CONSTANT:
         baseline = np.full(values.shape, config.constant_baseline, dtype=float)
@@ -146,6 +151,8 @@ def prepare_signal(
     metadata = {
         "mode": config.dark_correction_mode.value,
         "output_convention": config.output_convention.value,
+        "apply_baseline": config.apply_baseline,
+        "invert_signal": config.invert_signal,
         "candidate_count": candidate_count,
         "baseline_start": float(baseline[0]),
         "baseline_end": float(baseline[-1]),

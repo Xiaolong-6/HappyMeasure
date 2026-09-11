@@ -26,6 +26,7 @@ class SimulatedSMUDriver:
         supports_cv=True,
         supports_front_rear=True,
         supports_4wire=True,
+        supports_fast_acquisition=True,
     )
 
     def __init__(

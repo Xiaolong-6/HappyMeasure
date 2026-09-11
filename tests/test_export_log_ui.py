@@ -27,6 +27,20 @@ def _result(name="Device_A", operator="XL", y_scale=1.0):
     return SweepResult(cfg, pts)
 
 
+def _kind_result(kind: SweepKind, *, name: str = "Device_A", points: int = 3) -> SweepResult:
+    cfg = SweepConfig(
+        mode=SweepMode.VOLTAGE_SOURCE,
+        start=0.0,
+        stop=0.2,
+        step=0.1,
+        compliance=0.01,
+        device_name=name,
+        sweep_kind=kind,
+        constant_value=0.1,
+    )
+    return SweepResult(cfg, [SweepPoint(float(i), float(i)) for i in range(points)])
+
+
 def test_metadata_fingerprint_distinguishes_same_name_different_data():
     a = _result(y_scale=1.0)
     b = _result(y_scale=2.0)
@@ -71,6 +85,36 @@ def test_export_filename_is_compact_but_informative():
     assert "step" in single
     assert len(single) <= 96
     assert "all-2" in all_name and "Vsrc" in all_name and len(all_name) <= 96
+
+
+def test_selected_export_name_uses_trace_metadata_without_underscore_splicing():
+    result = _result("Ge45o_5mm_ind_y1_x")
+    name = suggested_single_csv_name(result)
+    assert "Ge45o_5mm_ind_y1_x_5mm_ind_y1_x" not in name
+    assert name.endswith(".csv")
+
+    trace_panel = (
+        Path(__file__).resolve().parents[1] / "src/keith_ivt/ui/trace_panel.py"
+    ).read_text(encoding="utf-8")
+    assert "export_result = self._result_with_trace_name(trace)" in trace_panel
+    assert "suggested_single_csv_name(trace.result, trace.name)" not in trace_panel
+
+
+def test_time_and_adaptive_names_do_not_repeat_kind_or_point_count():
+    time_name = suggested_single_csv_name(_kind_result(SweepKind.CONSTANT_TIME, points=7))
+    adaptive_name = suggested_single_csv_name(_kind_result(SweepKind.ADAPTIVE, points=7))
+    assert "time_time" not in time_name
+    assert "adapt_adapt" not in adaptive_name
+    assert time_name.count("7pts") == 1
+    assert adaptive_name.count("7pts") == 1
+
+
+def test_export_name_handles_trace_rename_and_safe_long_tokens():
+    renamed = _result("renamed trace_with-hyphens and spaces" * 4)
+    name = suggested_single_csv_name(renamed)
+    assert "renamed-trace_with" in name
+    assert len(name) <= 96
+    assert name.endswith(".csv")
 
 
 def test_log_rotation_kb_threshold_creates_new_file(tmp_path: Path):

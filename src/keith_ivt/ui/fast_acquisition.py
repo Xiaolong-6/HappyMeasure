@@ -4,11 +4,14 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any
 
-from keith_ivt.acquisition import FAST_BENCHMARK_NOTE, FAST_NPLC
+from keith_ivt.acquisition import (
+    FAST_BENCHMARK_NOTE,
+    FAST_NPLC,
+    fast_profiles_available,
+)
 from keith_ivt.models import SweepKind
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 from keith_ivt.ui.widgets import ToolTip, add_tip
-
 
 PROFILE_STANDARD = "Standard"
 PROFILE_FAST = "Fast"
@@ -76,6 +79,11 @@ class FastAcquisitionMixin(UiMixinTyping):
         }
 
     def _update_dynamic_sweep_fields(self) -> None:
+        if not hasattr(self, "dynamic_box") or not self.dynamic_box.winfo_exists():
+            # Same liveness contract as the base implementation: never build
+            # Fast controls into a Sweep page that no longer exists (for
+            # example after navigating away or while applying a preset).
+            return
         # Sibling SweepConfigMixin provides this at runtime via the MRO.
         super()._update_dynamic_sweep_fields()  # type: ignore[misc]
         if self.sweep_kind.get() != SweepKind.CONSTANT_TIME.value:
@@ -84,6 +92,35 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._ensure_acquisition_vars()
         self._build_fast_acquisition_controls()
         self._apply_acquisition_profile_state()
+
+    def _refresh_acquisition_availability(self) -> None:
+        """Restrict Fast/Custom to validated hardware without touching science state."""
+        combo = getattr(self, "acquisition_profile_combo", None)
+        try:
+            if combo is None or not combo.winfo_exists():
+                return
+            self._ensure_acquisition_vars()
+        except Exception:
+            return
+        capabilities = getattr(self, "_active_capabilities", None)
+        allow_fast = fast_profiles_available(
+            connected=bool(getattr(self, "_connected", False)),
+            simulator=bool(
+                getattr(self, "debug", None) is not None
+                and self.debug.get()
+                or getattr(capabilities, "model_family", "") == "smu-iv"
+            ),
+            supports_fast_acquisition=bool(
+                getattr(capabilities, "supports_fast_acquisition", False)
+            ),
+        )
+        values = (
+            [PROFILE_STANDARD, PROFILE_FAST, PROFILE_CUSTOM] if allow_fast else [PROFILE_STANDARD]
+        )
+        combo.configure(values=values)
+        if self.acquisition_profile.get() not in values:
+            self.acquisition_profile.set(PROFILE_STANDARD)
+            self._apply_acquisition_profile_state()
 
     def _build_fast_acquisition_controls(self) -> None:
         parent = self.dynamic_box
@@ -136,124 +173,133 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._build_advanced_rows(advanced)
         if self.acquisition_advanced_visible.get():
             advanced.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(4, 0))
+        self._refresh_acquisition_availability()
 
     def _build_advanced_rows(self, parent) -> None:
-        ttk.Label(
-            parent,
-            text="Instrument / transfer settings",
-            style="Card.TLabel",
-        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
-
+        parent.columnconfigure(0, weight=1)
         self._advanced_widgets: list[object] = []
 
-        def bool_row(row: int, label: str, var, recommended: str, tip: str) -> None:
-            ttk.Label(parent, text=label, style="Card.TLabel").grid(
-                row=row, column=0, sticky="w", padx=(0, 8), pady=2
+        def group_heading(row: int, label: str) -> int:
+            ttk.Label(parent, text=label, style="Muted.TLabel").grid(
+                row=row, column=0, columnspan=3, sticky="w", pady=(5, 2)
             )
-            widget = ttk.Checkbutton(parent, variable=var)
-            widget.grid(row=row, column=1, sticky="w", pady=2)
-            ttk.Label(parent, text=recommended, style="Muted.TLabel").grid(
-                row=row, column=2, sticky="e", padx=(8, 0), pady=2
-            )
-            add_tip(widget, tip)
-            self._advanced_widgets.append(widget)
+            return row + 1
 
-        bool_row(
-            1,
+        def bool_row(
+            row: int,
+            label: str,
+            var,
+            recommended: str,
+            tip: str,
+            command=None,
+        ) -> int:
+            hover_text = f"{tip}\nRecommended setting: {recommended.removeprefix('Recommended: ')}."
+            widget = ttk.Checkbutton(parent, text=label, variable=var, command=command)
+            widget.grid(row=row, column=0, columnspan=3, sticky="w", pady=1)
+            add_tip(widget, hover_text)
+            self._advanced_widgets.append(widget)
+            return row + 1
+
+        def entry_row(row: int, label: str, variable, tip: str, attribute: str) -> int:
+            label_widget = ttk.Label(parent, text=label, style="Card.TLabel")
+            label_widget.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=2)
+            widget = ttk.Entry(parent, textvariable=variable, width=8)
+            widget.grid(row=row, column=1, sticky="ew", pady=2)
+            add_tip(label_widget, tip)
+            add_tip(widget, tip)
+            setattr(self, attribute, widget)
+            self._advanced_widgets.append(widget)
+            return row + 1
+
+        row = group_heading(0, "Instrument")
+        row = bool_row(
+            row,
             "Zero refresh before run",
             self.zero_refresh_before_run,
             "Recommended: On",
             "Perform one zero refresh before high-rate acquisition.",
         )
-        bool_row(
-            2,
+        row = bool_row(
+            row,
             "Auto zero during run",
             self.autozero_during_run,
             "Recommended: Off",
             "Auto zero costs throughput. Fast performs one refresh then disables it during the run.",
         )
-        bool_row(
-            3,
+        row = bool_row(
+            row,
             "Digital filter",
             self.digital_filter,
             "Recommended: Off",
             "Keithley digital averaging increases point time. Leave off for maximum host-query rate.",
+            command=self._update_filter_count_state,
+        )
+        row = entry_row(
+            row,
+            "Filter count",
+            self.digital_filter_count,
+            "Number of readings used by the instrument digital filter. Only applies when Digital filter is enabled. Recommended setting: 2.",
+            "digital_filter_count_entry",
         )
 
-        ttk.Label(parent, text="Filter count", style="Card.TLabel").grid(
-            row=4, column=0, sticky="w", padx=(0, 8), pady=2
-        )
-        self.digital_filter_count_entry = ttk.Entry(
-            parent, textvariable=self.digital_filter_count, width=8
-        )
-        self.digital_filter_count_entry.grid(row=4, column=1, sticky="ew", pady=2)
-        ttk.Label(parent, text="Only when filter On", style="Muted.TLabel").grid(
-            row=4, column=2, sticky="e", padx=(8, 0), pady=2
-        )
-        self._advanced_widgets.append(self.digital_filter_count_entry)
-
-        bool_row(
-            5,
+        row = group_heading(row, "Data transfer")
+        row = bool_row(
+            row,
             "Concurrent measurement",
             self.concurrent_measurement,
             "Recommended: Off",
             "Disable concurrent measurement for the leanest 2400/2401 measurement path.",
         )
-        bool_row(
-            6,
+        row = bool_row(
+            row,
             "Instrument display",
             self.display_during_run,
             "Recommended: On",
             "The RS-232 host-loop benchmark showed no useful speed gain from disabling the display.",
         )
-        bool_row(
-            7,
+        row = bool_row(
+            row,
             "Measurement-only read",
             self.measurement_only_read,
             "Recommended: On",
             "Return only the measured field during Constant Time. The fixed source is already known locally.",
         )
-        bool_row(
-            8,
+        row = bool_row(
+            row,
             "Live range telemetry",
             self.range_telemetry,
             "Recommended: Off",
             "Per-sample AUTO? + RANGE? polling added about 28 ms in the tested 2401 / 57600 baud path.",
         )
-        bool_row(
-            9,
+        row = bool_row(
+            row,
             "Source write each sample",
             self.source_write_each_sample,
             "Recommended: Off",
             "Constant Time normally sets the source once before sampling.",
         )
 
-        ttk.Label(parent, text="Trigger delay (s)", style="Card.TLabel").grid(
-            row=10, column=0, sticky="w", padx=(0, 8), pady=2
+        row = group_heading(row, "Timing")
+        entry_row(
+            row,
+            "Trigger delay (s)",
+            self.trigger_delay_s,
+            "Extra delay inserted after a trigger before the measurement. It increases point time. Recommended setting: 0 s.",
+            "trigger_delay_entry",
         )
-        self.trigger_delay_entry = ttk.Entry(
-            parent, textvariable=self.trigger_delay_s, width=8
-        )
-        self.trigger_delay_entry.grid(row=10, column=1, sticky="ew", pady=2)
-        ttk.Label(parent, text="Recommended: 0", style="Muted.TLabel").grid(
-            row=10, column=2, sticky="e", padx=(8, 0), pady=2
-        )
-        self._advanced_widgets.append(self.trigger_delay_entry)
 
-        ttk.Separator(parent).grid(
-            row=11, column=0, columnspan=3, sticky="ew", pady=(6, 5)
+        self._update_filter_count_state()
+
+    def _update_filter_count_state(self) -> None:
+        entry = getattr(self, "digital_filter_count_entry", None)
+        if entry is None:
+            return
+        enabled = bool(
+            getattr(self, "acquisition_profile", None) is not None
+            and self.acquisition_profile.get() == PROFILE_CUSTOM
+            and self.digital_filter.get()
         )
-        ttk.Label(
-            parent,
-            text=(
-                "NPLC: 0.1 recommended · Software delay: 0 s recommended · "
-                "Fixed measure range preferred for mapping. RS-232: 57600 baud "
-                "recommended when supported; Fast never changes connection baud automatically."
-            ),
-            style="Muted.TLabel",
-            wraplength=390,
-            justify="left",
-        ).grid(row=12, column=0, columnspan=3, sticky="ew")
+        entry.state(["!disabled"] if enabled else ["disabled"])
 
     def _toggle_advanced_acquisition(self) -> None:
         visible = not bool(self.acquisition_advanced_visible.get())
@@ -267,11 +313,7 @@ class FastAcquisitionMixin(UiMixinTyping):
         button = getattr(self, "advanced_acquisition_button", None)
         if button is not None and button.winfo_exists():
             button.configure(
-                text=(
-                    "Hide advanced acquisition"
-                    if visible
-                    else "Show advanced acquisition"
-                )
+                text=("Hide advanced acquisition" if visible else "Show advanced acquisition")
             )
         try:
             self._refresh_content_scrollregion_later()
@@ -383,6 +425,7 @@ class FastAcquisitionMixin(UiMixinTyping):
                     widget.configure(state="normal" if is_custom else "disabled")
                 except Exception:
                     pass
+        self._update_filter_count_state()
 
         tip = getattr(self, "acquisition_profile_tip", None)
         if tip is not None:
@@ -396,8 +439,8 @@ class FastAcquisitionMixin(UiMixinTyping):
                 )
             elif is_custom:
                 text = (
-                    "Custom acquisition: advanced controls are editable. Recommended values "
-                    "are shown at right; actual speed depends on transport and hardware."
+                    "Custom acquisition: advanced controls are editable. Hover a setting for its "
+                    "meaning and recommendation; actual speed depends on transport and hardware."
                 )
             else:
                 text = (

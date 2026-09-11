@@ -11,7 +11,6 @@ from map_reconstruction.preparation import (
     DarkCorrectionMode,
     DarkRegion,
     ManualRegionFit,
-    OutputConvention,
     PhotocurrentPolarity,
     RollingTrend,
     SignalPreparationConfig,
@@ -23,6 +22,8 @@ class SignalPreparationPage(QtWidgets.QWidget):
 
     configurationChanged = QtCore.Signal()
     exportRequested = QtCore.Signal()
+    openCsvRequested = QtCore.Signal()
+    openProjectRequested = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -42,13 +43,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         side_layout.setContentsMargins(12, 10, 12, 10)
         side_layout.setSpacing(7)
 
-        title = QtWidgets.QLabel("Signal Preparation")
-        title.setObjectName("pageTitle")
-        side_layout.addWidget(title)
-        description = QtWidgets.QLabel("Define the time-domain signal used by reconstruction.")
-        description.setObjectName("mutedText")
-        description.setWordWrap(True)
-        side_layout.addWidget(description)
+        side_layout.addWidget(self._section_header("SOURCE"))
 
         self._form_rows: dict[str, tuple[QtWidgets.QLabel, QtWidgets.QWidget]] = {}
         form = QtWidgets.QFormLayout()
@@ -59,7 +54,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.mode_combo = QtWidgets.QComboBox()
         self.mode_combo.addItem("None", DarkCorrectionMode.NONE)
         self.mode_combo.addItem("Constant", DarkCorrectionMode.CONSTANT)
-        self.mode_combo.addItem("Manual dark regions", DarkCorrectionMode.MANUAL_REGIONS)
+        self.mode_combo.addItem("Manual regions", DarkCorrectionMode.MANUAL_REGIONS)
         self.mode_combo.addItem("Rolling quantile", DarkCorrectionMode.ROLLING_QUANTILE)
 
         self.constant_baseline_spin = self._value_spin()
@@ -100,22 +95,33 @@ class SignalPreparationPage(QtWidgets.QWidget):
         ):
             self.trend_combo.addItem(label, trend_value)
 
-        self.output_combo = QtWidgets.QComboBox()
-        self.output_combo.addItem("Measured - dark", OutputConvention.MEASURED_MINUS_DARK)
-        self.output_combo.addItem("Dark - measured", OutputConvention.DARK_MINUS_MEASURED)
-
         self._add_form_row(form, "Signal", self.signal_combo, "signal")
-        self._add_form_row(form, "Dark correction", self.mode_combo, "mode")
-        self._add_form_row(form, "Constant baseline", self.constant_baseline_spin, "constant")
-        self._add_form_row(form, "Manual fit", self.fit_combo, "manual_fit")
-        self._add_form_row(form, "Response direction", self.direction_combo, "direction")
-        self._add_form_row(form, "Quantile", self.quantile_spin, "quantile")
-        self._add_form_row(form, "Time window", self.window_spin, "window")
-        self._add_form_row(form, "Trend", self.trend_combo, "trend")
-        self._add_form_row(form, "Output convention", self.output_combo, "output")
         side_layout.addLayout(form)
+        source_actions = QtWidgets.QGridLayout()
+        self.open_csv_button = QtWidgets.QPushButton("Open CSV")
+        self.open_project_button = QtWidgets.QPushButton("Open Project")
+        self.open_csv_button.setObjectName("primaryAction")
+        self.open_csv_button.clicked.connect(self.openCsvRequested)
+        self.open_project_button.clicked.connect(self.openProjectRequested)
+        source_actions.addWidget(self.open_csv_button, 0, 0)
+        source_actions.addWidget(self.open_project_button, 0, 1)
+        side_layout.addLayout(source_actions)
 
-        self.value_gate_check = QtWidgets.QCheckBox("Enable value gate")
+        side_layout.addSpacing(8)
+        side_layout.addWidget(self._section_header("BASELINE"))
+        baseline_form = QtWidgets.QFormLayout()
+        baseline_form.setHorizontalSpacing(8)
+        baseline_form.setVerticalSpacing(6)
+        self._add_form_row(baseline_form, "Baseline model", self.mode_combo, "mode")
+        self._add_form_row(baseline_form, "Baseline value", self.constant_baseline_spin, "constant")
+        self._add_form_row(baseline_form, "Manual fit", self.fit_combo, "manual_fit")
+        self._add_form_row(baseline_form, "Baseline response", self.direction_combo, "direction")
+        self._add_form_row(baseline_form, "Quantile", self.quantile_spin, "quantile")
+        self._add_form_row(baseline_form, "Time window", self.window_spin, "window")
+        self._add_form_row(baseline_form, "Trend", self.trend_combo, "trend")
+        side_layout.addLayout(baseline_form)
+
+        self.value_gate_check = QtWidgets.QCheckBox("Candidate value gate: Enable")
         self.gate_min_spin = self._value_spin()
         self.gate_max_spin = self._value_spin()
         self.gate_host = QtWidgets.QWidget()
@@ -136,7 +142,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         manual_layout.setContentsMargins(0, 0, 0, 0)
         manual_layout.setSpacing(5)
         manual_help = QtWidgets.QLabel(
-            "Add a dark region, then drag the blue band or select it below and edit Start/End."
+            "Add a region, then drag the band or select it below and edit Start/End."
         )
         manual_help.setObjectName("mutedText")
         manual_help.setWordWrap(True)
@@ -163,6 +169,19 @@ class SignalPreparationPage(QtWidgets.QWidget):
         manual_layout.addLayout(region_editor)
         side_layout.addWidget(self.manual_host)
 
+        side_layout.addSpacing(8)
+        side_layout.addWidget(self._section_header("APPLY"))
+        apply_form = QtWidgets.QFormLayout()
+        self.apply_baseline_combo = QtWidgets.QComboBox()
+        self.apply_baseline_combo.addItem("Off", False)
+        self.apply_baseline_combo.addItem("Subtract B(t)", True)
+        self.signal_sign_combo = QtWidgets.QComboBox()
+        self.signal_sign_combo.addItem("As measured", False)
+        self.signal_sign_combo.addItem("Invert", True)
+        apply_form.addRow("Baseline correction", self.apply_baseline_combo)
+        apply_form.addRow("Signal sign", self.signal_sign_combo)
+        side_layout.addLayout(apply_form)
+
         self.export_button = QtWidgets.QPushButton("Export prepared trace")
         self.export_button.clicked.connect(self.exportRequested)
         side_layout.addWidget(self.export_button)
@@ -178,6 +197,26 @@ class SignalPreparationPage(QtWidgets.QWidget):
         trace_host = QtWidgets.QWidget()
         trace_layout = QtWidgets.QVBoxLayout(trace_host)
         trace_layout.setContentsMargins(0, 0, 0, 0)
+        trace_toolbar = QtWidgets.QHBoxLayout()
+        trace_toolbar.setContentsMargins(0, 0, 0, 0)
+        self.show_raw_check = QtWidgets.QCheckBox("Raw")
+        self.show_baseline_check = QtWidgets.QCheckBox("Baseline")
+        self.show_prepared_check = QtWidgets.QCheckBox("Prepared")
+        self.show_regions_check = QtWidgets.QCheckBox("Regions")
+        self.show_candidates_check = QtWidgets.QCheckBox("Candidates")
+        for check in (
+            self.show_raw_check,
+            self.show_baseline_check,
+            self.show_prepared_check,
+            self.show_regions_check,
+        ):
+            check.setChecked(True)
+            trace_toolbar.addWidget(check)
+        trace_toolbar.addWidget(self.show_candidates_check)
+        self.fit_view_button = QtWidgets.QPushButton("Fit view")
+        trace_toolbar.addStretch(1)
+        trace_toolbar.addWidget(self.fit_view_button)
+        trace_layout.addLayout(trace_toolbar)
         self.trace_plot = pg.PlotWidget()
         self.trace_plot.setBackground("#FFFFFF")
         self.trace_plot.setTitle("Raw / prepared time trace")
@@ -202,7 +241,13 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self._region_items: list[pg.LinearRegionItem] = []
 
         self.mode_combo.currentIndexChanged.connect(self._mode_changed)
-        for combo in (self.fit_combo, self.direction_combo, self.trend_combo, self.output_combo):
+        for combo in (
+            self.fit_combo,
+            self.direction_combo,
+            self.trend_combo,
+            self.apply_baseline_combo,
+            self.signal_sign_combo,
+        ):
             combo.currentIndexChanged.connect(self._emit_configuration_changed)
         for spin in (
             self.constant_baseline_spin,
@@ -221,6 +266,11 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.region_end_spin.editingFinished.connect(self._region_editor_finished)
         self._update_mode_visibility()
         self._update_region_editor_enabled()
+        self.show_raw_check.toggled.connect(self.raw_curve.setVisible)
+        self.show_baseline_check.toggled.connect(self.baseline_curve.setVisible)
+        self.show_prepared_check.toggled.connect(self.prepared_curve.setVisible)
+        self.show_regions_check.toggled.connect(self._set_regions_visible)
+        self.fit_view_button.clicked.connect(self.trace_plot.autoRange)
 
     @staticmethod
     def _value_spin() -> QtWidgets.QDoubleSpinBox:
@@ -249,6 +299,12 @@ class SignalPreparationPage(QtWidgets.QWidget):
         form.addRow(label_widget, widget)
         self._form_rows[key] = (label_widget, widget)
 
+    @staticmethod
+    def _section_header(text: str) -> QtWidgets.QLabel:
+        label = QtWidgets.QLabel(text)
+        label.setObjectName("sectionHeader")
+        return label
+
     def _set_form_row_visible(self, key: str, visible: bool) -> None:
         label, widget = self._form_rows[key]
         label.setVisible(visible)
@@ -259,23 +315,34 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self._emit_configuration_changed()
 
     def _update_mode_visibility(self) -> None:
-        mode = self.mode_combo.currentData()
-        active = mode is not DarkCorrectionMode.NONE
-        manual = mode is DarkCorrectionMode.MANUAL_REGIONS
-        rolling = mode is DarkCorrectionMode.ROLLING_QUANTILE
-        self._set_form_row_visible("constant", mode is DarkCorrectionMode.CONSTANT)
+        mode = DarkCorrectionMode(self.mode_combo.currentData())
+        manual = mode == DarkCorrectionMode.MANUAL_REGIONS
+        rolling = mode == DarkCorrectionMode.ROLLING_QUANTILE
+        is_none = mode == DarkCorrectionMode.NONE
+        self._set_form_row_visible("constant", mode == DarkCorrectionMode.CONSTANT)
         self._set_form_row_visible("manual_fit", manual)
         self._set_form_row_visible("direction", rolling)
         self._set_form_row_visible("quantile", rolling)
         self._set_form_row_visible("window", rolling)
         self._set_form_row_visible("trend", rolling)
-        self._set_form_row_visible("output", active)
         self.manual_host.setVisible(manual)
         self.gate_host.setVisible(manual or rolling)
+        # Baseline subtraction is meaningless without a baseline model.
+        self.apply_baseline_combo.setEnabled(not is_none)
+        if is_none and bool(self.apply_baseline_combo.currentData()) is True:
+            blocker = QtCore.QSignalBlocker(self.apply_baseline_combo)
+            self.apply_baseline_combo.setCurrentIndex(
+                self.apply_baseline_combo.findData(False)
+            )
+            del blocker
 
     def _emit_configuration_changed(self, *_args: object) -> None:
         if not self._syncing:
             self.configurationChanged.emit()
+
+    def _set_regions_visible(self, visible: bool) -> None:
+        for item in self._region_items:
+            item.setVisible(visible)
 
     def set_signals(self, names: tuple[str, ...], preferred: str | None = None) -> None:
         self.signal_combo.blockSignals(True)
@@ -294,9 +361,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.gate_min_spin.setSuffix(suffix)
         self.gate_max_spin.setSuffix(suffix)
         self.trace_plot.setLabel("left", display_unit.axis_label)
-        label = (
-            f"Constant baseline ({display_unit.unit})" if display_unit.unit else "Constant baseline"
-        )
+        label = f"Baseline value ({display_unit.unit})" if display_unit.unit else "Baseline value"
         self._form_rows["constant"][0].setText(label)
         self.gate_min_label.setText(f"Min ({display_unit.unit})" if display_unit.unit else "Min")
         self.gate_max_label.setText(f"Max ({display_unit.unit})" if display_unit.unit else "Max")
@@ -313,7 +378,8 @@ class SignalPreparationPage(QtWidgets.QWidget):
             self.quantile_spin,
             self.window_spin,
             self.trend_combo,
-            self.output_combo,
+            self.apply_baseline_combo,
+            self.signal_sign_combo,
             self.value_gate_check,
             self.gate_min_spin,
             self.gate_max_spin,
@@ -329,7 +395,12 @@ class SignalPreparationPage(QtWidgets.QWidget):
             self.quantile_spin.setValue(config.rolling_quantile * 100.0)
             self.window_spin.setValue(config.rolling_window_s)
             self.trend_combo.setCurrentIndex(self.trend_combo.findData(config.rolling_trend))
-            self.output_combo.setCurrentIndex(self.output_combo.findData(config.output_convention))
+            self.apply_baseline_combo.setCurrentIndex(
+                self.apply_baseline_combo.findData(config.apply_baseline)
+            )
+            self.signal_sign_combo.setCurrentIndex(
+                self.signal_sign_combo.findData(config.invert_signal)
+            )
             self.value_gate_check.setChecked(config.value_gate_enabled)
             if np.isfinite(config.value_gate_min):
                 gate_min = config.value_gate_min
@@ -366,7 +437,8 @@ class SignalPreparationPage(QtWidgets.QWidget):
             value_gate_enabled=gate_enabled,
             value_gate_min=self.gate_min_spin.value() / scale if gate_enabled else -np.inf,
             value_gate_max=self.gate_max_spin.value() / scale if gate_enabled else np.inf,
-            output_convention=self.output_combo.currentData(),
+            apply_baseline=bool(self.apply_baseline_combo.currentData()),
+            invert_signal=bool(self.signal_sign_combo.currentData()),
         )
 
     def set_diagnostics(self, text: str) -> None:
@@ -374,7 +446,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
 
     def _add_region(self) -> None:
         if self._source_bounds is None:
-            self.set_diagnostics("Load a signal before adding dark regions.")
+            self.set_diagnostics("Load a signal before adding baseline regions.")
             return
         lower, upper = self._source_bounds
         span = upper - lower
@@ -405,6 +477,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         )
         item.sigRegionChangeFinished.connect(self._regions_drag_finished)
         self.trace_plot.addItem(item)
+        item.setVisible(self.show_regions_check.isChecked())
         self._region_items.append(item)
 
     def _refresh_region_list(self, select_row: int | None = None) -> None:
@@ -489,7 +562,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         region = self._clamp_region(self.region_start_spin.value(), self.region_end_spin.value())
         if region is None:
             self._region_selection_changed(row)
-            self.set_diagnostics("Dark-region Start must be smaller than End.")
+            self.set_diagnostics("Baseline-region Start must be smaller than End.")
             return
         self._regions[row] = region
         self._region_items[row].setRegion((region.start_s, region.end_s))

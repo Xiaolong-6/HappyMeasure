@@ -14,7 +14,7 @@ if exist "%VENV_PY%" (
 
 rem EDIT THESE IF NEEDED
 set "PORT=COM3"
-set "BAUD=9600"
+set "BAUD=57600"
 set "TERMINAL=rear"
 
 echo.

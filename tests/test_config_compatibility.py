@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from keith_ivt.data.presets import load_presets, save_preset
+from keith_ivt.data.presets import PRESET_SCHEMA_VERSION, load_presets, save_preset
 from keith_ivt.data.settings import AppSettings, load_settings, save_settings
 
 
@@ -87,7 +87,8 @@ def test_load_presets_sanitizes_partial_legacy_presets(tmp_path: Path) -> None:
     assert "Broken" not in presets
     assert "" not in presets
     legacy = presets["Legacy"]
-    assert legacy["schema_version"] == 2
+    assert legacy["schema_version"] == PRESET_SCHEMA_VERSION
+    assert legacy["sweep"]["acquisition"]["profile"] == "Standard"
     assert legacy["sweep"]["mode"] == "CURR"
     assert legacy["sweep"]["parameters"]["start"] == -5.0
     assert legacy["sweep"]["parameters"]["stop"] == AppSettings().default_stop

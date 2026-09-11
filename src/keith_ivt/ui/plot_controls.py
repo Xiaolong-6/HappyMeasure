@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 
 from keith_ivt.ui.menu_utils import make_touch_menu, popup_menu
 from keith_ivt.ui.export_naming import suggested_figure_name
+from keith_ivt.ui.plot_views import PlotView
 
 
 from keith_ivt.ui.mixin_typing import UiMixinTyping
@@ -35,6 +36,9 @@ class PlotInteractionMixin(UiMixinTyping):
         menu = make_touch_menu(self.root, self.ui_font_family.get(), int(self.ui_font_size.get()))
         menu.add_command(label=title, state="disabled")
         menu.add_separator()
+        if view is PlotView.SIGNAL_TIME and hasattr(self, "_show_time_plot_settings"):
+            menu.add_command(label="Time plot settings...", command=self._show_time_plot_settings)
+            menu.add_separator()
         menu.add_command(label="Autorange this view", command=lambda: self._autoscale_axis(ax))
         menu.add_command(
             label="Swap X/Y axes", command=lambda v=view: self._swap_xy_for_axis_view(v)

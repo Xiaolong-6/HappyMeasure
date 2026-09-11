@@ -55,6 +55,40 @@ class DriverCapabilities:
     supports_4wire: bool = True
     supports_fixed_range: bool = True
     supports_manual_output: bool = True
+    supports_fast_acquisition: bool = False
+
+
+def instrument_model_from_idn(idn: str) -> str:
+    """Return the normalized instrument model field from a SCPI ``*IDN?`` reply.
+
+    Keithley replies are comma-separated and place the model in field 2.  Keep
+    the parser deliberately conservative: a serial number or firmware field that
+    merely contains ``2401`` must never enable the 2401-only Fast profile.
+    """
+
+    parts = [part.strip().upper() for part in str(idn or "").split(",")]
+    if len(parts) < 2:
+        return ""
+    model = parts[1]
+    if model.startswith("MODEL"):
+        model = model[len("MODEL") :].strip()
+    return model
+
+
+def supports_fast_acquisition_for_idn(idn: str) -> bool:
+    """Return whether Fast acquisition is validated for an *IDN? identity.
+
+    Validated today: MODEL 2401 and the debug simulator profile. Other
+    2400-series family members remain Standard-only until explicitly
+    re-validated.
+    """
+
+    text = str(idn or "").upper()
+    if "SIMULATED" in text:
+        return True
+    if "KEITHLEY" not in text:
+        return False
+    return instrument_model_from_idn(idn) == "2401"
 
 
 @dataclass(frozen=True)

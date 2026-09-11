@@ -80,7 +80,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.both_export_action = QtGui.QAction("Both", self)
         self.project_export_action = QtGui.QAction("Project...", self)
         self.summary_export_action = QtGui.QAction("Parameter summary...", self)
-        self.pdf_export_action = QtGui.QAction("PDF report...", self)
+        self.pdf_export_action = QtGui.QAction("HTML report...", self)
         self.raw_export_action.triggered.connect(self.exportRawRequested)
         self.processed_export_action.triggered.connect(self.exportProcessedRequested)
         self.both_export_action.triggered.connect(self.exportBothRequested)
@@ -362,12 +362,19 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self._add_processing_row(processing_form, "Scale", self.scale_combo)
         self._add_processing_row(processing_form, "Color limits", self.color_range_combo)
         self.color_percentile_pair = self._compact_pair(
-            "Low",
+            "Low percentile",
             self.percentile_low_spin,
-            "High",
+            "High percentile",
             self.percentile_high_spin,
             "colorPercentilePair",
         )
+        percentile_tip = (
+            "Percentile rank of the processed-data distribution; "
+            "1% means the 1st percentile, not 1% of the maximum."
+        )
+        self.color_percentile_pair.setToolTip(percentile_tip)
+        self.percentile_low_spin.setToolTip(percentile_tip)
+        self.percentile_high_spin.setToolTip(percentile_tip)
         self.color_manual_pair = self._compact_pair(
             "Min", self.color_min_spin, "Max", self.color_max_spin, "colorManualPair"
         )
@@ -427,6 +434,10 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.qc_label.setWordWrap(True)
         self.qc_label.setVisible(False)
         reconstruction_layout.addWidget(self.qc_label)
+        self.export_reconstructed_button = QtWidgets.QPushButton("Export reconstructed map")
+        self.export_reconstructed_button.setEnabled(False)
+        self.export_reconstructed_button.clicked.connect(self.exportRawRequested)
+        reconstruction_layout.addWidget(self.export_reconstructed_button)
         root.addWidget(reconstruction_section)
         root.addStretch(1)
 
@@ -685,6 +696,7 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self.project_export_action.setEnabled(source_available)
         self.summary_export_action.setEnabled(source_available)
         self.pdf_export_action.setEnabled(raw_available)
+        self.export_reconstructed_button.setEnabled(raw_available)
 
     @property
     def anchors_user_edited(self) -> bool:
@@ -811,6 +823,51 @@ class ReconstructionInspector(QtWidgets.QWidget):
             self._update_processing_fields()
             self._update_phase_window_fields()
             self._anchors_user_edited = True
+        finally:
+            del blockers
+
+    def reset_reconstruction(self) -> None:
+        """Reset source-specific reconstruction controls for a new CSV."""
+
+        widgets = (
+            self.rows_spin,
+            self.cols_spin,
+            self.scan_combo,
+            self.first_row_check,
+            self.aggregation_combo,
+            self.method_combo,
+            self.rows_apart_spin,
+            self.row_offset_spin,
+            self.points_apart_spin,
+            self.point_offset_spin,
+            self.x_period_offset_spin,
+            self.y_phase_spin,
+            self.x_phase_spin,
+            self.window_mode_combo,
+            self.window_fraction_spin,
+            self.window_duration_spin,
+        )
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
+        try:
+            self.rows_spin.setValue(0)
+            self.cols_spin.setValue(0)
+            self.scan_combo.setCurrentIndex(0)
+            self.first_row_check.setChecked(True)
+            self.aggregation_combo.setCurrentIndex(0)
+            self.method_combo.setCurrentIndex(0)
+            self.rows_apart_spin.setValue(10)
+            self.row_offset_spin.setValue(0)
+            self.points_apart_spin.setValue(10)
+            self.point_offset_spin.setValue(0)
+            self.x_period_offset_spin.setValue(0)
+            self.y_phase_spin.setValue(0.0)
+            self.x_phase_spin.setValue(0.0)
+            self.window_mode_combo.setCurrentIndex(0)
+            self.window_fraction_spin.setValue(65.0)
+            self.window_duration_spin.setValue(0.0)
+            self._anchors_user_edited = False
+            self._update_offset_ranges()
+            self._update_phase_window_fields()
         finally:
             del blockers
 

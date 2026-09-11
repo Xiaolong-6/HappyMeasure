@@ -14,6 +14,33 @@ This is a human bench protocol. Do not treat simulator, mock serial, or coverage
 6. Run the simulator first, then a low-risk open-circuit hardware check.
 7. If anything looks wrong, turn output off from the instrument front panel.
 
+## Built-in Level-0 Hardware Diagnostics
+
+For a quick communication/output-safety check, open **Settings**, enable
+**Show developer tools**, and choose **Run Hardware Diagnostics...**.
+
+The built-in diagnostic is deliberately narrower than the 0 V smoke runner.
+It requires the debug simulator to be off, no active measurement, the normal
+Hardware-page connection to be disconnected, and an explicit operator
+confirmation that no DUT or analog test leads are connected. It then:
+
+- sends `OUTPUT OFF` before other instrument actions;
+- queries `*IDN?` and verifies a validated Keithley 2400-family identity;
+- queries `:OUTP?` and requires output to report off;
+- sends one short beep using the driver's state-preserving beep helper;
+- closes and reopens the serial port; and
+- verifies the same instrument and output-off state before final cleanup.
+
+The built-in diagnostic never resets/configures the SMU, issues `READ?`, sets a
+source value, starts a measurement, or enables source output. Serial work runs
+off the Tk thread using a snapshot of the selected port and baud rate. Software
+cannot hear the confirmation beep, so the operator must manually confirm that
+exactly one short beep was audible.
+
+Passing this check proves only the basic communication/output-off contract. It
+does **not** replace the no-DUT 0 V smoke runner below, Fast release validation,
+dummy-resistor testing, or real-DUT validation.
+
 ## No-DUT Keithley 2400/2401 smoke runner
 
 For a safe open-circuit timing and lifecycle check after the simulator gates,
@@ -24,7 +51,7 @@ tools\hardware\Run_Keithley2400_Smoke.bat
 ```
 
 Before starting, edit `PORT`, `BAUD`, and `TERMINAL` in the batch file if the
-instrument is not on `COM3`, `9600`, and `rear`. The runner accepts Keithley
+instrument is not on `COM3`, `57600`, and `rear`. The runner accepts Keithley
 2400/2401-family IDs and deliberately uses only:
 
 - voltage source at `0 V`;
@@ -43,6 +70,36 @@ machine.
 Each run writes `summary.txt`, `summary.json`, `timing_stats.csv`,
 `runtime.log`, and raw point CSVs under `hardware_smoke_results\<timestamp>\`.
 These local artifacts are intentionally ignored by Git.
+
+### v1.2b1 Fast release block
+
+For the Fast release contract, run the same script with `--release`:
+
+```bat
+.\.venv\Scripts\python.exe tools\hardware\keithley2400_smoke.py --port COM3 --baud 57600 --terminal rear --release
+```
+
+This adds, all at 0 V open-circuit unless noted: a short Standard run
+(`standard.csv`), Fast fixed-range and Fast Auto-range runs
+(`fast_fixed.csv`, `fast_auto.csv`), per-run timing/data-quality statistics
+(mean/median/p95/min/max dt, effective rate, strictly-increasing check,
+duplicate count, overflow count, non-finite count, warnings), a Fast SCPI
+order check (`:SENS:FUNC:CONC OFF` before `:FORM:ELEM CURR`, no per-sample
+range queries), and a bundle of `idn.txt`, `scpi_trace.txt`, and run metadata
+(git commit, IDN, port/baud/terminal, source/compliance/NPLC/range/profile
+settings) inside `summary.json`.
+
+An optional Level-1 resistor comparison is available but never runs by
+default:
+
+```bat
+... --release --resistor-ohms 10000
+```
+
+It sources 0.1 V (Standard and Fast) with 100 µA compliance, refuses to run
+when the expected current is too close to compliance, and compares both
+medians against `V/R` within `--resistor-tolerance` (default 20%). Ask the
+operator for the resistor value when it is not supplied on the command line.
 
 ### 2026-09-08 no-DUT bench record
 
@@ -63,22 +120,36 @@ resistor, diode, real-DUT, or packaged-release validation.
 
 ## Required order
 
-### Level 0 — No DUT connected
+### Level 0 — No DUT connected: safety, timing, lifecycle
 
 1. Connect only the Keithley 2400/2450 communication cable.
-2. Run:
+2. Run the built-in **Hardware Diagnostics** communication/output-off check
+   when using the desktop UI.
+3. Run:
 
 ```text
 tools\hardware\Real_Hardware_Preflight.bat
 ```
 
-3. Confirm:
-   - `*IDN?` returns the expected instrument.
-   - `:OUTP OFF` is sent.
-   - front/rear terminal selection is what the UI says.
-   - no voltage/current is sourced.
+4. Confirm:
+    - `*IDN?` returns the expected instrument.
+    - `:OUTP OFF` is sent.
+    - front/rear terminal selection is what the UI says.
+    - no voltage/current is sourced.
+5. Run the `--release` smoke for the Fast release contract (Standard, Fast
+   fixed-range, Fast Auto-range, pause/resume, stop/restart, SCPI order).
 
-### Level 1 — Dummy resistor
+Fast acquisition is validated on the tested 2400-series hardware path,
+specifically MODEL 2401 for the current release evidence. Untested 2450
+support is not claimed: the app offers Fast/Custom only to validated
+hardware, and the runner refuses other families for Fast runs.
+
+Fast with Auto measurement range is allowed, but high-rate range transitions
+are not monitored while live range telemetry is off. For quantitative
+mapping work, use a fixed measurement range; the source range may remain
+Auto.
+
+### Level 1 — Dummy resistor: known passive load, functional comparison
 
 Use known resistors before any real device:
 
@@ -99,6 +170,9 @@ Expected result:
 ```text
 I ≈ V / R
 ```
+
+Compare Standard and Fast measured current against the same expectation;
+the `--resistor-ohms` runner mode automates this at 0.1 V.
 
 Abort/STOP once during this level and confirm output goes off.
 

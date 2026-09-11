@@ -163,8 +163,8 @@ def test_existing_plot_context_restore_contracts_survive():
     assert 'menu.add_cascade(label="Y unit"' in s
     assert "self.backup_tree = ttk.Treeview" in s
     assert "Import selected" in s
-    assert "Auto source range" in s
-    assert "Auto measure range" in s
+    assert "Voltage source range" in s
+    assert "Current measurement range" in s
 
 
 def test_settings_review_dialog_uses_local_mousewheel_binding():

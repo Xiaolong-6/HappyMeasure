@@ -43,6 +43,46 @@ def test_constant_dark_minus_measured_convention() -> None:
     np.testing.assert_allclose(prepared.baseline, [-10.0] * 3)
 
 
+def test_baseline_estimation_can_be_displayed_without_subtraction_or_with_sign_inversion() -> None:
+    data = _data([3.0, 4.0, 5.0])
+    visible_only = prepare_signal(
+        data,
+        "Current_A",
+        SignalPreparationConfig(
+            dark_correction_mode=DarkCorrectionMode.CONSTANT,
+            constant_baseline=2.0,
+            apply_baseline=False,
+            invert_signal=False,
+        ),
+    )
+    inverted = prepare_signal(
+        data,
+        "Current_A",
+        SignalPreparationConfig(
+            dark_correction_mode=DarkCorrectionMode.CONSTANT,
+            constant_baseline=2.0,
+            apply_baseline=False,
+            invert_signal=True,
+        ),
+    )
+    np.testing.assert_allclose(visible_only.baseline, [2.0, 2.0, 2.0])
+    np.testing.assert_allclose(visible_only.values, [3.0, 4.0, 5.0])
+    np.testing.assert_allclose(inverted.values, [-3.0, -4.0, -5.0])
+
+
+def test_new_preparation_operation_flags_round_trip_without_losing_baseline_model() -> None:
+    config = SignalPreparationConfig(
+        dark_correction_mode=DarkCorrectionMode.CONSTANT,
+        constant_baseline=2.0,
+        apply_baseline=False,
+        invert_signal=True,
+    )
+    restored = SignalPreparationConfig.from_dict(config.to_dict())
+    assert restored.baseline_model is DarkCorrectionMode.CONSTANT
+    assert restored.apply_baseline is False
+    assert restored.invert_signal is True
+
+
 def test_manual_regions_fit_region_medians_not_raw_sample_weights() -> None:
     data = TimeSeriesData(
         np.arange(6, dtype=float),

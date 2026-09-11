@@ -269,7 +269,7 @@ class TracePanelMixin(UiMixinTyping):
                 END,
                 values=(
                     i,
-                    f"{getattr(pt, 'elapsed_s', 0.0):.12g}",
+                    f"{getattr(pt, 'elapsed_s', 0.0):.17g}",
                     f"{pt.source_value:.12g}",
                     f"{pt.measured_value:.12g}",
                 ),
@@ -323,14 +323,15 @@ class TracePanelMixin(UiMixinTyping):
             return False
         if len(traces) == 1:
             trace = traces[0]
+            export_result = self._result_with_trace_name(trace)
             path = filedialog.asksaveasfilename(
                 defaultextension=".csv",
-                initialfile=suggested_single_csv_name(trace.result, trace.name),
+                initialfile=suggested_single_csv_name(export_result),
                 filetypes=[("CSV", "*.csv")],
             )
             if not path:
                 return False
-            save_csv(self._result_with_trace_name(trace), path)
+            save_csv(export_result, path)
             self._mark_last_save("selected CSV")
             self.log_event(f"Saved selected trace: {path}")
             return True

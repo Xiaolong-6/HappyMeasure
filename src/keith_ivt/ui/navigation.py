@@ -179,9 +179,21 @@ class NavigationMixin(UiMixinTyping):
         builders[name](self.current_content)
         self._bind_content_mousewheel_recursive(self.current_content)
         self._update_content_window_height(name)
-        self._update_dynamic_sweep_fields()
-        self._update_range_state()
-        self._set_sweep_fields_state()
+        # A page rebuild can change the requested height substantially (for
+        # example, Settings after UI diagnostics restores).  Commit the Tk
+        # geometry and scrollregion before returning so short viewports expose
+        # the rebuilt page's complete scrollable extent.  Keep the delayed
+        # refresh as a second pass for native/ttk geometry that settles later.
+        self.current_content.update_idletasks()
+        self._refresh_content_scrollregion()
+        self.content_canvas.yview_moveto(0.0)
+        self._refresh_content_scrollregion_later()
+
+        if name == "Sweep":
+            # _build_sweep_panel() already rebuilds the dynamic and range
+            # controls; only refresh the enabled state for the live page.
+            # Sweep widgets must never be touched once their page is gone.
+            self._set_sweep_fields_state()
 
     def _update_content_window_height(self, name: str | None = None) -> None:
         """Let full-page panels such as Log/About occupy the visible canvas height."""
