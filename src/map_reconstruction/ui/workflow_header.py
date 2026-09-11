@@ -79,6 +79,14 @@ class WorkflowHeader(QtWidgets.QWidget):
         self.file_label.setText(filename or "No source loaded")
         self.file_label.setToolTip(filename or "")
 
+    def set_current_stage(self, index: int) -> None:
+        """Keep the checked navigation button aligned with the stack page."""
+
+        if not self.stage_buttons:
+            return
+        index = max(0, min(index, len(self.stage_buttons) - 1))
+        self.stage_buttons[index].setChecked(True)
+
     def set_status(self, prepared: bool, reconstructed: bool, analyzed: bool) -> None:
         """Compatibility no-op: persistent stage status is not header content."""
 

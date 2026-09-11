@@ -89,7 +89,24 @@ class UiScaffoldMixin(UiMixinTyping):
         try:
             self.current_content.update_idletasks()
             bbox = self.content_canvas.bbox("all")
-            self.content_canvas.configure(scrollregion=bbox if bbox is not None else (0, 0, 0, 0))
+            if bbox is None:
+                self.content_canvas.configure(scrollregion=(0, 0, 0, 0))
+            else:
+                # A rebuilt child frame can still report its requested height
+                # before the canvas window's actual height catches up.  Keep
+                # the scrollregion conservative enough to include that final
+                # requested extent without forcing the outer PanedWindow to
+                # grow to the full page height.
+                requested_width = self.current_content.winfo_reqwidth()
+                requested_height = self.current_content.winfo_reqheight()
+                self.content_canvas.configure(
+                    scrollregion=(
+                        bbox[0],
+                        bbox[1],
+                        max(bbox[2], bbox[0] + requested_width),
+                        max(bbox[3], bbox[1] + requested_height),
+                    )
+                )
         except Exception:
             pass
 

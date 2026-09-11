@@ -204,9 +204,6 @@ class TracePanelMixin(UiMixinTyping):
                 command=lambda c=col_name: self._toggle_trace_column(c),
                 state=state,
             )
-        if hasattr(self, "_show_time_plot_settings"):
-            menu.add_separator()
-            menu.add_command(label="Time plot settings...", command=self._show_time_plot_settings)
         x = self.root.winfo_pointerx()
         y = self.root.winfo_pointery()
         popup_menu(menu, x, y)

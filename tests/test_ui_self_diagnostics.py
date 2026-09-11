@@ -78,9 +78,7 @@ def test_ui_diagnostic_bundle_contains_machine_readable_summary(tmp_path: Path) 
 def test_diagnostics_ui_is_wired_without_growing_simple_app() -> None:
     root = Path(__file__).resolve().parents[1]
     mixins = (root / "src" / "keith_ivt" / "ui" / "app_mixins.py").read_text(encoding="utf-8")
-    panel = (root / "src" / "keith_ivt" / "ui" / "diagnostics_panel.py").read_text(
-        encoding="utf-8"
-    )
+    panel = (root / "src" / "keith_ivt" / "ui" / "diagnostics_panel.py").read_text(encoding="utf-8")
     assert "DiagnosticsUiMixin" in mixins
     assert "Run UI Diagnostics..." in panel
     assert "does not Connect, Start, Pause, Stop" in panel
@@ -96,6 +94,111 @@ def _make_tk_app():  # type: ignore[no-untyped-def]
     app.root.update_idletasks()
     app.root.update()
     return app
+
+
+def _descendants(widget):  # type: ignore[no-untyped-def]
+    for child in widget.winfo_children():
+        yield child
+        yield from _descendants(child)
+
+
+def _bottom_relative_to(widget, ancestor) -> int:
+    bottom = widget.winfo_y() + widget.winfo_reqheight()
+    current = widget
+    while current.master is not ancestor:
+        current = current.master
+        bottom += current.winfo_y()
+    return bottom
+
+
+def test_settings_diagnostics_rebuild_keeps_bottom_buttons_scrollable() -> None:
+    try:
+        app = _make_tk_app()
+    except Exception as exc:  # noqa: BLE001
+        import pytest
+
+        pytest.skip(f"Tk not available: {exc}")
+    try:
+        app.root.minsize(760, 1)
+        app.root.geometry("900x220")
+        app._ensure_developer_tools_var().set(True)
+        app._show_nav("Settings")
+        app.root.update_idletasks()
+        report = run_ui_self_test(app)
+        app.root.update_idletasks()
+
+        buttons = {
+            str(widget.cget("text")): widget
+            for widget in _descendants(app.current_content)
+            if str(widget.winfo_class()) == "TButton"
+        }
+        ui_button = buttons["Run UI Diagnostics..."]
+        hardware_button = buttons["Run Hardware Diagnostics..."]
+        scrollregion = tuple(
+            float(value) for value in app.content_canvas.cget("scrollregion").split()
+        )
+        bottom = _bottom_relative_to(hardware_button, app.current_content)
+
+        assert report.overall == PASS
+        assert scrollregion[3] >= bottom
+        assert scrollregion[3] > app.content_canvas.winfo_height()
+        assert hardware_button.bind("<MouseWheel>")
+
+        app.content_canvas.yview_moveto(0.0)
+        before = app.content_canvas.yview()
+        hardware_button.event_generate("<MouseWheel>", delta=-120)
+        app.root.update_idletasks()
+        after = app.content_canvas.yview()
+        assert after[0] > before[0]
+        app.content_canvas.yview_moveto(1.0)
+        app.root.update_idletasks()
+        assert ui_button.winfo_exists()
+    finally:
+        try:
+            app.root.destroy()
+        except Exception:
+            pass
+
+
+def test_advanced_acquisition_uses_labeled_controls_and_filter_dependency() -> None:
+    try:
+        app = _make_tk_app()
+    except Exception as exc:  # noqa: BLE001
+        import pytest
+
+        pytest.skip(f"Tk not available: {exc}")
+    try:
+        app.sweep_kind.set("TIME")
+        app._show_nav("Sweep")
+        app.root.update_idletasks()
+        app.acquisition_profile.set("Custom")
+        app._apply_acquisition_profile_state()
+        app._toggle_advanced_acquisition()
+        app.root.update_idletasks()
+
+        checkbutton_texts = {
+            str(widget.cget("text"))
+            for widget in _descendants(app.advanced_acquisition_frame)
+            if str(widget.winfo_class()) == "TCheckbutton"
+        }
+        assert "Digital filter" in checkbutton_texts
+        assert "Live range telemetry" in checkbutton_texts
+
+        app.digital_filter.set(False)
+        app._update_filter_count_state()
+        assert app.digital_filter_count_entry.instate(["disabled"])
+        app.digital_filter.set(True)
+        app._update_filter_count_state()
+        assert app.digital_filter_count_entry.instate(["!disabled"])
+
+        app.acquisition_profile.set("Standard")
+        app._apply_acquisition_profile_state()
+        assert app.digital_filter_count_entry.instate(["disabled"])
+    finally:
+        try:
+            app.root.destroy()
+        except Exception:
+            pass
 
 
 def test_advanced_controls_disconnected_disabled_is_expected_and_callback_passes() -> None:

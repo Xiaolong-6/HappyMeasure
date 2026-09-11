@@ -179,6 +179,15 @@ class NavigationMixin(UiMixinTyping):
         builders[name](self.current_content)
         self._bind_content_mousewheel_recursive(self.current_content)
         self._update_content_window_height(name)
+        # A page rebuild can change the requested height substantially (for
+        # example, Settings after UI diagnostics restores).  Commit the Tk
+        # geometry and scrollregion before returning so short viewports expose
+        # the rebuilt page's complete scrollable extent.  Keep the delayed
+        # refresh as a second pass for native/ttk geometry that settles later.
+        self.current_content.update_idletasks()
+        self._refresh_content_scrollregion()
+        self.content_canvas.yview_moveto(0.0)
+        self._refresh_content_scrollregion_later()
 
         if name == "Sweep":
             # _build_sweep_panel() already rebuilds the dynamic and range

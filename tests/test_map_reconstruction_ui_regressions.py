@@ -59,6 +59,16 @@ def _window_with_valid_reconstruction(
     return window
 
 
+def _write_minimal_csv(path: Path, scale: float = 1.0) -> None:
+    path.write_bytes(
+        (
+            b"# schema,single-v2\n"
+            b"# section,data\n"
+            b"Elapsed_s,Current_A\n" + f"0,{scale * 1e-6:.12g}\n0.1,{scale * 2e-6:.12g}\n".encode()
+        )
+    )
+
+
 def test_signal_selection_keeps_raw_trace_and_map_in_sync(application) -> None:
     window = _window_with_valid_reconstruction(application)
 
@@ -224,7 +234,7 @@ def test_load_file_waits_for_geometry_then_initializes_fit_anchors(application) 
 
 
 def test_loading_new_csv_replaces_preparation_and_reconstruction_source(
-    application, tmp_path: Path
+    application, tmp_path: Path, monkeypatch
 ) -> None:
     time = np.linspace(0.0, 10.0, 10_001)
 
@@ -263,6 +273,8 @@ def test_loading_new_csv_replaces_preparation_and_reconstruction_source(
         first_prepared = window.prepared.values.copy()
         first_result = window.result.values.copy()
 
+        window._select_stage(2)
+        monkeypatch.setattr(window, "_replacement_choice", lambda: "discard")
         window.load_file(second_path)
 
         assert window._loaded_filename == "second.csv"
@@ -270,16 +282,139 @@ def test_loading_new_csv_replaces_preparation_and_reconstruction_source(
         assert window.prepared is not None
         np.testing.assert_allclose(window.prepared.values, window.data.signals["Current_A"])
         assert not np.array_equal(first_prepared, window.prepared.values)
+        assert window.result is None
+        assert window.params is None
+        assert window.processed is None
+        assert window._active_color_limits is None
+        assert window.map_stack.currentIndex() == 0
+        assert window.analysis_map_views.map_stack.currentIndex() == 0
+        assert window.count_stack.currentIndex() == 0
+        assert window.analysis_map_views.count_stack.currentIndex() == 0
+        assert window.distribution_stack.currentIndex() == 0
+        assert window.analysis_map_views.distribution_stack.currentIndex() == 0
+        assert window.guide_items == []
+        assert all(value.text() == "—" for value in window.qc_values.values())
+        assert not window.raw_export_action.isEnabled()
+        assert window.workflow_stack.currentIndex() == 0
+        assert window.workflow_header.stage_buttons[0].isChecked()
+
+        window._select_stage(1)
+        window.rows_spin.setValue(2)
+        window.cols_spin.setValue(2)
+        window._reconstruct()
         assert window.result is not None
         assert not np.allclose(first_result, window.result.values, equal_nan=True)
-        assert window.map_stack.currentIndex() == 1
-        assert window.analysis_map_views.map_stack.currentIndex() == 1
     finally:
         window.close()
 
 
+def test_invalid_csv_preserves_existing_workspace(application, tmp_path: Path, monkeypatch) -> None:
+    window = _window_with_valid_reconstruction(application)
+    old_data = window.data
+    old_values = window.result.values.copy() if window.result is not None else None
+    old_state = window._project_state()
+    invalid = tmp_path / "invalid.csv"
+    invalid.write_text("this is not a HappyMeasure CSV\n", encoding="utf-8")
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical", staticmethod(lambda *_args: None))
+    try:
+        window.load_file(invalid)
+        assert window.data is old_data
+        assert window.result is not None
+        assert old_values is not None
+        np.testing.assert_allclose(window.result.values, old_values, equal_nan=True)
+        assert window._project_state() == old_state
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize("choice", ["cancel", "discard"])
+def test_csv_replacement_guard_cancel_or_discard(
+    application, tmp_path: Path, monkeypatch, choice: str
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    candidate = tmp_path / "candidate.csv"
+    _write_minimal_csv(candidate, scale=4.0)
+    old_data = window.data
+    monkeypatch.setattr(window, "_replacement_choice", lambda: choice)
+    try:
+        window.load_file(candidate)
+        if choice == "cancel":
+            assert window.data is old_data
+            assert window.result is not None
+        else:
+            assert window._loaded_filename == "candidate.csv"
+            assert window.result is None
+            assert window.workflow_stack.currentIndex() == 0
+            assert window.workflow_header.stage_buttons[0].isChecked()
+    finally:
+        window.close()
+
+
+@pytest.mark.parametrize("save_result", [True, False])
+def test_csv_replacement_save_only_proceeds_after_project_save(
+    application, tmp_path: Path, monkeypatch, save_result: bool
+) -> None:
+    window = _window_with_valid_reconstruction(application)
+    candidate = tmp_path / "candidate.csv"
+    _write_minimal_csv(candidate, scale=5.0)
+    monkeypatch.setattr(window, "_replacement_choice", lambda: "save")
+    monkeypatch.setattr(
+        "map_reconstruction.ui._main_window_base.export_project",
+        lambda _window: save_result,
+    )
+    try:
+        window.load_file(candidate)
+        if save_result:
+            assert window._loaded_filename == "candidate.csv"
+            assert window.result is None
+        else:
+            assert window._loaded_filename != "candidate.csv"
+            assert window.result is not None
+    finally:
+        window.close()
+
+
+def test_project_replacement_guard_preserves_current_workspace(
+    application, tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "project_source.csv"
+    project = tmp_path / "candidate.hmmap"
+    raw = (
+        b"# schema,single-v2\n"
+        b"# section,data\n"
+        b"Elapsed_s,Current_A\n"
+        b"0,1e-6\n"
+        b"0.1,2e-6\n"
+    )
+    source.write_bytes(raw)
+    candidate_window = MapReconstructionWindow()
+    candidate_window.load_file(source)
+    try:
+        save_project(project, candidate_window._project_state(), raw)
+    finally:
+        candidate_window.close()
+
+    window = _window_with_valid_reconstruction(application)
+    old_data = window.data
+    old_values = window.result.values.copy() if window.result is not None else None
+    monkeypatch.setattr(window, "_replacement_choice", lambda: "cancel")
+    try:
+        window.load_project_file(project)
+        assert window.data is old_data
+        assert window.result is not None
+        assert old_values is not None
+        np.testing.assert_allclose(window.result.values, old_values, equal_nan=True)
+    finally:
+        window.close()
+
+
+def test_map_reconstruction_startup_requests_maximized_window() -> None:
+    source = Path("src/map_reconstruction/ui/main_window.py").read_text(encoding="utf-8")
+    assert "window.showMaximized()" in source
+
+
 def test_loading_new_csv_clears_old_map_when_geometry_is_not_ready(
-    application, tmp_path: Path
+    application, tmp_path: Path, monkeypatch
 ) -> None:
     time = np.linspace(0.0, 10.0, 10_001)
 
@@ -306,6 +441,7 @@ def test_loading_new_csv_clears_old_map_when_geometry_is_not_ready(
 
         window.rows_spin.setValue(0)
         window.cols_spin.setValue(0)
+        monkeypatch.setattr(window, "_replacement_choice", lambda: "discard")
         window.load_file(second_path)
 
         assert window.result is None

@@ -13,13 +13,14 @@ from matplotlib.ticker import EngFormatter, ScalarFormatter
 from keith_ivt.models import SweepKind, SweepResult
 from keith_ivt.ui.export_naming import suggested_figure_name
 from keith_ivt.ui.plot_views import PlotView, layout_grid, xy_for_view
+from keith_ivt.ui.plot_optimizer import extrema_envelope
 from keith_ivt.ui.time_plot_settings import (
     TIME_HISTORY_MODES,
     TIME_MARKER_MODES,
     TIME_REFRESH_INTERVALS_MS,
     normalize_history_points,
+    normalize_history_mode,
     normalize_refresh_interval_ms,
-    time_display_window,
     time_marker_for,
 )
 from keith_ivt.ui.widgets import add_tip
@@ -416,16 +417,41 @@ class PlotPanelMixin(UiMixinTyping):
         self._swapped_views = swapped
         self._redraw_all_plots(live_only=bool(getattr(self, "_plot_live_only", False)))
 
-    def _prepare_view_data(self, result, view):
-        """Return (x, y, xlabel, ylabel, title, y_is_log, swapped) with unit scaling applied."""
-        x, y, xlabel, ylabel, title, y_is_log = xy_for_view(result, view)
+    def _time_history_count(self) -> int | None:
+        if normalize_history_mode(self.time_plot_history_mode.get()) == "All data":
+            return None
+        return normalize_history_points(self.time_plot_history_points.get())
+
+    def _result_for_view(self, result, view, *, live: bool = False):
+        """Return a display-only live Time subset without changing static traces."""
+        if not live or view is not PlotView.SIGNAL_TIME:
+            return result
+        count = self._time_history_count()
+        if count is None or len(result.points) <= count:
+            return result
+        return SweepResult(result.config, result.points[-count:], list(result.warnings))
+
+    def _live_result_for_view(self, view):
+        """Build only the point sequence needed by this live display view."""
+        config = self._live_config
+        if config is None:
+            return None
         if view is PlotView.SIGNAL_TIME:
-            x, y = time_display_window(
-                x,
-                y,
-                self.time_plot_history_mode.get(),
-                self.time_plot_history_points.get(),
-            )
+            count = self._time_history_count()
+            if count is not None:
+                points = (
+                    self._live_points[-count:]
+                    if len(self._live_points) > count
+                    else self._live_points
+                )
+                return SweepResult(config, points)
+        return SweepResult(config, list(self._live_points))
+
+    def _prepare_view_data(self, result, view, *, live: bool = False):
+        """Return (x, y, xlabel, ylabel, title, y_is_log, swapped) with unit scaling applied."""
+        x, y, xlabel, ylabel, title, y_is_log = xy_for_view(
+            self._result_for_view(result, view, live=live), view
+        )
         swapped = self._is_view_swapped(view)
         if swapped:
             x, y = y, x
@@ -598,6 +624,7 @@ class PlotPanelMixin(UiMixinTyping):
         # line from a previous run/view/theme state.
         if figure is getattr(self, "figure", None) and hasattr(self, "_plot_renderer"):
             self._plot_renderer.optimizer.clear_cache()
+            self._plot_renderer.reset_axis_policy()
         figure.clear()
         figure.set_facecolor(self._palette["plot_bg"])
         views = self._selected_views()
@@ -624,11 +651,8 @@ class PlotPanelMixin(UiMixinTyping):
         if traces and not selected_trace_ids:
             # Default to the first trace (which is now the latest due to reverse ordering)
             selected_trace_ids = {traces[0].trace_id}
-        live_result = None
-        if self._live_points:
-            config = self._live_config
-            if config is not None:
-                live_result = SweepResult(config, list(self._live_points))
+        live_full_result = None
+        live_config = self._live_config if self._live_points else None
         for idx, view in enumerate(views, start=1):
             ax = figure.add_subplot(rows, cols, idx)
             setattr(ax, "_happy_view", view)
@@ -637,11 +661,20 @@ class PlotPanelMixin(UiMixinTyping):
             ax.tick_params(colors=self._palette["muted"])
             for spine in ax.spines.values():
                 spine.set_color(self._palette["grid"])
+            live_result = None
+            if live_config is not None:
+                if view is PlotView.SIGNAL_TIME and self._time_history_count() is not None:
+                    live_result = self._live_result_for_view(view)
+                else:
+                    if live_full_result is None:
+                        live_full_result = self._live_result_for_view(view)
+                    live_result = live_full_result
             if live_result is not None:
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
-                    live_result, view
+                    live_result, view, live=True
                 )
-                marker = self._marker_for_view(view, len(x))
+                point_count = len(x)
+                marker = self._marker_for_view(view, point_count)
                 linestyle = self._linestyle_for_view(view, marker)
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
@@ -656,7 +689,10 @@ class PlotPanelMixin(UiMixinTyping):
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
                     trace.result, view
                 )
-                marker = self._marker_for_view(view, len(x))
+                point_count = len(x)
+                if view is PlotView.SIGNAL_TIME:
+                    x, y = extrema_envelope(x, y)
+                marker = self._marker_for_view(view, point_count)
                 linestyle = self._linestyle_for_view(view, marker)
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
@@ -688,6 +724,45 @@ class PlotPanelMixin(UiMixinTyping):
         self._apply_figure_layout(figure)
         return axes
 
+    def _configure_live_axis(
+        self,
+        ax,
+        view: PlotView,
+        title: str,
+        xlabel: str,
+        ylabel: str,
+        y_is_log: bool,
+        swapped: bool,
+    ) -> None:
+        """Apply static live-axis presentation only when its signature changes."""
+
+        signature = (
+            view,
+            title,
+            xlabel,
+            ylabel,
+            y_is_log,
+            swapped,
+            self._palette["fg"],
+            self._palette["muted"],
+            self._palette["grid"],
+        )
+        previous_signature = getattr(ax, "_happy_live_axis_signature", None)
+        if previous_signature == signature:
+            return
+        if previous_signature is not None and hasattr(self, "_plot_renderer"):
+            self._plot_renderer.reset_axis_policy_for(ax)
+        ax.set_title(title, color=self._palette["fg"])
+        ax.set_xlabel(xlabel, color=self._palette["fg"])
+        ax.set_ylabel(ylabel, color=self._palette["fg"])
+        ax.set_xscale("log" if y_is_log and swapped else "linear")
+        ax.set_yscale("log" if y_is_log and not swapped else "linear")
+        ax.tick_params(colors=self._palette["muted"])
+        for spine in ax.spines.values():
+            spine.set_color(self._palette["grid"])
+        ax.grid(True, alpha=0.35, color=self._palette["grid"])
+        ax._happy_live_axis_signature = signature
+
     def _update_live_plot_incremental(self, *, force: bool = False) -> None:
         """Update live plot using incremental rendering (much faster than full redraw).
 
@@ -701,6 +776,7 @@ class PlotPanelMixin(UiMixinTyping):
             # renderer cache at the same time to avoid invisible first-point updates.
             if hasattr(self, "_plot_renderer"):
                 self._plot_renderer.optimizer.clear_cache()
+                self._plot_renderer.reset_axis_policy()
             self.figure.clear()
             self.figure.set_facecolor(self._palette["plot_bg"])
             views = self._selected_views()
@@ -743,7 +819,6 @@ class PlotPanelMixin(UiMixinTyping):
             if config is None:
                 return
 
-            live_result = SweepResult(config, list(self._live_points))
             views = self._selected_views()
             if not views:
                 return
@@ -755,10 +830,19 @@ class PlotPanelMixin(UiMixinTyping):
 
             # Build data series for incremental drawing
             data_series: list[dict[str, Any]] = []
+            live_full_result = None
 
             for idx, view in enumerate(views):
+                if view is PlotView.SIGNAL_TIME and self._time_history_count() is not None:
+                    live_result = self._live_result_for_view(view)
+                else:
+                    if live_full_result is None:
+                        live_full_result = self._live_result_for_view(view)
+                    live_result = live_full_result
+                if live_result is None:
+                    return
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
-                    live_result, view
+                    live_result, view, live=True
                 )
 
                 # Downsample for display if needed
@@ -779,21 +863,14 @@ class PlotPanelMixin(UiMixinTyping):
                         "key": key,
                         "x": x,
                         "y": y,
+                        "time_view": view is PlotView.SIGNAL_TIME,
                         "style": style,
                     }
                 )
 
                 # Configure axis
                 ax = axes[idx]
-                ax.set_title(title, color=self._palette["fg"])
-                ax.set_xlabel(xlabel, color=self._palette["fg"])
-                ax.set_ylabel(ylabel, color=self._palette["fg"])
-                if y_is_log:
-                    if swapped:
-                        ax.set_xscale("log")
-                    else:
-                        ax.set_yscale("log")
-                ax.grid(True, alpha=0.35, color=self._palette["grid"])
+                self._configure_live_axis(ax, view, title, xlabel, ylabel, y_is_log, swapped)
 
             # Draw incrementally
             self._plot_renderer.draw_incremental(axes, data_series, force=force)

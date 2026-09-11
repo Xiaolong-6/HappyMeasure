@@ -216,7 +216,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._set_loaded_view(False)
 
     def _select_stage(self, index: int) -> None:
-        self.workflow_stack.setCurrentIndex(max(0, min(index, self.workflow_stack.count() - 1)))
+        index = max(0, min(index, self.workflow_stack.count() - 1))
+        self.workflow_stack.setCurrentIndex(index)
+        self.workflow_header.set_current_stage(index)
 
     def _display_changed(self, *_args: object) -> None:
         """Refresh figure state without touching reconstruction or processing."""
@@ -402,6 +404,50 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         if path:
             self.load_project_file(Path(path))
 
+    def _workspace_has_meaningful_work(self) -> bool:
+        """Return whether replacing the current source could lose user work."""
+
+        if self.data is None:
+            return False
+        return bool(
+            self.result is not None
+            or self.params is not None
+            or self.processed is not None
+            or self.preparation_config != SignalPreparationConfig()
+            or self.rows_spin.value() > 0
+            or self.cols_spin.value() > 0
+        )
+
+    def _replacement_choice(self) -> str:
+        """Return ``save``, ``discard``, or ``cancel`` from the replacement dialog."""
+
+        dialog = QtWidgets.QMessageBox(self)
+        dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("Replace reconstruction workspace?")
+        dialog.setText("Current reconstruction workspace will be replaced.")
+        dialog.setInformativeText("Save the current project before opening the new source?")
+        save = dialog.addButton("Save Project", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+        discard = dialog.addButton("Discard", QtWidgets.QMessageBox.ButtonRole.DestructiveRole)
+        cancel = dialog.addButton("Cancel", QtWidgets.QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(cancel)
+        dialog.exec()
+        clicked = dialog.clickedButton()
+        if clicked is save:
+            return "save"
+        if clicked is discard:
+            return "discard"
+        return "cancel"
+
+    def _confirm_workspace_replacement(self) -> bool:
+        """Ask how to handle meaningful work before replacing the source."""
+
+        if not self._workspace_has_meaningful_work():
+            return True
+        choice = self._replacement_choice()
+        if choice == "save":
+            return bool(export_project(self))
+        return choice == "discard"
+
     def load_file(self, path: Path) -> None:
         try:
             raw_bytes = path.read_bytes()
@@ -409,7 +455,11 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         except (OSError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open CSV", str(exc))
             return
-        self._load_data(data, raw_bytes, path.name)
+        if not self._confirm_workspace_replacement():
+            return
+        self._load_data(data, raw_bytes, path.name, reconstruct=False)
+        self._select_stage(0)
+        self.statusBar().showMessage("Set Rows and Columns to reconstruct.")
 
     def load_project_file(self, path: Path) -> None:
         try:
@@ -423,6 +473,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
                 raise ValueError(f"Project source signal {loaded.state.signal!r} is unavailable.")
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
+            return
+        if not self._confirm_workspace_replacement():
             return
         self._restoring_project = True
         try:
@@ -471,6 +523,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.workflow_header.set_filename(original_filename)
         self.inspector.set_file_name(original_filename)
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
+        self.inspector.reset_reconstruction()
+        self.processing_config = None
         self.inspector.set_signal_names(data.signal_names, preferred)
         self.preparation_page.set_signals(data.signal_names, preferred)
         self.preparation_config = SignalPreparationConfig()
@@ -479,10 +533,10 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.prepared = prepare_signal(data, preferred, self.preparation_config)
         self.preparation_page.set_source(data.time_s, data.signals[preferred])
         self.preparation_page.set_prepared(self.prepared)
+        self._set_raw_signal(preferred)
         self.trace_view.set_prepared_signal(self.prepared.values)
         self.workflow_header.set_status(True, False, False)
         self._set_anchor_bounds(data)
-        self._set_raw_signal(preferred)
         self._update_processing_units()
         self._create_anchor_lines()
         self._set_loaded_view(True)

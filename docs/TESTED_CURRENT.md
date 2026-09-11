@@ -1,5 +1,30 @@
 # Current Test Status
 
+## 2026-09-11 - Time plot live/static semantics and acquisition UI follow-up
+
+### HappyMeasure validation
+
+- Focused Time plot regressions pass for pre-coordinate Last-N slicing,
+  preserved full completed/imported traces, full-range extrema envelopes,
+  live-axis stability, and the existing refresh/completion contracts. Live
+  Last-N uses only the display subset; the authoritative 76,677-point
+  sequence remains intact. The pre-existing 50 ms frame-rate sleep test is
+  timing-sensitive when run after the full group, but passes in isolation.
+- Advanced Acquisition regressions pass for labeled Checkbuttons, grouped
+  responsive controls, immediate Digital filter → Filter count dependency,
+  and Standard/Fast disabling. Settings diagnostics rebuild regression also
+  passes, including bottom-button reachability and child-control mouse-wheel
+  scrolling.
+- Ruff and Black checks pass for all changed sources/tests. Native hardware was
+  not connected or exercised in this UI-only follow-up.
+
+### Map Reconstruction validation
+
+- Existing source-handoff lifecycle changes remain in the working tree. The
+  Map UI and release/export tests pass when run with access to the host
+  temporary directory; the sandbox-only run was blocked by its Windows
+  `WinError 5` ACL while pytest created/cleaned `basetemp`.
+
 ## 2026-09-11 - Time plot display policy, Map color shortcuts, and export naming
 
 ### HappyMeasure validation

@@ -19,6 +19,7 @@ from map_reconstruction.methods.dual_offset import reconstruct_map
 from map_reconstruction.models import TimeSeriesData
 from map_reconstruction.preparation import SignalPreparationConfig, prepare_signal
 from map_reconstruction.project_io import load_project
+from map_reconstruction.processing import MapProcessingConfig
 from map_reconstruction.ui._main_window_base import (
     MAX_GUIDES_PER_FAMILY,
     MapReconstructionWindow as _BaseWindow,
@@ -126,6 +127,8 @@ class MapReconstructionWindow(_BaseWindow):
         except (OSError, UnicodeDecodeError, ValueError) as exc:
             QtWidgets.QMessageBox.critical(self, "Could not open project", str(exc))
             return
+        if not self._confirm_workspace_replacement():
+            return
 
         preparation_error: str | None = None
         self._restoring_project = True
@@ -179,12 +182,15 @@ class MapReconstructionWindow(_BaseWindow):
                 "Project state restored. Fix Signal Preparation before reconstruction.\n"
                 + preparation_error
             )
+            self._select_stage(0)
             return
         if loaded.state.is_geometry_set:
             self._reconstruct()
+            self._select_stage(1)
         else:
             self._set_export_availability()
             self.statusBar().showMessage("Project opened. Set Rows and Columns to reconstruct.")
+            self._select_stage(0)
 
     def _load_data(
         self,
@@ -204,6 +210,7 @@ class MapReconstructionWindow(_BaseWindow):
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
         self._preparation_error = None
         unit = display_unit_for_signal(preferred, data.signals[preferred])
+        self.analysis_page.set_processing_config(MapProcessingConfig(), unit.scale)
         self.preparation_page.set_display_unit(unit)
         self.preparation_page.set_source(data.time_s, data.signals[preferred])
         self.preparation_config = SignalPreparationConfig()
@@ -367,7 +374,7 @@ class MapReconstructionWindow(_BaseWindow):
 def run_app(path: Path | None = None) -> int:
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     window = MapReconstructionWindow(path)
-    window.show()
+    window.showMaximized()
     return app.exec()
 
 

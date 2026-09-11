@@ -193,10 +193,10 @@ def _source_stem(window: Any) -> str:
     return Path(window._loaded_filename or "map").stem
 
 
-def export_project(window: Any) -> None:
+def export_project(window: Any) -> bool:
     if window.data is None or not window._raw_source_bytes:
         QtWidgets.QMessageBox.information(window, "No source data", "Open a source CSV first.")
-        return
+        return False
     path, _ = QtWidgets.QFileDialog.getSaveFileName(
         window,
         "Export Map Reconstruction project",
@@ -204,13 +204,14 @@ def export_project(window: Any) -> None:
         "Map Reconstruction Project (*.hmmap)",
     )
     if not path:
-        return
+        return False
     try:
         save_project(Path(path), window._project_state(), window._raw_source_bytes)
     except (OSError, ValueError) as exc:
         QtWidgets.QMessageBox.critical(window, "Project export failed", str(exc))
-        return
+        return False
     window.statusBar().showMessage(f"Exported project to {path}")
+    return True
 
 
 def export_parameter_summary(window: Any) -> None:

@@ -115,9 +115,7 @@ class FastAcquisitionMixin(UiMixinTyping):
             ),
         )
         values = (
-            [PROFILE_STANDARD, PROFILE_FAST, PROFILE_CUSTOM]
-            if allow_fast
-            else [PROFILE_STANDARD]
+            [PROFILE_STANDARD, PROFILE_FAST, PROFILE_CUSTOM] if allow_fast else [PROFILE_STANDARD]
         )
         combo.configure(values=values)
         if self.acquisition_profile.get() not in values:
@@ -178,101 +176,130 @@ class FastAcquisitionMixin(UiMixinTyping):
         self._refresh_acquisition_availability()
 
     def _build_advanced_rows(self, parent) -> None:
-        ttk.Label(
-            parent,
-            text="Instrument / transfer settings",
-            style="Card.TLabel",
-        ).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
-
+        parent.columnconfigure(0, weight=1)
         self._advanced_widgets: list[object] = []
 
-        def bool_row(row: int, label: str, var, recommended: str, tip: str) -> None:
-            label_widget = ttk.Label(parent, text=label, style="Card.TLabel")
-            label_widget.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=2)
-            widget = ttk.Checkbutton(parent, variable=var)
-            widget.grid(row=row, column=1, sticky="w", pady=2)
+        def group_heading(row: int, label: str) -> int:
+            ttk.Label(parent, text=label, style="Muted.TLabel").grid(
+                row=row, column=0, columnspan=3, sticky="w", pady=(5, 2)
+            )
+            return row + 1
+
+        def bool_row(
+            row: int,
+            label: str,
+            var,
+            recommended: str,
+            tip: str,
+            command=None,
+        ) -> int:
             hover_text = f"{tip}\nRecommended setting: {recommended.removeprefix('Recommended: ')}."
-            add_tip(label_widget, hover_text)
+            widget = ttk.Checkbutton(parent, text=label, variable=var, command=command)
+            widget.grid(row=row, column=0, columnspan=3, sticky="w", pady=1)
             add_tip(widget, hover_text)
             self._advanced_widgets.append(widget)
+            return row + 1
 
-        bool_row(
-            1,
+        def entry_row(row: int, label: str, variable, tip: str, attribute: str) -> int:
+            label_widget = ttk.Label(parent, text=label, style="Card.TLabel")
+            label_widget.grid(row=row, column=0, sticky="w", padx=(0, 8), pady=2)
+            widget = ttk.Entry(parent, textvariable=variable, width=8)
+            widget.grid(row=row, column=1, sticky="ew", pady=2)
+            add_tip(label_widget, tip)
+            add_tip(widget, tip)
+            setattr(self, attribute, widget)
+            self._advanced_widgets.append(widget)
+            return row + 1
+
+        row = group_heading(0, "Instrument")
+        row = bool_row(
+            row,
             "Zero refresh before run",
             self.zero_refresh_before_run,
             "Recommended: On",
             "Perform one zero refresh before high-rate acquisition.",
         )
-        bool_row(
-            2,
+        row = bool_row(
+            row,
             "Auto zero during run",
             self.autozero_during_run,
             "Recommended: Off",
             "Auto zero costs throughput. Fast performs one refresh then disables it during the run.",
         )
-        bool_row(
-            3,
+        row = bool_row(
+            row,
             "Digital filter",
             self.digital_filter,
             "Recommended: Off",
             "Keithley digital averaging increases point time. Leave off for maximum host-query rate.",
+            command=self._update_filter_count_state,
+        )
+        row = entry_row(
+            row,
+            "Filter count",
+            self.digital_filter_count,
+            "Number of readings used by the instrument digital filter. Only applies when Digital filter is enabled. Recommended setting: 2.",
+            "digital_filter_count_entry",
         )
 
-        filter_count_label = ttk.Label(parent, text="Filter count", style="Card.TLabel")
-        filter_count_label.grid(row=4, column=0, sticky="w", padx=(0, 8), pady=2)
-        self.digital_filter_count_entry = ttk.Entry(
-            parent, textvariable=self.digital_filter_count, width=8
-        )
-        self.digital_filter_count_entry.grid(row=4, column=1, sticky="ew", pady=2)
-        filter_count_tip = "Number of readings used by the instrument digital filter. Only applies when Digital filter is enabled. Recommended setting: 2."
-        add_tip(filter_count_label, filter_count_tip)
-        add_tip(self.digital_filter_count_entry, filter_count_tip)
-        self._advanced_widgets.append(self.digital_filter_count_entry)
-
-        bool_row(
-            5,
+        row = group_heading(row, "Data transfer")
+        row = bool_row(
+            row,
             "Concurrent measurement",
             self.concurrent_measurement,
             "Recommended: Off",
             "Disable concurrent measurement for the leanest 2400/2401 measurement path.",
         )
-        bool_row(
-            6,
+        row = bool_row(
+            row,
             "Instrument display",
             self.display_during_run,
             "Recommended: On",
             "The RS-232 host-loop benchmark showed no useful speed gain from disabling the display.",
         )
-        bool_row(
-            7,
+        row = bool_row(
+            row,
             "Measurement-only read",
             self.measurement_only_read,
             "Recommended: On",
             "Return only the measured field during Constant Time. The fixed source is already known locally.",
         )
-        bool_row(
-            8,
+        row = bool_row(
+            row,
             "Live range telemetry",
             self.range_telemetry,
             "Recommended: Off",
             "Per-sample AUTO? + RANGE? polling added about 28 ms in the tested 2401 / 57600 baud path.",
         )
-        bool_row(
-            9,
+        row = bool_row(
+            row,
             "Source write each sample",
             self.source_write_each_sample,
             "Recommended: Off",
             "Constant Time normally sets the source once before sampling.",
         )
 
-        trigger_delay_label = ttk.Label(parent, text="Trigger delay (s)", style="Card.TLabel")
-        trigger_delay_label.grid(row=10, column=0, sticky="w", padx=(0, 8), pady=2)
-        self.trigger_delay_entry = ttk.Entry(parent, textvariable=self.trigger_delay_s, width=8)
-        self.trigger_delay_entry.grid(row=10, column=1, sticky="ew", pady=2)
-        trigger_delay_tip = "Extra delay inserted after a trigger before the measurement. It increases point time. Recommended setting: 0 s."
-        add_tip(trigger_delay_label, trigger_delay_tip)
-        add_tip(self.trigger_delay_entry, trigger_delay_tip)
-        self._advanced_widgets.append(self.trigger_delay_entry)
+        row = group_heading(row, "Timing")
+        entry_row(
+            row,
+            "Trigger delay (s)",
+            self.trigger_delay_s,
+            "Extra delay inserted after a trigger before the measurement. It increases point time. Recommended setting: 0 s.",
+            "trigger_delay_entry",
+        )
+
+        self._update_filter_count_state()
+
+    def _update_filter_count_state(self) -> None:
+        entry = getattr(self, "digital_filter_count_entry", None)
+        if entry is None:
+            return
+        enabled = bool(
+            getattr(self, "acquisition_profile", None) is not None
+            and self.acquisition_profile.get() == PROFILE_CUSTOM
+            and self.digital_filter.get()
+        )
+        entry.state(["!disabled"] if enabled else ["disabled"])
 
     def _toggle_advanced_acquisition(self) -> None:
         visible = not bool(self.acquisition_advanced_visible.get())
@@ -398,6 +425,7 @@ class FastAcquisitionMixin(UiMixinTyping):
                     widget.configure(state="normal" if is_custom else "disabled")
                 except Exception:
                     pass
+        self._update_filter_count_state()
 
         tip = getattr(self, "acquisition_profile_tip", None)
         if tip is not None:

@@ -826,6 +826,51 @@ class ReconstructionInspector(QtWidgets.QWidget):
         finally:
             del blockers
 
+    def reset_reconstruction(self) -> None:
+        """Reset source-specific reconstruction controls for a new CSV."""
+
+        widgets = (
+            self.rows_spin,
+            self.cols_spin,
+            self.scan_combo,
+            self.first_row_check,
+            self.aggregation_combo,
+            self.method_combo,
+            self.rows_apart_spin,
+            self.row_offset_spin,
+            self.points_apart_spin,
+            self.point_offset_spin,
+            self.x_period_offset_spin,
+            self.y_phase_spin,
+            self.x_phase_spin,
+            self.window_mode_combo,
+            self.window_fraction_spin,
+            self.window_duration_spin,
+        )
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
+        try:
+            self.rows_spin.setValue(0)
+            self.cols_spin.setValue(0)
+            self.scan_combo.setCurrentIndex(0)
+            self.first_row_check.setChecked(True)
+            self.aggregation_combo.setCurrentIndex(0)
+            self.method_combo.setCurrentIndex(0)
+            self.rows_apart_spin.setValue(10)
+            self.row_offset_spin.setValue(0)
+            self.points_apart_spin.setValue(10)
+            self.point_offset_spin.setValue(0)
+            self.x_period_offset_spin.setValue(0)
+            self.y_phase_spin.setValue(0.0)
+            self.x_phase_spin.setValue(0.0)
+            self.window_mode_combo.setCurrentIndex(0)
+            self.window_fraction_spin.setValue(65.0)
+            self.window_duration_spin.setValue(0.0)
+            self._anchors_user_edited = False
+            self._update_offset_ranges()
+            self._update_phase_window_fields()
+        finally:
+            del blockers
+
     @staticmethod
     def _set_combo_value(combo: QtWidgets.QComboBox, value: object) -> None:
         index = combo.findData(value)

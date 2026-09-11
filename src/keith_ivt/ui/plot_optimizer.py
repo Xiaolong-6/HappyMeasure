@@ -2,20 +2,54 @@
 
 This module provides optimized plotting strategies for real-time data visualization:
 1. Incremental line updates (avoid full redraw)
-2. Blitting for faster canvas updates
+2. Hysteretic live-axis updates
 3. Downsampling for large datasets
 4. Line object reuse to minimize matplotlib overhead
 """
 
 from __future__ import annotations
 
+import math
 import time
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.lines import Line2D
     from matplotlib.figure import Figure
+
+
+def extrema_envelope(
+    x: Sequence[float], y: Sequence[float], max_points: int = 4000
+) -> tuple[list[float], list[float]]:
+    """Return an extrema-preserving display envelope over the full range."""
+
+    count = min(len(x), len(y))
+    if count <= max_points:
+        return list(x[:count]), list(y[:count])
+    if max_points < 4:
+        return [float(x[0]), float(x[count - 1])], [float(y[0]), float(y[count - 1])]
+
+    bucket_count = max(1, (max_points - 2) // 2)
+    indices = [0]
+    interior_count = count - 2
+    for bucket in range(bucket_count):
+        start = 1 + (bucket * interior_count) // bucket_count
+        stop = 1 + ((bucket + 1) * interior_count) // bucket_count
+        if stop <= start:
+            continue
+        finite = [index for index in range(start, stop) if math.isfinite(float(y[index]))]
+        if not finite:
+            indices.append(start)
+            continue
+        low = min(finite, key=lambda index: float(y[index]))
+        high = max(finite, key=lambda index: float(y[index]))
+        indices.extend(sorted({low, high}))
+    indices.append(count - 1)
+
+    selected = sorted(set(indices))
+    return [x[index] for index in selected], [y[index] for index in selected]
 
 
 class PlotOptimizer:
@@ -199,6 +233,7 @@ class FastPlotRenderer:
         self.figure = figure
         self.optimizer = PlotOptimizer(max_points_for_downsample=max_points)
         self._axes_cache: dict[int, Axes] = {}
+        self._axis_policy_state: dict[int, dict[str, object]] = {}
 
     def prepare_axes(self, num_subplots: int, rows: int, cols: int) -> list[Axes]:
         """Create or reuse subplot axes.
@@ -215,6 +250,7 @@ class FastPlotRenderer:
         if len(self.figure.axes) != num_subplots:
             self.figure.clear()
             self.optimizer.clear_cache()
+            self._axis_policy_state.clear()
 
         axes = []
         for idx in range(num_subplots):
@@ -247,6 +283,8 @@ class FastPlotRenderer:
         active_keys: set[str] = set()
 
         touched_axes: set[Axes] = set()
+        time_axes: set[Axes] = set()
+        time_series_by_axis: dict[Axes, tuple[list[float], list[float]]] = {}
 
         for series in data_series:
             ax_idx = series["ax_index"]
@@ -269,17 +307,23 @@ class FastPlotRenderer:
                 self.optimizer.update_or_create_line(ax, key, x, y, **style)
                 active_keys.add(key)
                 touched_axes.add(ax)
+                if series.get("time_view", False):
+                    time_axes.add(ax)
+                    time_series_by_axis[ax] = (x, y)
 
         # Remove stale lines
         self.optimizer.remove_stale_lines(active_keys)
 
-        # Incremental Line2D updates do not update Matplotlib data limits by
-        # themselves.  Recompute limits after every live update; otherwise a
-        # sweep such as -5 V -> +5 V can remain outside the default 0..1 view
-        # and appear as if real-time plotting is blank.
+        # Non-Time views retain the established full autoscale behavior. Time
+        # uses a stable rolling viewport and hysteretic Y updates so incoming
+        # samples do not rebuild ticks/grid on every frame.
         for ax in touched_axes:
-            ax.relim()
-            ax.autoscale_view(scalex=True, scaley=True)
+            if ax in time_axes:
+                x, y = time_series_by_axis[ax]
+                self._update_time_axes(ax, x, y)
+            else:
+                ax.relim()
+                ax.autoscale_view(scalex=True, scaley=True)
 
         # Trigger draw if rate limit allows
         if force or self.optimizer.should_redraw():
@@ -290,3 +334,62 @@ class FastPlotRenderer:
         """Reset renderer state (clear all caches)."""
         self.figure.clear()
         self.optimizer.clear_cache()
+        self._axis_policy_state.clear()
+        self._axes_cache.clear()
+
+    def reset_axis_policy(self) -> None:
+        """Invalidate live-axis state after a full figure/layout rebuild."""
+
+        self._axis_policy_state.clear()
+
+    def reset_axis_policy_for(self, ax: Axes) -> None:
+        """Forget the managed limits for one axis after its view changes."""
+
+        self._axis_policy_state.pop(id(ax), None)
+
+    def _update_time_axes(self, ax: Axes, x: list[float], y: list[float]) -> None:
+        """Keep live Time axes stable while expanding promptly for new data."""
+
+        finite_x = [float(value) for value in x if math.isfinite(float(value))]
+        finite_y = [float(value) for value in y if math.isfinite(float(value))]
+        if not finite_x or not finite_y:
+            return
+        state = self._axis_policy_state.setdefault(id(ax), {})
+        now = time.monotonic()
+
+        x_limits = tuple(float(value) for value in ax.get_xlim())
+        managed_x = state.get("managed_x")
+        manual_x = bool(state.get("manual_x", False))
+        if managed_x is not None and any(
+            abs(current - previous) > max(1e-12, abs(previous) * 1e-9)
+            for current, previous in zip(x_limits, managed_x)
+        ):
+            manual_x = True
+        if not manual_x:
+            x_low, x_high = min(finite_x), max(finite_x)
+            if managed_x is None or x_low < x_limits[0] or x_high > x_limits[1]:
+                span = max(x_high - x_low, abs(x_high) * 1e-9, 1e-9)
+                padding = span * 0.05
+                ax.set_xlim(x_low - padding, x_high + padding)
+                state["managed_x"] = tuple(float(value) for value in ax.get_xlim())
+        state["manual_x"] = manual_x
+
+        y_limits = tuple(float(value) for value in ax.get_ylim())
+        managed_y = state.get("managed_y")
+        manual_y = bool(state.get("manual_y", False))
+        if managed_y is not None and any(
+            abs(current - previous) > max(1e-12, abs(previous) * 1e-9)
+            for current, previous in zip(y_limits, managed_y)
+        ):
+            manual_y = True
+        if not manual_y:
+            y_low, y_high = min(finite_y), max(finite_y)
+            expands = y_low < y_limits[0] or y_high > y_limits[1]
+            refreshes = now - float(state.get("last_y_refresh", 0.0)) >= 1.5
+            if managed_y is None or expands or refreshes:
+                span = max(y_high - y_low, abs(y_high) * 1e-9, 1e-12)
+                padding = span * 0.05
+                ax.set_ylim(y_low - padding, y_high + padding)
+                state["managed_y"] = tuple(float(value) for value in ax.get_ylim())
+                state["last_y_refresh"] = now
+        state["manual_y"] = manual_y
