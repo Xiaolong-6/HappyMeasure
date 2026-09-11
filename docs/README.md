@@ -16,7 +16,7 @@ This index is the documentation source of truth. Prefer one owner document per c
 - `STATE_MACHINE.md` — run and connection state semantics
 - `ERROR_RECOVERY.md` — recoverable/fatal error behavior
 - `TRACE_SCHEMA.md` — CSV/import/export metadata contract
-- `SETTINGS_MIGRATION.md` — settings compatibility/migration rules
+- `SETTINGS_COMPATIBILITY.md` — active flat-settings persistence and compatibility rules
 - `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding measurement/driver behavior
 - `NAMING.md` — product and Python namespace rules
 - `RESTART_MECHANISM.md` — UI restart behavior
