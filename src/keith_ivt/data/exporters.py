@@ -26,30 +26,49 @@ def _point_fingerprint(result: SweepResult) -> str:
     return h.hexdigest()[:16]
 
 
-def _acquisition_metadata(cfg) -> dict[str, Any]:
-    """Return the *effective* acquisition state that was actually executed.
+def _profile_name(cfg) -> str:
+    return (
+        "Fast"
+        if bool(getattr(cfg, "fast_acquisition", False))
+        else "Custom"
+        if bool(getattr(cfg, "custom_acquisition", False))
+        else "Standard"
+    )
 
-    Standard keeps historical defaults (measurement_only_read=False,
-    range_telemetry=True, ...), so the persisted metadata must describe
-    the resolved settings, not the raw hidden Custom/Fast variables that
-    Standard otherwise carries.
+
+def _sampling_contract(cfg, *, as_fast_as_possible: bool) -> tuple[str, float | None]:
+    if getattr(cfg, "sweep_kind", None) is not SweepKind.CONSTANT_TIME:
+        return "not_applicable", None
+    if as_fast_as_possible:
+        return "as_fast_as_possible", None
+    return "scheduled", float(getattr(cfg, "interval_s", 0.0))
+
+
+def _acquisition_metadata(cfg) -> dict[str, Any]:
+    """Return the effective acquisition state that was actually executed.
+
+    Legacy top-level ``nplc``, ``delay_s`` and ``interval_s`` remain configured
+    values for CSV-v2 compatibility.  The fields returned here explicitly state
+    the resolved execution contract so Fast traces cannot be misread as using a
+    stale configured interval.
     """
 
+    profile = _profile_name(cfg)
     try:
         resolved = resolve_time_acquisition(cfg)
     except Exception:
-        # Fallback for non-Constant-Time or malformed configs: keep historical
-        # direct mapping so older single-field tests remain valid.
+        fast = bool(getattr(cfg, "fast_acquisition", False))
+        sampling_policy, effective_interval_s = _sampling_contract(
+            cfg, as_fast_as_possible=fast
+        )
         return {
-            "acquisition_profile": (
-                "Fast"
-                if bool(getattr(cfg, "fast_acquisition", False))
-                else "Custom"
-                if bool(getattr(cfg, "custom_acquisition", False))
-                else "Standard"
-            ),
-            "fast_acquisition": bool(getattr(cfg, "fast_acquisition", False)),
+            "acquisition_profile": profile,
+            "fast_acquisition": fast,
             "custom_acquisition": bool(getattr(cfg, "custom_acquisition", False)),
+            "sampling_policy": sampling_policy,
+            "effective_interval_s": effective_interval_s,
+            "effective_nplc": float(getattr(cfg, "nplc", 0.0)),
+            "effective_software_delay_s": float(getattr(cfg, "delay_s", 0.0)),
             "zero_refresh_before_run": bool(getattr(cfg, "zero_refresh_before_run", True)),
             "autozero_during_run": bool(getattr(cfg, "autozero_during_run", False)),
             "digital_filter": bool(getattr(cfg, "digital_filter", False)),
@@ -63,17 +82,18 @@ def _acquisition_metadata(cfg) -> dict[str, Any]:
             ),
             "trigger_delay_s": float(getattr(cfg, "trigger_delay_s", 0.0)),
         }
-    profile = (
-        "Fast"
-        if bool(getattr(cfg, "fast_acquisition", False))
-        else "Custom"
-        if bool(getattr(cfg, "custom_acquisition", False))
-        else "Standard"
+
+    sampling_policy, effective_interval_s = _sampling_contract(
+        cfg, as_fast_as_possible=bool(resolved.as_fast_as_possible)
     )
     return {
         "acquisition_profile": profile,
         "fast_acquisition": bool(getattr(cfg, "fast_acquisition", False)),
         "custom_acquisition": bool(getattr(cfg, "custom_acquisition", False)),
+        "sampling_policy": sampling_policy,
+        "effective_interval_s": effective_interval_s,
+        "effective_nplc": float(resolved.nplc),
+        "effective_software_delay_s": float(resolved.software_delay_s),
         "zero_refresh_before_run": bool(resolved.zero_refresh_before_run),
         "autozero_during_run": bool(resolved.autozero_during_run),
         "digital_filter": bool(resolved.digital_filter),
@@ -106,11 +126,12 @@ def result_metadata(result: SweepResult) -> dict:
         "step": cfg.step,
         "constant_value": cfg.constant_value,
         "duration_s": cfg.duration_s,
-        "interval_s": cfg.interval_s,
+        "sampling_policy": acquisition["sampling_policy"],
+        "effective_interval_s": acquisition["effective_interval_s"],
         "continuous_time": cfg.continuous_time,
         "compliance": cfg.compliance,
-        "nplc": cfg.nplc,
-        "delay_s": cfg.delay_s,
+        "nplc": acquisition["effective_nplc"],
+        "delay_s": acquisition["effective_software_delay_s"],
         "terminal": cfg.terminal.value,
         "sense_mode": cfg.sense_mode.value,
         "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
@@ -152,6 +173,7 @@ def result_metadata(result: SweepResult) -> dict:
         "duration_s": cfg.duration_s,
         "continuous_time": cfg.continuous_time,
         "interval_s": cfg.interval_s,
+        "configured_interval_s": cfg.interval_s,
         "autorange": cfg.autorange,
         "auto_source_range": getattr(cfg, "auto_source_range", cfg.autorange),
         "auto_measure_range": getattr(cfg, "auto_measure_range", cfg.autorange),
