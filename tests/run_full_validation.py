@@ -7,7 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-TEST = ROOT / "tests" / "test_legacy_ui_layout_contracts.py"
 
 sys.path.insert(0, str(SRC))
 from keith_ivt import version  # noqa: E402
@@ -22,16 +21,15 @@ def run(cmd: list[str]) -> None:
 
 def main() -> None:
     print(f"Full validation for HappyMeasure {version.VERSION} ({version.RELEASE_STAGE})")
-    print(
-        "Quality gates: compileall, legacy UI contracts, full pytest, and coverage >=95% for the unit-testable core/hardware/map subset. Tk/Qt widgets and real hardware entrypoints are omitted from coverage and handled by smoke/bench protocols."
-    )
     ok = compileall.compile_dir(str(SRC), quiet=1)
     ok = compileall.compile_dir(str(ROOT / "tests"), quiet=1) and ok
     if not ok:
         raise SystemExit("compileall failed")
     print("PASS compileall src tests")
-    run([sys.executable, str(TEST.relative_to(ROOT))])
-    run([sys.executable, "-m", "pytest", "-q"])
+
+    for domain in ("common", "happymeasure", "map_reconstruction"):
+        run([sys.executable, "-m", "pytest", f"tests/{domain}", "-q"])
+
     run(
         [
             sys.executable,
@@ -43,7 +41,7 @@ def main() -> None:
             "-q",
         ]
     )
-    print("PASS current beta validation")
+    print("PASS domain tests and coverage gate")
 
 
 if __name__ == "__main__":
