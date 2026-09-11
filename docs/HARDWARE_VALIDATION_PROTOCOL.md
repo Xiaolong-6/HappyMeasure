@@ -112,14 +112,19 @@ Only after the earlier levels pass. Start with conservative limits and save the 
 
 ## Pre-hardware software gates
 
-Before connecting a DUT, the source branch should already have passed CI. For a local checkout, useful focused checks include:
+Before connecting a DUT, the release branch must already have passed the automated core and Map release gates described in `RELEASE_CHECKLIST.md`.
+
+For a local core checkout:
 
 ```text
-python tests\run_full_validation.py
+python -m pip install -e ".[dev]"
+python -m pytest -q tests\common tests\happymeasure
 python -m pytest -q tests\happymeasure\test_pre_hardware_safety.py tests\happymeasure\test_mock_visa_command_sequence.py
 ```
 
-These verify software intent and recovery paths only.
+If the complete local release environment also has `.[dev,map]` installed, `python tests\run_full_validation.py` runs all three test domains plus configured coverage.
+
+These verify software intent and recovery paths only; they do not replace the physical output-off checks above.
 
 ## Previous bench evidence
 
