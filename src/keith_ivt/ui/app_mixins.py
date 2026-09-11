@@ -14,6 +14,7 @@ from keith_ivt.ui.data_actions import DataActionMixin
 from keith_ivt.ui.diagnostics_panel import DiagnosticsUiMixin
 from keith_ivt.ui.fast_acquisition import FastAcquisitionMixin
 from keith_ivt.ui.hardware_controller import HardwareControllerMixin
+from keith_ivt.ui.measurement_semantics import MeasurementSemanticsMixin
 from keith_ivt.ui.navigation import NavigationMixin
 from keith_ivt.ui.operator_bar import OperatorBarMixin
 from keith_ivt.ui.panels import PanelBuilderMixin
@@ -33,6 +34,7 @@ from keith_ivt.ui.widget_helpers import WidgetHelperMixin
 
 
 class AppChromeMixin(
+    MeasurementSemanticsMixin,
     ThemeMixin,
     NavigationMixin,
     StatusBarMixin,
@@ -43,7 +45,7 @@ class AppChromeMixin(
     PanelBuilderMixin,
     PresetRestorePanelMixin,
 ):
-    """Visual shell, navigation, reusable widgets, and static panels."""
+    """Visual shell, navigation, reusable widgets, and measurement UI guards."""
 
 
 class AppWorkflowMixin(
