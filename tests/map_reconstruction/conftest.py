@@ -12,11 +12,11 @@ def fail_on_unexpected_modal_dialog(monkeypatch):
     """Keep the offscreen Map suite non-interactive.
 
     Tests that intentionally exercise a dialog must monkeypatch the specific
-    dialog API themselves.  Any other modal/file dialog is a test bug (and
+    dialog API themselves. Any other modal/file dialog is a test bug (and
     would otherwise hang the Windows CI runner indefinitely).
     """
 
-    PySide6 = pytest.importorskip("PySide6")
+    pytest.importorskip("PySide6")
     from PySide6 import QtWidgets
 
     def unexpected(*_args, **_kwargs):
