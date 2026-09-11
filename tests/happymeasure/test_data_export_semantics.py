@@ -52,7 +52,9 @@ def test_fast_metadata_separates_configured_interval_from_execution_policy() -> 
     assert first_meta["effective_interval_s"] is None
     assert second_meta["effective_interval_s"] is None
     assert first_meta["effective_nplc"] == second_meta["effective_nplc"] == pytest.approx(0.1)
-    assert first_meta["effective_software_delay_s"] == second_meta["effective_software_delay_s"] == 0.0
+    assert (
+        first_meta["effective_software_delay_s"] == second_meta["effective_software_delay_s"] == 0.0
+    )
     assert first_meta["config_fingerprint"] == second_meta["config_fingerprint"]
 
 

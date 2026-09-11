@@ -54,7 +54,9 @@ class _FakeKeithley:
         raise AssertionError("hardware diagnostic must never reset the instrument")
 
 
-def _factory(events, *, idn="KEITHLEY INSTRUMENTS INC.,MODEL 2401,B02", output_state="0", beep_error=None):
+def _factory(
+    events, *, idn="KEITHLEY INSTRUMENTS INC.,MODEL 2401,B02", output_state="0", beep_error=None
+):
     def create(**kwargs):
         return _FakeKeithley(
             events=events,

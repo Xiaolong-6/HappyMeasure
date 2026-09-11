@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from keith_ivt.data.settings import AppSettings, load_settings, sanitize_settings_dict, save_settings
+from keith_ivt.data.settings import (
+    AppSettings,
+    load_settings,
+    sanitize_settings_dict,
+    save_settings,
+)
 
 
 def test_legacy_high_contrast_theme_migrates_to_debug(tmp_path) -> None:
@@ -15,9 +20,10 @@ def test_legacy_high_contrast_theme_migrates_to_debug(tmp_path) -> None:
 def test_front_panel_auto_popup_defaults_enabled_and_sanitizes_boolean_text() -> None:
     assert AppSettings().show_front_panel_on_start is True
     assert sanitize_settings_dict({})["show_front_panel_on_start"] is True
-    assert sanitize_settings_dict({"show_front_panel_on_start": "no"})[
-        "show_front_panel_on_start"
-    ] is False
+    assert (
+        sanitize_settings_dict({"show_front_panel_on_start": "no"})["show_front_panel_on_start"]
+        is False
+    )
 
 
 def test_debug_simulator_defaults_disabled_and_sanitizes_boolean_text() -> None:

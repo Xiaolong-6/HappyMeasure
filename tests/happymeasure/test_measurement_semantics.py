@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 
 from keith_ivt.core.current_range import CurrentRangeControl, CurrentRangeState
-from keith_ivt.drivers.base import DriverCapabilities, instrument_model_from_idn, supports_fast_acquisition_for_idn
+from keith_ivt.drivers.base import (
+    DriverCapabilities,
+    instrument_model_from_idn,
+    supports_fast_acquisition_for_idn,
+)
 from keith_ivt.models import SweepKind, SweepMode
 from keith_ivt.ui.measurement_semantics import MeasurementSemanticsMixin
 

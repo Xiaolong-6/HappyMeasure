@@ -144,12 +144,22 @@ def test_resistor_range_selection_and_configs_avoid_overrange() -> None:
     expected_a = 0.1 / 10_000.0
     measure_range = smoke.choose_measure_range(expected_a)
     standard = smoke.make_cfg(
-        "COM3", 57600, smoke.Terminal.REAR, 0.1, 0.2, 3,
-        constant_v=0.1, measure_range=measure_range,
+        "COM3",
+        57600,
+        smoke.Terminal.REAR,
+        0.1,
+        0.2,
+        3,
+        constant_v=0.1,
+        measure_range=measure_range,
     )
     fast = smoke.make_fast_cfg(
-        "COM3", 57600, smoke.Terminal.REAR,
-        duration_s=0.5, constant_v=0.1, measure_range=measure_range,
+        "COM3",
+        57600,
+        smoke.Terminal.REAR,
+        duration_s=0.5,
+        constant_v=0.1,
+        measure_range=measure_range,
     )
     assert standard.auto_measure_range is False
     assert fast.auto_measure_range is False

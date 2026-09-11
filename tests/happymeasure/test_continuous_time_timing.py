@@ -336,9 +336,7 @@ def test_finite_standard_time_overflow_on_last_slot_still_ends_on_schedule(
 
     assert meter.read_count == 5
     assert len(result.points) == 3
-    assert [point.measured_value for point in result.points] == pytest.approx(
-        [0.001, 0.003, 0.004]
-    )
+    assert [point.measured_value for point in result.points] == pytest.approx([0.001, 0.003, 0.004])
     assert result.warnings == ["Skipped 2 Keithley overflow measurement(s)."]
 
 

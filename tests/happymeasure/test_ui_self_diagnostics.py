@@ -6,7 +6,14 @@ from zipfile import ZipFile
 
 import pytest
 
-from keith_ivt.diagnostics.ui_self_test import FAIL, PASS, UiDiagnosticCheck, UiDiagnosticReport, run_ui_self_test, write_ui_diagnostic_bundle
+from keith_ivt.diagnostics.ui_self_test import (
+    FAIL,
+    PASS,
+    UiDiagnosticCheck,
+    UiDiagnosticReport,
+    run_ui_self_test,
+    write_ui_diagnostic_bundle,
+)
 
 
 class _FakeTk:
@@ -117,8 +124,13 @@ def test_advanced_controls_connected_state_is_editable() -> None:
         assert not disabled
         app.acquisition_advanced_visible.set(False)
         report = run_ui_self_test(app)
-        assert next(c for c in report.checks if c.name == "advanced_controls_availability").status == PASS
-        assert next(c for c in report.checks if c.name == "advanced_controls_callback").status == PASS
+        assert (
+            next(c for c in report.checks if c.name == "advanced_controls_availability").status
+            == PASS
+        )
+        assert (
+            next(c for c in report.checks if c.name == "advanced_controls_callback").status == PASS
+        )
     finally:
         app.root.destroy()
 
