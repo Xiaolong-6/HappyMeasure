@@ -18,7 +18,9 @@ def application():
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
-def test_map_analysis_flip_color_control_is_visible_when_analysis_stage_is_shown(application) -> None:
+def test_map_analysis_flip_color_control_is_visible_when_analysis_stage_is_shown(
+    application,
+) -> None:
     window = MapReconstructionWindow()
     try:
         window.show()

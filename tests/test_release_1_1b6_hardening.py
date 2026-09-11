@@ -39,7 +39,11 @@ def _legacy_snapshot_fields() -> set[str]:
     source = textwrap.dedent(inspect.getsource(SettingsPresetMixin._current_settings))
     tree = ast.parse(source)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "AppSettings":
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "AppSettings"
+        ):
             return {kw.arg for kw in node.keywords if kw.arg is not None}
     raise AssertionError("SettingsPresetMixin._current_settings must construct AppSettings")
 
