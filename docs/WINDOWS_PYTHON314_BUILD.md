@@ -1,69 +1,43 @@
 # Windows Portable Build With Python 3.14
 
-This package intentionally includes a Python 3.14-targeted portable-app build
-path.
+This document contains only the Python 3.14-specific packaging path and workaround. The common portable-build contract, output layout, first-run files, safety gate and release artifact rules are owned by `WINDOWS_PORTABLE_BUILD.md`.
 
-## One-Click Build
+## Use the dedicated 3.14 launcher
 
-From Windows, double-click:
+From Windows, run one of:
 
 ```text
 tools\build\Build_Portable_Windows_App_Python314.bat
 ```
 
-or:
-
-```text
+```powershell
 .\tools\build\Build_Portable_Windows_App_Python314.ps1
 ```
 
-The script only uses Python 3.14. It does not search for Python 3.13/3.12/3.11.
+This path intentionally uses Python 3.14 only; it does not fall back to 3.13/3.12/3.11.
 
-## Output
+## Why this path is separate
 
-A successful build creates:
+Some Windows/Python 3.14 environments have shown temporary-directory permission failures during virtual-environment/editable-install setup and pytest cleanup. The maintained 3.14 packaging path therefore uses explicit dependencies and `PYTHONPATH=src` rather than treating a full editable-install pytest run as part of packaging.
 
-```text
-dist\HappyMeasure\HappyMeasure.exe
-dist\HappyMeasure-<version>-windows-portable.zip
-```
+This does **not** replace the source release gates. Source/CI validation must already be green before building the portable artifact.
 
-Distribute the whole folder:
+## Packaging-time validation
 
-```text
-dist\HappyMeasure\
-```
+The 3.14 build path performs its maintained import/build smoke checks and produces the same onedir artifact contract described in `WINDOWS_PORTABLE_BUILD.md`.
 
-Do not distribute only `HappyMeasure.exe`, because PyInstaller onedir builds
-need the bundled internal files.
+After packaging, manually verify at least:
 
-Ignore `build\HappyMeasure` if you see it during packaging. It is PyInstaller's
-temporary work area, not a deliverable app. Successful scripts remove it after
-the portable zip is created.
+1. `dist\HappyMeasure\HappyMeasure.exe` launches and closes cleanly.
+2. Debug simulator acquisition works.
+3. CSV export and log writing work.
+4. STOP returns the UI to a safe state.
+5. Map Reconstruction launches if included by the package.
+6. Hardware preflight is run before any real DUT is connected.
 
-## Validation Policy For This Build Path
+## Temp-directory workaround
 
-The Python 3.14 build script runs an import smoke check and then packages with
-PyInstaller. It intentionally skips the full pytest validation because
-Windows/Python 3.14 can keep temporary log files locked during pytest cleanup.
-It installs explicit runtime/dev dependencies and sets `PYTHONPATH=src` instead
-of using editable install, which avoids temp-directory permission failures seen
-on some Python 3.14 Windows setups.
-
-After packaging, validate manually in this order:
-
-1. Launch `dist\HappyMeasure\HappyMeasure.exe`.
-2. Run the debug simulator with diode/resistor/open/short.
-3. Confirm CSV export works.
-4. Confirm logs are written.
-5. Confirm STOP returns the UI to a safe state.
-6. Run hardware preflight before connecting any real DUT.
-
-## Known Windows 3.14 Packaging Workaround
-
-If `py -3.14 -m venv .venv` fails inside `ensurepip` with a temp-directory
-`PermissionError`, the source code does not need to change. Build with a local
-dependency target:
+If Python 3.14 fails before the maintained script can create/use its environment because `ensurepip` or pip cannot write/clean a temporary wheel directory, use a repository-local dependency target:
 
 ```powershell
 $root = (Resolve-Path .).Path
@@ -75,30 +49,17 @@ $env:PYTHONPATH = (Join-Path $root ".build-deps") + ";" + (Join-Path $root "src"
 python -c "from PyInstaller.__main__ import run; run(['--noconfirm','--clean','--distpath','dist','--workpath','build','packaging\\HappyMeasure.spec'])"
 ```
 
-After PyInstaller finishes, add the same first-run files that the build script
-normally copies:
+After this manual fallback, copy the same first-run files required by the common build contract. Do not invent a different portable layout for the workaround.
 
-```powershell
-New-Item -ItemType Directory -Force -Path dist\HappyMeasure\logs,dist\HappyMeasure\examples,dist\HappyMeasure\config
-Copy-Item packaging\README_FIRST_PORTABLE.txt dist\HappyMeasure\README_FIRST.txt
-Copy-Item docs\HARDWARE_VALIDATION_PROTOCOL.md dist\HappyMeasure\
-Copy-Item docs\HARDWARE_DRY_RUN_GUIDE.md dist\HappyMeasure\
-Copy-Item config\*.json dist\HappyMeasure\config\
-Copy-Item examples\* dist\HappyMeasure\examples\
-```
+Repository-local `.build-deps`, `.pip-cache`, `.tmp-build`, `build`, and `dist` directories are build/runtime artifacts and must not be committed.
 
-This workaround was used successfully on Windows 11 with Python 3.14.5,
-PyInstaller 6.20.0, and Matplotlib 3.10.9. A brief packaged-app smoke test
-should launch `dist\HappyMeasure\HappyMeasure.exe`, wait until the process stays
-alive, then close it before hardware testing.
+## Interpreter check
 
-## If Python 3.14 Is Not Detected
-
-Run:
+If the launcher cannot find Python 3.14, verify:
 
 ```bat
 py -3.14 --version
 python --version
 ```
 
-At least one command must report Python 3.14.
+At least one configured launcher path must report Python 3.14. For normal 3.12/3.11/3.13 packaging, use `WINDOWS_PORTABLE_BUILD.md` instead.
