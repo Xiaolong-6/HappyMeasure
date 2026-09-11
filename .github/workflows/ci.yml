@@ -37,3 +37,30 @@ jobs:
       - name: Enforce core coverage
         if: matrix.python-version == '3.14'
         run: python -m pytest --cov=keith_ivt --cov-report=term -q
+
+  map-ui:
+    name: Map Reconstruction UI (Windows / Python 3.12)
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Map Reconstruction release-gate dependencies
+        run: python -m pip install -e ".[dev,map]"
+      - name: Require Qt dependencies
+        run: python -c "import PySide6, pyqtgraph; print(PySide6.__version__, pyqtgraph.__version__)"
+      - name: Compile Map Reconstruction sources and tests
+        run: python -m compileall -q src/map_reconstruction tests
+      - name: Check formatting
+        run: python -m black --check src/map_reconstruction tests/test_map*.py
+      - name: Lint
+        run: python -m ruff check src/map_reconstruction tests/test_map*.py
+      - name: Type check Map Reconstruction
+        run: python -m mypy src/map_reconstruction
+      - name: Run Map Reconstruction release gate
+        run: python -m pytest -q -k "map_reconstruction or phase_window"

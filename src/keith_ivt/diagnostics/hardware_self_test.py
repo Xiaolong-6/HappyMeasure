@@ -5,6 +5,7 @@ from datetime import datetime
 from time import perf_counter
 from typing import Any, Callable
 
+from keith_ivt.drivers.base import instrument_model_from_idn
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 
 PASS = "PASS"
@@ -67,8 +68,12 @@ def _output_is_off(raw: str) -> bool:
 
 
 def _supported_identity(idn: str) -> bool:
-    text = idn.upper()
-    return "KEITHLEY" in text and any(model in text for model in _SUPPORTED_2400_MODELS)
+    """Validate the Keithley model field without matching serial/firmware text."""
+
+    text = str(idn or "").upper()
+    if "KEITHLEY" not in text:
+        return False
+    return instrument_model_from_idn(idn) in _SUPPORTED_2400_MODELS
 
 
 def _report(
