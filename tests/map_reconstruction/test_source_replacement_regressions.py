@@ -26,7 +26,10 @@ def _window_with_valid_reconstruction(application) -> MapReconstructionWindow:
     time = np.linspace(0.0, 10.0, 10_001)
     current = 1e-6 * np.sin(time)
     voltage = np.cos(time)
-    window.data = TimeSeriesData(time_s=time, signals={"Current_A": current, "Voltage_V": voltage})
+    window.data = TimeSeriesData(
+        time_s=time,
+        signals={"Current_A": current, "Voltage_V": voltage},
+    )
     window.signal_combo.blockSignals(True)
     window.signal_combo.addItems(window.data.signal_names)
     window.signal_combo.setCurrentText("Current_A")
@@ -84,7 +87,9 @@ def test_new_csv_replaces_old_workspace_and_returns_to_preparation(
         window.close()
 
 
-def test_invalid_csv_preserves_existing_workspace(application, tmp_path: Path, monkeypatch) -> None:
+def test_invalid_csv_preserves_existing_workspace(
+    application, tmp_path: Path, monkeypatch
+) -> None:
     window = _window_with_valid_reconstruction(application)
     old_data = window.data
     old_values = window.result.values.copy() if window.result is not None else None
