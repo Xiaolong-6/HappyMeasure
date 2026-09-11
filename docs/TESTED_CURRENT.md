@@ -1,5 +1,16 @@
 # Current Test Status
 
+## 2026-09-11 - Map Reconstruction QC layout cleanup
+
+### Map Reconstruction validation
+
+- Removed the legacy `Samples / pixel` tab container from the Reconstruction
+  stage. The map remains on the left while `Samples / pixel` and `Distribution`
+  use the same vertical diagnostics layout as Analysis, so both panels remain
+  visible without a historical tab title.
+- Focused offscreen Qt UI regressions cover the shared splitter structure and
+  legacy-tab removal. No measurement, export, or hardware behavior changed.
+
 ## 2026-09-10 - Map workflow close-out and elapsed-time remediation
 
 ### Map Reconstruction validation

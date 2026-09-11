@@ -161,10 +161,6 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         right = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.map_views = MapViews(self)
         self.analysis_map_views = MapViews(self, presentation="analysis")
-        assert self.map_views.qc_tabs is not None
-        distribution_index = self.map_views.qc_tabs.indexOf(self.map_views.distribution_stack)
-        if distribution_index >= 0:
-            self.map_views.qc_tabs.removeTab(distribution_index)
         self.analysis_page.attach_views(self.analysis_map_views)
         self.trace_view = TraceView(parent=self)
         right.addWidget(self.map_views)
@@ -360,6 +356,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             "count_image",
             "count_color_bar",
             "qc_tabs",
+            "qc_splitter",
             "distribution_stack",
             "distribution_plot",
             "distribution_bars",

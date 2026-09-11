@@ -65,18 +65,24 @@ class MapViews(QtWidgets.QWidget):
             self.median_line,
             self.distribution_stats,
         ) = self._make_distribution_panel()
+        # Kept as a compatibility attribute for callers that used the old tab
+        # container.  QC views are now laid out directly so both stages share
+        # the same map/diagnostics presentation without a legacy tab title.
         self.qc_tabs: QtWidgets.QTabWidget | None = None
+        self.qc_splitter: QtWidgets.QSplitter | None = None
         if self.presentation == "reconstruction":
             root = QtWidgets.QVBoxLayout(self)
             root.setContentsMargins(0, 0, 0, 0)
             self.map_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
             root.addWidget(self.map_splitter)
-            self.qc_tabs = QtWidgets.QTabWidget()
-            self.qc_tabs.setDocumentMode(True)
-            self.qc_tabs.addTab(self.count_stack, "Samples / pixel")
-            self.qc_tabs.addTab(self.distribution_stack, "Distribution")
+            self.qc_splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+            self.qc_splitter.addWidget(self.count_stack)
+            self.qc_splitter.addWidget(self.distribution_stack)
+            self.qc_splitter.setStretchFactor(0, 1)
+            self.qc_splitter.setStretchFactor(1, 1)
+            self.qc_splitter.setSizes([360, 440])
             self.map_splitter.addWidget(self.map_stack)
-            self.map_splitter.addWidget(self.qc_tabs)
+            self.map_splitter.addWidget(self.qc_splitter)
             self.map_splitter.setStretchFactor(0, 1)
             self.map_splitter.setStretchFactor(1, 1)
         self._set_loaded(False)

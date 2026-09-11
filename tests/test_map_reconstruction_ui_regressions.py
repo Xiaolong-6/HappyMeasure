@@ -138,6 +138,21 @@ def test_analysis_uses_resizable_map_and_simultaneous_diagnostics(application) -
         window.close()
 
 
+def test_reconstruction_uses_simultaneous_qc_without_legacy_tabs(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        views = window.map_views
+        assert views.qc_tabs is None
+        assert views.qc_splitter is not None
+        assert views.qc_splitter.orientation() is QtCore.Qt.Orientation.Vertical
+        assert views.qc_splitter.count() == 2
+        assert views.qc_splitter.widget(0) is views.count_stack
+        assert views.qc_splitter.widget(1) is views.distribution_stack
+        assert views.map_splitter.widget(1) is views.qc_splitter
+    finally:
+        window.close()
+
+
 def test_fresh_geometry_is_unset(application) -> None:
     window = MapReconstructionWindow()
 
