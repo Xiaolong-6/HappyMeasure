@@ -21,6 +21,7 @@ from keith_ivt.ui.panels import PanelBuilderMixin
 from keith_ivt.ui.plot_controls import PlotInteractionMixin
 from keith_ivt.ui.plot_panel import PlotPanelMixin
 from keith_ivt.ui.preset_restore_panel import PresetRestorePanelMixin
+from keith_ivt.ui.settings_panel import SettingsPanelMixin
 from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
 from keith_ivt.ui.status_bar import StatusBarMixin
 from keith_ivt.ui.sweep_config import SweepConfigMixin
@@ -41,6 +42,7 @@ class AppChromeMixin(
     OperatorBarMixin,
     UiScaffoldMixin,
     WidgetHelperMixin,
+    SettingsPanelMixin,
     DiagnosticsUiMixin,
     PanelBuilderMixin,
     PresetRestorePanelMixin,
