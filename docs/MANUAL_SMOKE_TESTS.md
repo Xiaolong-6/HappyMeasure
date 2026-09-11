@@ -1,86 +1,112 @@
 # Manual Smoke Tests
 
-Run these checks after a source-level hardening change and before release-prep build testing. They do not require real hardware unless explicitly stated.
+Run these checks after the automated source gates and before release packaging/hardware verification. Real hardware is required only where explicitly stated.
 
 ## Simulator state flow
 
 1. Start `Run_HappyMeasure.bat`.
 2. Connect the debug simulator.
 3. Start a sweep.
-4. Pause if the current UI exposes pause/resume for the active sweep path.
+4. Pause/Resume on a supported active sweep.
 5. Stop the sweep.
 6. Start again.
-7. Abort a sweep.
+7. Abort/error a run using a safe simulator path if available.
 8. Start again.
 9. Disconnect and reconnect.
 
-Expected results:
+Expected:
 
-- The status bar must not remain stuck in `Sweeping` after stop/abort/completion.
-- Start must work from ready states such as stopped, completed, and aborted.
-- Stop/Abort must return the UI to a state where another sweep is possible after cleanup.
-- Partial data should be visible or clearly absent; the UI must not silently pretend an aborted run completed normally.
+- status does not remain stuck in an active state after Stop/Abort/completion;
+- Start works again from documented ready states;
+- stop/pause flags do not leak into the next run;
+- partial/aborted data are not presented as a normal completed run.
+
+## Constant-Time / Time plot
+
+1. Select Constant Time with Standard acquisition and run a short trace.
+2. Open Advanced Acquisition and verify Standard/Fast/Custom enable/disable behavior.
+3. In Time plot settings, exercise marker `Auto`, `On`, and `Off`.
+4. Select `Last N` with a small N and run long enough to exceed it.
+5. Confirm the live view follows the latest points without obvious axis/canvas flashing.
+6. Finish/Stop the run and switch to the completed trace.
+
+Expected:
+
+- Last-N affects live display only; authoritative data are not truncated;
+- the completed trace can show the full elapsed-time range;
+- large completed traces do not re-enable a dense marker cloud under Auto;
+- acquisition remains responsive when render refresh is slower than sample arrival.
 
 ## Trace/export smoke test
 
 1. Run a simulator trace for device A.
-2. Rename the trace to `test_A`.
+2. Rename the trace to a name containing underscores.
 3. Run a second trace for device B.
 4. Hide one trace.
-5. Export selected.
-6. Export visible.
-7. Export all.
-8. Clear all.
-9. Import the exported CSV files.
+5. Export selected, visible, and all traces.
+6. Clear all.
+7. Import the exported CSV files.
 
-Expected results:
+Expected:
 
-- Renamed trace names are preserved in export/import.
-- Export visible excludes hidden traces.
-- Export all includes hidden traces.
-- Clear all clears plot, trace list, selection, and save/export state.
-- Import refreshes plot, trace list, and device/trace selection consistently.
+- renamed trace metadata are preserved;
+- export-visible excludes hidden traces and export-all includes them;
+- Time/Adaptive/underscore-containing names do not duplicate filename tokens;
+- Clear All resets the workspace save/export state coherently;
+- imported traces restore plot/list metadata without modifying source data.
 
-## Config and preset compatibility
+## Settings and diagnostics
 
 1. Back up `config/settings.json` and `config/presets.json`.
-2. Start the app.
-3. Change theme and UI font size.
-4. Change a few sweep defaults and save them if the UI path supports it.
-5. Close and reopen the app.
-6. Load any presets created by older alpha versions.
+2. Disable **Check Updates on Startup** and save/review settings.
+3. Reopen the settings review and confirm the preference remains disabled.
+4. Enable developer tools and run **UI Diagnostics** in a short/low-height window.
+5. Confirm UI Diagnostics returns to a usable Settings page and all diagnostics actions remain reachable by scrolling.
+6. Restart the UI once with no unsaved work and confirm the replacement process launches cleanly.
 
-Expected results:
+Expected:
 
-- Missing or old fields fall back to defaults.
-- String booleans such as `"False"` are interpreted correctly.
-- Corrupt settings should fall back to defaults instead of preventing app startup.
-- Invalid presets should be ignored or sanitized rather than crashing the UI.
+- missing/old settings fields fall back safely;
+- string booleans such as `"False"` are interpreted correctly;
+- corrupt settings do not prevent startup;
+- review/save does not silently reset unrelated preferences;
+- diagnostics do not invoke hardware actions.
 
-## Update reminder
+## Map Reconstruction
 
-1. Start the app with network access.
-2. Confirm the UI remains responsive while update metadata is checked.
-3. Open About and use the release/update button.
-4. Repeat with network disabled if possible.
+With `.[dev,map]` installed:
 
-Expected results:
+1. Launch Map Reconstruction and confirm it starts maximized.
+2. Open CSV A, prepare, reconstruct, and enter Map Analysis.
+3. Open CSV B and exercise Save/Discard/Cancel replacement behavior.
+4. Confirm accepted CSV B returns the workflow to Signal Preparation and no CSV A result/QC/processed map remains active.
+5. Reconstruct CSV B.
+6. Save and reopen an `.hmmap` project.
+7. Confirm manual min/max, percentile wording, palette and **Flip color** controls are visible and responsive.
 
-- The app only reads GitHub release metadata.
-- It does not download, install, or replace files.
-- Offline failure does not block or crash the UI.
+## Update flow
+
+Use a disposable portable/source test environment; never test updater replacement against the only copy of user data.
+
+Expected:
+
+- update metadata checking is asynchronous/non-blocking;
+- a release with a valid portable asset plus SHA-256 digest may offer **Download and install** only after explicit user confirmation;
+- a release without a usable digest falls back to opening/manual download rather than installing unverified bytes;
+- cancelling the prompt does not replace files;
+- offline/rate-limit/error paths remain non-blocking and readable.
 
 ## Real hardware preflight
 
-Only run this with a known safe instrument setup. Prefer disconnected outputs or a dummy load before the first real sweep.
+Only after source/desktop gates pass, and with a known safe setup, run:
 
 ```bat
 python -m happymeasure.hardware_preflight COM3 --baud 9600
 ```
 
-Expected results:
+Expected:
 
-- The command prints the safety note.
-- It queries identity and sends output off only.
-- It does not source voltage/current or run a sweep.
-- Failures print a readable `FAIL hardware preflight` message.
+- it queries identity and sends output off only;
+- it does not source voltage/current or run a sweep;
+- failures produce a readable preflight failure;
+- the instrument front panel is physically confirmed OFF before proceeding to the staged hardware protocol.
