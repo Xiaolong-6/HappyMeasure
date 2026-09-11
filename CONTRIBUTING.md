@@ -30,16 +30,17 @@ Run focused regressions for the changed behavior. Shared hardware, state, settin
 
 ## Map Reconstruction
 
-For Map-only changes install the optional GUI dependencies and run the offscreen Qt gate:
+For Map-only changes install the optional GUI dependencies and run the owned offscreen Qt test domain:
 
 ```powershell
 python -m pip install -e ".[dev,map]"
 $env:QT_QPA_PLATFORM="offscreen"
 python -c "import PySide6, pyqtgraph"
-python -m pytest -q -k "map_reconstruction or phase_window"
+python -m mypy src/map_reconstruction
+python -m pytest -q tests/map_reconstruction
 ```
 
-A release candidate must run this gate even when the ordinary `.[dev]` suite would otherwise skip Qt tests.
+A release candidate must run this gate with real Qt dependencies; a dependency-driven skip is not a release-gate pass.
 
 ## Regression-test discipline
 
