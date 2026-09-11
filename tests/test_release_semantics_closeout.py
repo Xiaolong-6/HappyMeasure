@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -138,7 +137,7 @@ def _project_state(preparation: SignalPreparationConfig) -> ProjectState:
         signal="Current_A",
         rows=2,
         columns=2,
-        scan_pattern=ScanPattern.RASTER,
+        scan_pattern=ScanPattern.SAME_DIRECTION,
         first_row_ltr=True,
         aggregation="median",
         row_a_s=0.0,
