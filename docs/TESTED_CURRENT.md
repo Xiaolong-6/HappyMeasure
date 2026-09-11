@@ -1,5 +1,31 @@
 # Current Test Status
 
+## 2026-09-11 - Time plot display policy, Map color shortcuts, and export naming
+
+### HappyMeasure validation
+
+- Focused display/export gate: **30 passed** across Time display policies,
+  incremental plot rendering, export naming, and the existing export-log UI.
+- Time marker policy, All data/Last N points slicing, independent trace-length
+  handling, invalid point-count normalization, and forced completion refreshes
+  are display-only. Acquisition points, completed results, and CSV exports are
+  unchanged.
+- Selected-trace CSV naming now constructs a renamed `SweepResult` before
+  naming/saving, so device names containing underscores cannot duplicate a
+  suffix. Constant Time and Adaptive tags contain one kind token and one point
+  count. Export timestamps remain export-time timestamps.
+
+### Map Reconstruction validation
+
+- Full offscreen UI regression gate: **38 passed**. Analysis Manual range now
+  offers Use data min/max shortcuts, Palette exposes Flip color, and percentile
+  controls are explicitly labelled as percentile ranks. The shortcuts copy
+  display-scaled finite processed-data extremes without mutating processed
+  scientific values.
+- Focused HappyMeasure closeout/recovery/layout gate: **58 passed**.
+- Ruff, Black, mypy, and compileall passed for all changed Python sources and
+  tests.
+
 ## 2026-09-11 - Map Reconstruction source handoff and QC layout
 
 ### Map Reconstruction validation

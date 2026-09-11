@@ -21,6 +21,8 @@ class MapAnalysisPage(QtWidgets.QWidget):
     displayChanged = QtCore.Signal()
     processingChanged = QtCore.Signal()
     colorLimitsChanged = QtCore.Signal()
+    colorMinDataRequested = QtCore.Signal()
+    colorMaxDataRequested = QtCore.Signal()
     exportProcessedRequested = QtCore.Signal()
     exportSummaryRequested = QtCore.Signal()
     exportPdfRequested = QtCore.Signal()
@@ -42,6 +44,7 @@ class MapAnalysisPage(QtWidgets.QWidget):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(7)
         self._rows: dict[str, tuple[QtWidgets.QLabel, QtWidgets.QWidget]] = {}
+        self._data_range_available = False
 
         layout.addWidget(self._header("VALUE PROCESSING"))
         form = QtWidgets.QFormLayout()
@@ -108,11 +111,18 @@ class MapAnalysisPage(QtWidgets.QWidget):
         self.color_min_spin = self._value_spin()
         self.color_max_spin = self._value_spin()
         self.color_percentile_pair = self._pair(
-            "Low", self.percentile_low_spin, "High", self.percentile_high_spin
+            "Low percentile", self.percentile_low_spin, "High percentile", self.percentile_high_spin
         )
+        percentile_tip = (
+            "Percentile rank of the processed-data distribution; "
+            "1% means the 1st percentile, not 1% of the maximum."
+        )
+        self.color_percentile_pair.setToolTip(percentile_tip)
+        self.percentile_low_spin.setToolTip(percentile_tip)
+        self.percentile_high_spin.setToolTip(percentile_tip)
         self.color_manual_pair = self._pair("Min", self.color_min_spin, "Max", self.color_max_spin)
         self._add_row(figure, "Palette", self.palette_combo, "palette")
-        self.invert_palette_check = QtWidgets.QCheckBox("Invert")
+        self.invert_palette_check = QtWidgets.QCheckBox("Flip color")
         figure.setWidget(
             figure.rowCount() - 1,
             QtWidgets.QFormLayout.ItemRole.FieldRole,
@@ -121,6 +131,12 @@ class MapAnalysisPage(QtWidgets.QWidget):
         self._add_row(figure, "Color limits", self.color_range_combo, "color_range")
         self._add_row(figure, "Percentile", self.color_percentile_pair, "color_percentile")
         self._add_row(figure, "Manual range", self.color_manual_pair, "color_manual")
+        self.color_min_data_button = QtWidgets.QPushButton("Use data min")
+        self.color_max_data_button = QtWidgets.QPushButton("Use data max")
+        self.color_data_range = self._button_pair(
+            self.color_min_data_button, self.color_max_data_button
+        )
+        self._add_row(figure, "From current data", self.color_data_range, "color_data_range")
         layout.addLayout(figure)
         self.flip_y_check = QtWidgets.QCheckBox("Flip Y")
         layout.addWidget(self.flip_y_check)
@@ -181,6 +197,8 @@ class MapAnalysisPage(QtWidgets.QWidget):
             self.color_max_spin,
         ):
             color_spin.editingFinished.connect(self.colorLimitsChanged)
+        self.color_min_data_button.clicked.connect(self.colorMinDataRequested)
+        self.color_max_data_button.clicked.connect(self.colorMaxDataRequested)
         self.save_project_button.clicked.connect(self.saveProjectRequested)
         self.export_processed_button.clicked.connect(self.exportProcessedRequested)
         self.export_figure_button.clicked.connect(self.exportSummaryRequested)
@@ -196,6 +214,14 @@ class MapAnalysisPage(QtWidgets.QWidget):
         self.export_processed_button.setEnabled(processed_available)
         self.export_figure_button.setEnabled(source_available)
         self.export_report_button.setEnabled(raw_available)
+
+    def set_data_range_available(self, available: bool) -> None:
+        """Enable current-data range shortcuts once a processed map exists."""
+
+        self._data_range_available = bool(available)
+        self.color_min_data_button.setEnabled(self._data_range_available)
+        self.color_max_data_button.setEnabled(self._data_range_available)
+        self._update_visibility()
 
     def attach_views(self, views: QtWidgets.QWidget) -> None:
         """Attach the one Analysis map/QC view set to the stage splitters."""
@@ -214,6 +240,18 @@ class MapAnalysisPage(QtWidgets.QWidget):
         layout.setSpacing(6)
         layout.addWidget(self.palette_combo, 1)
         layout.addWidget(self.invert_palette_check)
+        return host
+
+    @staticmethod
+    def _button_pair(
+        first: QtWidgets.QPushButton, second: QtWidgets.QPushButton
+    ) -> QtWidgets.QWidget:
+        host = QtWidgets.QWidget()
+        layout = QtWidgets.QHBoxLayout(host)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(first, 1)
+        layout.addWidget(second, 1)
         return host
 
     @staticmethod
@@ -296,6 +334,7 @@ class MapAnalysisPage(QtWidgets.QWidget):
         color = ColorRangeMode(self.color_range_combo.currentData())
         self._set_visible("color_percentile", color == ColorRangeMode.PERCENTILE)
         self._set_visible("color_manual", color == ColorRangeMode.MANUAL)
+        self._set_visible("color_data_range", color == ColorRangeMode.MANUAL)
 
     def current_processing_config(
         self, raw_scale: float, reference_scale: float, display_scale: float

@@ -36,7 +36,7 @@ def compact_result_tag(result: SweepResult | None, fallback: str = "data") -> st
     )
     npts = len(result.points)
     if kind == "time":
-        sweep = f"time-{_compact_num(getattr(cfg, 'constant_value', 0.0))}"
+        sweep = f"time-{_compact_num(getattr(cfg, 'constant_value', 0.0))}_{npts}pts"
     elif kind == "adapt":
         sweep = f"adapt-{npts}pts"
     else:
@@ -44,17 +44,17 @@ def compact_result_tag(result: SweepResult | None, fallback: str = "data") -> st
     parts = [device]
     if operator:
         parts.append(f"op-{operator}")
-    parts.extend([mode, kind, sweep, f"{npts}pts"])
+    parts.append(mode)
+    if kind in {"time", "adapt"}:
+        parts.append(sweep)
+    else:
+        parts.extend([kind, sweep, f"{npts}pts"])
     return "_".join(parts)
 
 
-def suggested_single_csv_name(
-    result: SweepResult, trace_name: str | None = None, max_len: int = 96
-) -> str:
+def suggested_single_csv_name(result: SweepResult, max_len: int = 96) -> str:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     tag = compact_result_tag(result)
-    if trace_name:
-        tag = safe_token(trace_name, "device", 18) + tag[tag.find("_") :]
     return _trim_filename(f"HM_{stamp}_{tag}.csv", max_len)
 
 

@@ -230,6 +230,8 @@ class FastPlotRenderer:
         self,
         axes: list[Axes],
         data_series: list[dict[str, Any]],
+        *,
+        force: bool = False,
     ) -> None:
         """Draw multiple data series incrementally.
 
@@ -280,7 +282,7 @@ class FastPlotRenderer:
             ax.autoscale_view(scalex=True, scaley=True)
 
         # Trigger draw if rate limit allows
-        if self.optimizer.should_redraw():
+        if force or self.optimizer.should_redraw():
             self.figure.canvas.draw_idle()
             self.optimizer.mark_draw_complete()
 

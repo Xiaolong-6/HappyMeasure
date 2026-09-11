@@ -1017,6 +1017,25 @@ def test_color_limit_changes_only_remap_the_processed_display(application) -> No
         window.close()
 
 
+def test_manual_color_range_can_copy_current_data_extremes(application) -> None:
+    window = _window_with_valid_reconstruction(application)
+    try:
+        assert window.processed is not None
+        window.color_range_combo.setCurrentIndex(window.color_range_combo.findData("manual"))
+        finite = window.processed.values[np.isfinite(window.processed.values)]
+        assert finite.size
+        display_scale = window._current_display_unit().scale
+
+        window.analysis_page.color_min_data_button.click()
+        assert window.color_min_spin.value() == pytest.approx(float(np.min(finite)) * display_scale)
+        window.analysis_page.color_max_data_button.click()
+        assert window.color_max_spin.value() == pytest.approx(float(np.max(finite)) * display_scale)
+        assert window.analysis_page.invert_palette_check.text() == "Flip color"
+        assert not window.analysis_page.color_data_range.isHidden()
+    finally:
+        window.close()
+
+
 def test_three_stage_widgets_have_single_source_authority_and_conditional_editors(
     application,
 ) -> None:

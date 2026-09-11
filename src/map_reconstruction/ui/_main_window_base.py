@@ -186,6 +186,8 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.inspector.convertPhaseWindowRequested.connect(self._convert_legacy_to_phase_window)
         self.analysis_page.processingChanged.connect(self._processing_controls_changed)
         self.analysis_page.colorLimitsChanged.connect(self._color_limits_changed)
+        self.analysis_page.colorMinDataRequested.connect(self._set_color_min_from_data)
+        self.analysis_page.colorMaxDataRequested.connect(self._set_color_max_from_data)
         self.analysis_page.exportProcessedRequested.connect(self._export_processed_map)
         self.analysis_page.exportSummaryRequested.connect(self._export_parameter_summary)
         self.analysis_page.exportPdfRequested.connect(self._export_html_report)
@@ -517,6 +519,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
             raw_available=raw_available,
             processed_available=processed_available,
         )
+        self.analysis_page.set_data_range_available(processed_available)
 
     def _set_anchor_bounds(self, data: TimeSeriesData) -> None:
         lower, upper = float(data.time_s[0]), float(data.time_s[-1])
@@ -667,6 +670,30 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.processing_config = config
         if self.processed is not None:
             self._refresh_processed_display(config)
+
+    def _set_color_min_from_data(self) -> None:
+        self._set_color_limit_from_data("min")
+
+    def _set_color_max_from_data(self) -> None:
+        self._set_color_limit_from_data("max")
+
+    def _set_color_limit_from_data(self, which: str) -> None:
+        """Copy a finite processed-data extreme into the display-only manual range."""
+
+        if self.processed is None:
+            return
+        finite_values = self.processed.values[np.isfinite(self.processed.values)]
+        if finite_values.size == 0:
+            return
+        extreme = np.min(finite_values) if which == "min" else np.max(finite_values)
+        value = float(extreme) * self._current_display_unit().scale
+        spin = (
+            self.analysis_page.color_min_spin
+            if which == "min"
+            else self.analysis_page.color_max_spin
+        )
+        spin.setValue(value)
+        self._color_limits_changed()
 
     def _refresh_processed_display(self, config: MapProcessingConfig | None = None) -> None:
         if self.processed is None:

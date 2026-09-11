@@ -362,12 +362,19 @@ class ReconstructionInspector(QtWidgets.QWidget):
         self._add_processing_row(processing_form, "Scale", self.scale_combo)
         self._add_processing_row(processing_form, "Color limits", self.color_range_combo)
         self.color_percentile_pair = self._compact_pair(
-            "Low",
+            "Low percentile",
             self.percentile_low_spin,
-            "High",
+            "High percentile",
             self.percentile_high_spin,
             "colorPercentilePair",
         )
+        percentile_tip = (
+            "Percentile rank of the processed-data distribution; "
+            "1% means the 1st percentile, not 1% of the maximum."
+        )
+        self.color_percentile_pair.setToolTip(percentile_tip)
+        self.percentile_low_spin.setToolTip(percentile_tip)
+        self.percentile_high_spin.setToolTip(percentile_tip)
         self.color_manual_pair = self._compact_pair(
             "Min", self.color_min_spin, "Max", self.color_max_spin, "colorManualPair"
         )

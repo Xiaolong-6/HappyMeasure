@@ -31,6 +31,10 @@ class AppSettings:
     default_device_name: str = "Device_1"
     default_operator: str = ""
     default_plot_layout: str = "Auto"
+    time_plot_marker_mode: str = "Auto"
+    time_plot_history_mode: str = "Last N points"
+    time_plot_history_points: int = 5000
+    time_plot_refresh_ms: int = 250
     cache_enabled: bool = False
     cache_interval_points: int = 10
     default_autorange: bool = True
@@ -216,6 +220,30 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         defaults["default_plot_layout"],
         {"Auto", "1x1", "1x2", "2x1", "2x2"},
     )
+    merged["time_plot_marker_mode"] = _coerce_choice(
+        merged.get("time_plot_marker_mode"),
+        defaults["time_plot_marker_mode"],
+        {"Auto", "On", "Off"},
+    )
+    merged["time_plot_history_mode"] = _coerce_choice(
+        merged.get("time_plot_history_mode"),
+        defaults["time_plot_history_mode"],
+        {"All data", "Last N points"},
+    )
+    merged["time_plot_history_points"] = _coerce_int(
+        merged.get("time_plot_history_points"),
+        defaults["time_plot_history_points"],
+        minimum=1,
+        maximum=10_000_000,
+    )
+    merged["time_plot_refresh_ms"] = _coerce_int(
+        merged.get("time_plot_refresh_ms"),
+        defaults["time_plot_refresh_ms"],
+        minimum=100,
+        maximum=1000,
+    )
+    if merged["time_plot_refresh_ms"] not in {100, 250, 500, 1000}:
+        merged["time_plot_refresh_ms"] = defaults["time_plot_refresh_ms"]
     merged["ui_theme"] = _normalize_theme(merged.get("ui_theme"))
 
     for key in (

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from functools import partial
+import time
 from typing import Any
 import warnings
-from tkinter import StringVar, filedialog, ttk
+from tkinter import StringVar, Toplevel, filedialog, ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -12,6 +13,15 @@ from matplotlib.ticker import EngFormatter, ScalarFormatter
 from keith_ivt.models import SweepKind, SweepResult
 from keith_ivt.ui.export_naming import suggested_figure_name
 from keith_ivt.ui.plot_views import PlotView, layout_grid, xy_for_view
+from keith_ivt.ui.time_plot_settings import (
+    TIME_HISTORY_MODES,
+    TIME_MARKER_MODES,
+    TIME_REFRESH_INTERVALS_MS,
+    normalize_history_points,
+    normalize_refresh_interval_ms,
+    time_display_window,
+    time_marker_for,
+)
 from keith_ivt.ui.widgets import add_tip
 
 
@@ -23,6 +33,7 @@ class PlotPanelMixin(UiMixinTyping):
     _swapped_views: set[PlotView]
     _plot_pan_state: dict[str, Any] | None
     _plot_hover_annotation: Any | None
+    _last_live_plot_refresh_at: float | None
 
     def _build_plot_panel(self) -> None:
         self.plot_frame.rowconfigure(1, weight=1)
@@ -408,6 +419,13 @@ class PlotPanelMixin(UiMixinTyping):
     def _prepare_view_data(self, result, view):
         """Return (x, y, xlabel, ylabel, title, y_is_log, swapped) with unit scaling applied."""
         x, y, xlabel, ylabel, title, y_is_log = xy_for_view(result, view)
+        if view is PlotView.SIGNAL_TIME:
+            x, y = time_display_window(
+                x,
+                y,
+                self.time_plot_history_mode.get(),
+                self.time_plot_history_points.get(),
+            )
         swapped = self._is_view_swapped(view)
         if swapped:
             x, y = y, x
@@ -417,6 +435,148 @@ class PlotPanelMixin(UiMixinTyping):
         x = [v * xscale for v in x]
         y = [v * yscale for v in y]
         return x, y, xlabel, ylabel, title, y_is_log, swapped
+
+    def _marker_for_view(self, view: PlotView, displayed_points: int) -> str | None:
+        if view is PlotView.SIGNAL_TIME:
+            return time_marker_for(self.time_plot_marker_mode.get(), displayed_points)
+        fmt = self.plot_format.get().lower()
+        return "." if "marker" in fmt else None
+
+    def _linestyle_for_view(self, view: PlotView, marker: str | None) -> str:
+        fmt = self.plot_format.get().lower()
+        linestyle = "-" if "line" in fmt else "None"
+        # Time Auto/Off must remain a readable line even if the legacy global
+        # style was previously set to marker-only.
+        if view is PlotView.SIGNAL_TIME and marker is None and linestyle == "None":
+            return "-"
+        return linestyle
+
+    def _live_plot_refresh_due(self) -> bool:
+        last = getattr(self, "_last_live_plot_refresh_at", None)
+        if last is None:
+            return True
+        interval_ms = normalize_refresh_interval_ms(self.time_plot_refresh_ms.get())
+        return time.monotonic() - last >= interval_ms / 1000.0
+
+    def _show_time_plot_settings(self) -> None:
+        existing = getattr(self, "_time_plot_settings_window", None)
+        if existing is not None:
+            try:
+                if existing.winfo_exists():
+                    existing.deiconify()
+                    existing.lift()
+                    return
+            except Exception:
+                pass
+
+        win = Toplevel(self.root)
+        self._time_plot_settings_window = win
+        win.title("Time Plot Settings")
+        win.resizable(False, False)
+        try:
+            win.transient(self.root)
+        except Exception:
+            pass
+        frame = ttk.Frame(win, padding=(14, 12))
+        frame.grid(row=0, column=0, sticky="nsew")
+        frame.columnconfigure(1, weight=1)
+
+        marker_var = StringVar(value=self.time_plot_marker_mode.get())
+        history_var = StringVar(value=self.time_plot_history_mode.get())
+        points_var = StringVar(value=str(self.time_plot_history_points.get()))
+        refresh_var = StringVar(value=f"{self.time_plot_refresh_ms.get()} ms")
+        validation_text = StringVar(value="")
+
+        ttk.Label(frame, text="Display style", style="Card.TLabel").grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 6)
+        )
+        ttk.Label(frame, text="Markers").grid(row=1, column=0, sticky="w", padx=(0, 12), pady=3)
+        marker_combo = ttk.Combobox(
+            frame, textvariable=marker_var, values=TIME_MARKER_MODES, state="readonly", width=18
+        )
+        marker_combo.grid(row=1, column=1, sticky="ew", pady=3)
+
+        ttk.Label(frame, text="Live display", style="Card.TLabel").grid(
+            row=2, column=0, columnspan=2, sticky="w", pady=(12, 6)
+        )
+        ttk.Label(frame, text="History").grid(row=3, column=0, sticky="w", padx=(0, 12), pady=3)
+        history_combo = ttk.Combobox(
+            frame, textvariable=history_var, values=TIME_HISTORY_MODES, state="readonly", width=18
+        )
+        history_combo.grid(row=3, column=1, sticky="ew", pady=3)
+
+        ttk.Label(frame, text="Points").grid(row=4, column=0, sticky="w", padx=(0, 12), pady=3)
+        points_spin = ttk.Spinbox(frame, from_=1, to=10_000_000, textvariable=points_var, width=18)
+        points_spin.grid(row=4, column=1, sticky="ew", pady=3)
+
+        ttk.Label(frame, text="Refresh interval").grid(
+            row=5, column=0, sticky="w", padx=(0, 12), pady=3
+        )
+        refresh_combo = ttk.Combobox(
+            frame,
+            textvariable=refresh_var,
+            values=[f"{value} ms" for value in TIME_REFRESH_INTERVALS_MS],
+            state="readonly",
+            width=18,
+        )
+        refresh_combo.grid(row=5, column=1, sticky="ew", pady=3)
+        ttk.Label(frame, textvariable=validation_text, style="Muted.TLabel").grid(
+            row=6, column=0, columnspan=2, sticky="w", pady=(5, 0)
+        )
+
+        def apply_settings(*_args) -> None:
+            self.time_plot_marker_mode.set(marker_var.get())
+            self.time_plot_history_mode.set(history_var.get())
+            try:
+                points = normalize_history_points(points_var.get())
+                if str(points) != points_var.get().strip():
+                    raise ValueError
+            except ValueError:
+                validation_text.set("Points must be a positive integer.")
+                return
+            points_var.set(str(points))
+            self.time_plot_history_points.set(points)
+            refresh_text = refresh_var.get().split()[0]
+            self.time_plot_refresh_ms.set(normalize_refresh_interval_ms(refresh_text))
+            validation_text.set("")
+            self._on_time_plot_settings_changed()
+
+        def update_points_state(*_args) -> None:
+            points_spin.configure(
+                state="normal" if history_var.get() == "Last N points" else "disabled"
+            )
+            apply_settings()
+
+        marker_combo.bind("<<ComboboxSelected>>", apply_settings, add="+")
+        history_combo.bind("<<ComboboxSelected>>", update_points_state, add="+")
+        refresh_combo.bind("<<ComboboxSelected>>", apply_settings, add="+")
+        points_spin.bind("<Return>", apply_settings, add="+")
+        points_spin.bind("<FocusOut>", apply_settings, add="+")
+        update_points_state()
+
+        ttk.Button(frame, text="Close", command=win.destroy).grid(
+            row=7, column=0, columnspan=2, sticky="ew", pady=(12, 0)
+        )
+        win.protocol("WM_DELETE_WINDOW", win.destroy)
+
+    def _on_time_plot_settings_changed(self) -> None:
+        """Apply display-only Time settings without touching acquisition data."""
+        try:
+            self.settings.time_plot_marker_mode = self.time_plot_marker_mode.get()
+            self.settings.time_plot_history_mode = self.time_plot_history_mode.get()
+            self.settings.time_plot_history_points = normalize_history_points(
+                self.time_plot_history_points.get()
+            )
+            self.settings.time_plot_refresh_ms = normalize_refresh_interval_ms(
+                self.time_plot_refresh_ms.get()
+            )
+        except Exception:
+            pass
+        live = bool(getattr(self, "_run_state", "idle") in {"running", "paused", "stopping"})
+        if live:
+            self._redraw_all_plots(live_only=True, force=True)
+        else:
+            self._redraw_all_plots()
 
     def _apply_figure_layout(self, figure) -> None:
         try:
@@ -469,9 +629,6 @@ class PlotPanelMixin(UiMixinTyping):
             config = self._live_config
             if config is not None:
                 live_result = SweepResult(config, list(self._live_points))
-        fmt = self.plot_format.get().lower()
-        marker = "." if "marker" in fmt else None
-        linestyle = "-" if "line" in fmt else "None"
         for idx, view in enumerate(views, start=1):
             ax = figure.add_subplot(rows, cols, idx)
             setattr(ax, "_happy_view", view)
@@ -484,6 +641,8 @@ class PlotPanelMixin(UiMixinTyping):
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
                     live_result, view
                 )
+                marker = self._marker_for_view(view, len(x))
+                linestyle = self._linestyle_for_view(view, marker)
                 ax.plot(x, y, marker=marker, linestyle=linestyle, linewidth=1.1, label="live")
                 ax.set_title(title, color=self._palette["fg"])
                 ax.set_xlabel(xlabel, color=self._palette["fg"])
@@ -497,6 +656,8 @@ class PlotPanelMixin(UiMixinTyping):
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
                     trace.result, view
                 )
+                marker = self._marker_for_view(view, len(x))
+                linestyle = self._linestyle_for_view(view, marker)
                 is_selected = trace.trace_id in selected_trace_ids
                 ax.plot(
                     x,
@@ -527,7 +688,7 @@ class PlotPanelMixin(UiMixinTyping):
         self._apply_figure_layout(figure)
         return axes
 
-    def _update_live_plot_incremental(self) -> None:
+    def _update_live_plot_incremental(self, *, force: bool = False) -> None:
         """Update live plot using incremental rendering (much faster than full redraw).
 
         This method uses the PlotOptimizer to update only the data in existing
@@ -568,6 +729,7 @@ class PlotPanelMixin(UiMixinTyping):
                 self.canvas.flush_events()
             except Exception:
                 self.canvas.draw()
+            self._last_live_plot_refresh_at = time.monotonic()
             return
 
         if not hasattr(self, "_plot_renderer"):
@@ -593,9 +755,6 @@ class PlotPanelMixin(UiMixinTyping):
 
             # Build data series for incremental drawing
             data_series: list[dict[str, Any]] = []
-            fmt = self.plot_format.get().lower()
-            marker = "." if "marker" in fmt else None
-            linestyle = "-" if "line" in fmt else "None"
 
             for idx, view in enumerate(views):
                 x, y, xlabel, ylabel, title, y_is_log, swapped = self._prepare_view_data(
@@ -604,6 +763,8 @@ class PlotPanelMixin(UiMixinTyping):
 
                 # Downsample for display if needed
                 key = f"live_{view.value}"
+                marker = self._marker_for_view(view, len(x))
+                linestyle = self._linestyle_for_view(view, marker)
                 style = {
                     "marker": marker,
                     "linestyle": linestyle,
@@ -635,7 +796,8 @@ class PlotPanelMixin(UiMixinTyping):
                 ax.grid(True, alpha=0.35, color=self._palette["grid"])
 
             # Draw incrementally
-            self._plot_renderer.draw_incremental(axes, data_series)
+            self._plot_renderer.draw_incremental(axes, data_series, force=force)
+            self._last_live_plot_refresh_at = time.monotonic()
 
         except Exception as e:
             # On error, clear caches and show error (NO recursive retry!)
@@ -676,14 +838,14 @@ class PlotPanelMixin(UiMixinTyping):
                 except Exception:
                     self.canvas.draw()
 
-    def _redraw_all_plots(self, live_only: bool = False) -> None:
+    def _redraw_all_plots(self, live_only: bool = False, *, force: bool = False) -> None:
         self._plot_live_only = bool(live_only)
         self._plot_hover_annotation = None
         self._plot_pan_state = None
 
         # Use incremental update for live-only plots (much faster)
         if live_only and hasattr(self, "_plot_renderer"):
-            self._update_live_plot_incremental()
+            self._update_live_plot_incremental(force=force)
             return
 
         # Full redraw for non-live plots

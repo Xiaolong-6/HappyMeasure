@@ -204,6 +204,9 @@ class TracePanelMixin(UiMixinTyping):
                 command=lambda c=col_name: self._toggle_trace_column(c),
                 state=state,
             )
+        if hasattr(self, "_show_time_plot_settings"):
+            menu.add_separator()
+            menu.add_command(label="Time plot settings...", command=self._show_time_plot_settings)
         x = self.root.winfo_pointerx()
         y = self.root.winfo_pointery()
         popup_menu(menu, x, y)
@@ -323,14 +326,15 @@ class TracePanelMixin(UiMixinTyping):
             return False
         if len(traces) == 1:
             trace = traces[0]
+            export_result = self._result_with_trace_name(trace)
             path = filedialog.asksaveasfilename(
                 defaultextension=".csv",
-                initialfile=suggested_single_csv_name(trace.result, trace.name),
+                initialfile=suggested_single_csv_name(export_result),
                 filetypes=[("CSV", "*.csv")],
             )
             if not path:
                 return False
-            save_csv(self._result_with_trace_name(trace), path)
+            save_csv(export_result, path)
             self._mark_last_save("selected CSV")
             self.log_event(f"Saved selected trace: {path}")
             return True

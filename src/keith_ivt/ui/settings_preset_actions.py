@@ -42,6 +42,10 @@ class SettingsPresetMixin(UiMixinTyping):
             default_device_name=self.device_name.get(),
             default_operator=self.operator.get(),
             default_plot_layout=self.arrangement.get(),
+            time_plot_marker_mode=self.time_plot_marker_mode.get(),
+            time_plot_history_mode=self.time_plot_history_mode.get(),
+            time_plot_history_points=int(self.time_plot_history_points.get()),
+            time_plot_refresh_ms=int(self.time_plot_refresh_ms.get()),
             cache_enabled=bool(self.cache_enabled.get()),
             cache_interval_points=int(self.cache_interval_points.get()),
             default_autorange=bool(self.auto_source_range.get() and self.auto_measure_range.get()),
@@ -379,6 +383,10 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_sense_mode": settings.default_sense_mode,
             # Plot & Display
             "default_plot_layout": settings.default_plot_layout,
+            "time_plot_marker_mode": settings.time_plot_marker_mode,
+            "time_plot_history_mode": settings.time_plot_history_mode,
+            "time_plot_history_points": settings.time_plot_history_points,
+            "time_plot_refresh_ms": settings.time_plot_refresh_ms,
             # UI Appearance
             "ui_font_family": settings.ui_font_family,
             "ui_font_size": settings.ui_font_size,
@@ -397,6 +405,9 @@ class SettingsPresetMixin(UiMixinTyping):
                 "default_terminal": ["FRON", "REAR"],
                 "default_sense_mode": ["2W", "4W"],
                 "default_plot_layout": ["Auto", "Horizontal", "Vertical"],
+                "time_plot_marker_mode": ["Auto", "On", "Off"],
+                "time_plot_history_mode": ["All data", "Last N points"],
+                "time_plot_refresh_ms": [100, 250, 500, 1000],
                 "ui_font_family": (
                     self._available_ui_fonts()
                     if hasattr(self, "_available_ui_fonts")
@@ -519,15 +530,11 @@ class SettingsPresetMixin(UiMixinTyping):
                 for key, value in parameters.items()
             )
 
-        return f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(
-            lines
-        )
+        return f"Save preset '{name}' with this Hardware + Sweep snapshot?\n\n" + "\n".join(lines)
 
     def _fast_preset_review(self, name: str, data: dict) -> dict | None:
         """Review the exact Hardware + visible Sweep snapshot before saving."""
-        if messagebox.askyesno(
-            "Review Sweep Preset", self._preset_review_message(name, data)
-        ):
+        if messagebox.askyesno("Review Sweep Preset", self._preset_review_message(name, data)):
             return data
         return None
 
@@ -756,6 +763,10 @@ class SettingsPresetMixin(UiMixinTyping):
             "default_device_name": self.device_name,
             "default_operator": self.operator,
             "default_plot_layout": self.arrangement,
+            "time_plot_marker_mode": self.time_plot_marker_mode,
+            "time_plot_history_mode": self.time_plot_history_mode,
+            "time_plot_history_points": self.time_plot_history_points,
+            "time_plot_refresh_ms": self.time_plot_refresh_ms,
             "cache_enabled": self.cache_enabled,
             "cache_interval_points": self.cache_interval_points,
             "default_autorange": self.autorange,
