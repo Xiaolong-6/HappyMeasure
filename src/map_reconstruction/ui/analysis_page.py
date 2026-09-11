@@ -123,11 +123,7 @@ class MapAnalysisPage(QtWidgets.QWidget):
         self.color_manual_pair = self._pair("Min", self.color_min_spin, "Max", self.color_max_spin)
         self._add_row(figure, "Palette", self.palette_combo, "palette")
         self.invert_palette_check = QtWidgets.QCheckBox("Flip color")
-        figure.setWidget(
-            figure.rowCount() - 1,
-            QtWidgets.QFormLayout.ItemRole.FieldRole,
-            self._palette_with_invert(),
-        )
+        figure.addRow(self.invert_palette_check)
         self._add_row(figure, "Color limits", self.color_range_combo, "color_range")
         self._add_row(figure, "Percentile", self.color_percentile_pair, "color_percentile")
         self._add_row(figure, "Manual range", self.color_manual_pair, "color_manual")
@@ -232,15 +228,6 @@ class MapAnalysisPage(QtWidgets.QWidget):
         self.map_layout.addWidget(map_stack)
         self.diagnostics_splitter.addWidget(count_stack)
         self.diagnostics_splitter.addWidget(distribution_stack)
-
-    def _palette_with_invert(self) -> QtWidgets.QWidget:
-        host = QtWidgets.QWidget()
-        layout = QtWidgets.QHBoxLayout(host)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-        layout.addWidget(self.palette_combo, 1)
-        layout.addWidget(self.invert_palette_check)
-        return host
 
     @staticmethod
     def _button_pair(
