@@ -465,6 +465,7 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._active_color_limits = None
         self._raw_source_bytes = raw_bytes
         self._loaded_filename = original_filename
+        self._clear_reconstruction_outputs()
         self.workflow_header.set_filename(original_filename)
         self.inspector.set_file_name(original_filename)
         preferred = "Current_A" if "Current_A" in data.signals else data.signal_names[-1]
@@ -483,6 +484,9 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self._update_processing_units()
         self._create_anchor_lines()
         self._set_loaded_view(True)
+        # Loading a source without valid geometry must not expose the previous
+        # map/count images while the new source waits for reconstruction.
+        self._clear_reconstruction_outputs()
         if reconstruct:
             self._reconstruct()
         if reconstruct and (self.rows_spin.value() <= 0 or self.cols_spin.value() <= 0):
@@ -493,6 +497,13 @@ class MapReconstructionWindow(QtWidgets.QMainWindow):
         self.analysis_map_views.set_loaded(loaded)
         self.trace_view.show_loaded(loaded)
         self._set_export_availability()
+
+    def _clear_reconstruction_outputs(self) -> None:
+        """Remove derived output from the previous source before a reload."""
+        self.map_views.clear_processed_views("No reconstruction yet")
+        self.analysis_map_views.clear_processed_views("No processed map available")
+        self.trace_view.clear_guides()
+        self.inspector.clear_qc("Reconstruction unavailable until the new source is ready.")
 
     def _set_export_availability(self) -> None:
         raw_available = self.result is not None

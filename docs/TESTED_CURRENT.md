@@ -1,15 +1,16 @@
 # Current Test Status
 
-## 2026-09-11 - Map Reconstruction QC layout cleanup
+## 2026-09-11 - Map Reconstruction source handoff and QC layout
 
 ### Map Reconstruction validation
 
-- Removed the legacy `Samples / pixel` tab container from the Reconstruction
-  stage. The map remains on the left while `Samples / pixel` and `Distribution`
-  use the same vertical diagnostics layout as Analysis, so both panels remain
-  visible without a historical tab title.
-- Focused offscreen Qt UI regressions cover the shared splitter structure and
-  legacy-tab removal. No measurement, export, or hardware behavior changed.
+- Reconstruction now shows only the map and `Samples / pixel`; `Distribution`
+  remains in Analysis, where the three-column workspace keeps its two
+  diagnostics visible together.
+- Loading a new CSV clears old derived map/QC state before the prepared signal
+  is handed to reconstruction. Focused offscreen Qt regressions cover both
+  successful source replacement and the no-geometry waiting state. No
+  measurement, export, or hardware behavior changed.
 
 ## 2026-09-10 - Map workflow close-out and elapsed-time remediation
 

@@ -138,17 +138,15 @@ def test_analysis_uses_resizable_map_and_simultaneous_diagnostics(application) -
         window.close()
 
 
-def test_reconstruction_uses_simultaneous_qc_without_legacy_tabs(application) -> None:
+def test_reconstruction_uses_map_and_counts_without_legacy_tabs(application) -> None:
     window = MapReconstructionWindow()
     try:
         views = window.map_views
         assert views.qc_tabs is None
-        assert views.qc_splitter is not None
-        assert views.qc_splitter.orientation() is QtCore.Qt.Orientation.Vertical
-        assert views.qc_splitter.count() == 2
-        assert views.qc_splitter.widget(0) is views.count_stack
-        assert views.qc_splitter.widget(1) is views.distribution_stack
-        assert views.map_splitter.widget(1) is views.qc_splitter
+        assert views.qc_splitter is None
+        assert views.map_splitter.widget(0) is views.map_stack
+        assert views.map_splitter.widget(1) is views.count_stack
+        assert views.map_splitter.indexOf(views.distribution_stack) == -1
     finally:
         window.close()
 
@@ -223,6 +221,100 @@ def test_load_file_waits_for_geometry_then_initializes_fit_anchors(application) 
         window.close()
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_loading_new_csv_replaces_preparation_and_reconstruction_source(
+    application, tmp_path: Path
+) -> None:
+    time = np.linspace(0.0, 10.0, 10_001)
+
+    def write_source(path: Path, scale: float) -> None:
+        current = scale * (1e-6 + 0.5e-6 * np.sin(time))
+        voltage = np.cos(time)
+        rows = [
+            "# schema,single-v2",
+            "# section,data",
+            "Elapsed_s,Current_A,Voltage_V",
+            *(f"{t:.9f},{i:.12g},{v:.12g}" for t, i, v in zip(time, current, voltage)),
+        ]
+        path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    first_path = tmp_path / "first.csv"
+    second_path = tmp_path / "second.csv"
+    write_source(first_path, 1.0)
+    write_source(second_path, 3.0)
+
+    window = MapReconstructionWindow()
+    try:
+        window.load_file(first_path)
+        window.rows_spin.setValue(2)
+        window.cols_spin.setValue(2)
+        window.rows_apart_spin.setValue(1)
+        window.points_apart_spin.setValue(1)
+        window.row_a_spin.setValue(2.0)
+        window.row_b_spin.setValue(7.0)
+        window.point_a_spin.setValue(2.5)
+        window.point_b_spin.setValue(2.6)
+        window._sync_point_period_from_anchors()
+        window._reconstruct()
+
+        assert window.prepared is not None
+        assert window.result is not None
+        first_prepared = window.prepared.values.copy()
+        first_result = window.result.values.copy()
+
+        window.load_file(second_path)
+
+        assert window._loaded_filename == "second.csv"
+        assert window.data is not None
+        assert window.prepared is not None
+        np.testing.assert_allclose(window.prepared.values, window.data.signals["Current_A"])
+        assert not np.array_equal(first_prepared, window.prepared.values)
+        assert window.result is not None
+        assert not np.allclose(first_result, window.result.values, equal_nan=True)
+        assert window.map_stack.currentIndex() == 1
+        assert window.analysis_map_views.map_stack.currentIndex() == 1
+    finally:
+        window.close()
+
+
+def test_loading_new_csv_clears_old_map_when_geometry_is_not_ready(
+    application, tmp_path: Path
+) -> None:
+    time = np.linspace(0.0, 10.0, 10_001)
+
+    def write_source(path: Path, scale: float) -> None:
+        rows = [
+            "# schema,single-v2",
+            "# section,data",
+            "Elapsed_s,Current_A",
+            *(f"{t:.9f},{scale * (1e-6 + 0.5e-6 * np.sin(t)):.12g}" for t in time),
+        ]
+        path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+    first_path = tmp_path / "first.csv"
+    second_path = tmp_path / "second.csv"
+    write_source(first_path, 1.0)
+    write_source(second_path, 2.0)
+
+    window = MapReconstructionWindow()
+    try:
+        window.load_file(first_path)
+        window.rows_spin.setValue(2)
+        window.cols_spin.setValue(2)
+        assert window.result is not None
+
+        window.rows_spin.setValue(0)
+        window.cols_spin.setValue(0)
+        window.load_file(second_path)
+
+        assert window.result is None
+        assert window.map_stack.currentIndex() == 0
+        assert window.analysis_map_views.map_stack.currentIndex() == 0
+        assert window.count_stack.currentIndex() == 0
+        assert window.analysis_map_views.count_stack.currentIndex() == 0
+    finally:
+        window.close()
 
 
 def test_invalid_timing_clears_stale_result_and_disables_export(application) -> None:
