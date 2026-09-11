@@ -1,7 +1,7 @@
 """Cross-cutting measurement UI guards for range and capability semantics.
 
 This mixin intentionally sits before the established UI/workflow mixins in the
-application MRO.  It hardens a few measurement-facing contracts without moving
+application MRO. It hardens measurement-facing contracts without moving
 ownership out of the existing status-bar, hardware-controller, and sweep-runner
 modules.
 """
@@ -11,16 +11,17 @@ from __future__ import annotations
 from typing import Any
 
 from keith_ivt.acquisition import resolve_time_acquisition
-from keith_ivt.core.current_range import format_current_range, parse_current_range_label
+from keith_ivt.core.current_range import parse_current_range_label
 from keith_ivt.drivers.base import DriverCapabilities, instrument_model_from_idn
 from keith_ivt.models import SweepMode
+from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 
 _READY_STATES = {"idle", "stopped", "completed", "aborted"}
 _RUNTIME_RANGE_STATES = {"running", "paused"}
 
 
-class MeasurementSemanticsMixin:
+class MeasurementSemanticsMixin(UiMixinTyping):
     """Enforce range-control, telemetry, and model-detection semantics."""
 
     def _is_current_measurement(self) -> bool:
@@ -79,7 +80,7 @@ class MeasurementSemanticsMixin:
                 control.drain_actions()
             except Exception:
                 pass
-        return super().start_sweep()
+        super().start_sweep()
 
     def _front_panel_autorange_changed(self) -> None:
         if not self._is_current_measurement():
