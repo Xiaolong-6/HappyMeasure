@@ -41,7 +41,7 @@ def _system_accent(application: QtWidgets.QApplication) -> str:
     color = application.palette().color(QtGui.QPalette.ColorRole.Highlight)
     if not color.isValid() or color.alpha() == 0:
         return DEFAULT_ACCENT
-    # Very pale highlights make selected controls illegible.  Keep the native
+    # Very pale highlights make selected controls illegible. Keep the native
     # hue when practical and fall back to the Windows blue otherwise.
     if color.lightness() > 225 or color.saturation() < 35:
         return DEFAULT_ACCENT
@@ -51,11 +51,10 @@ def _system_accent(application: QtWidgets.QApplication) -> str:
 def build_stylesheet(accent: str = DEFAULT_ACCENT) -> str:
     """Return the shared light-theme stylesheet for the scientific workspace."""
 
-    accent = QtGui.QColor(accent).name() if QtGui.QColor(accent).isValid() else DEFAULT_ACCENT
+    color = QtGui.QColor(accent)
+    accent = color.name() if color.isValid() else DEFAULT_ACCENT
     accent_hover = _accent_shade(accent, 115)
     accent_pressed = _accent_shade(accent, 130)
-    accent_soft = QtGui.QColor(accent)
-    accent_soft.setAlpha(28)
     # Qt style sheets do not consistently honor alpha hex colors across all
     # widgets, so derive a light opaque selection surface instead.
     soft_selection = QtGui.QColor(accent).lighter(188).name()
