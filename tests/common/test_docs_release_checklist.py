@@ -35,6 +35,7 @@ def test_docs_index_lists_current_owner_documents() -> None:
         "ARCHITECTURE_CURRENT.md",
         "STATE_MACHINE.md",
         "ERROR_RECOVERY.md",
+        "TROUBLESHOOTING.md",
         "TRACE_SCHEMA.md",
         "SETTINGS_COMPATIBILITY.md",
         "HARDWARE_VALIDATION_PROTOCOL.md",
@@ -49,13 +50,14 @@ def test_docs_index_lists_current_owner_documents() -> None:
         assert (DOCS / doc_name).exists(), f"docs index references missing file: {doc_name}"
 
 
-def test_removed_diaries_and_completed_migration_plans_stay_removed() -> None:
+def test_removed_diaries_migrations_and_superseded_notes_stay_removed() -> None:
     for doc_name in (
         "AGENT_HANDOFF.md",
         "TESTED_CURRENT.md",
         "MIGRATION_PLAN.md",
         "HARDWARE_DRIVER_MIGRATION.md",
         "SETTINGS_MIGRATION.md",
+        "RESTART_MECHANISM.md",
     ):
         assert not (DOCS / doc_name).exists(), doc_name
 
@@ -67,6 +69,7 @@ def test_docs_audit_records_ownership_and_cleanup_rationale() -> None:
     assert "VALIDATION_STATUS.md" in text
     assert "SETTINGS_COMPATIBILITY.md" in text
     assert "AGENT_HANDOFF.md" in text
+    assert "RESTART_MECHANISM.md" in text
 
 
 def test_current_architecture_is_not_a_historical_ui_diary() -> None:
@@ -89,6 +92,12 @@ def test_hardware_protocol_targets_current_release_and_test_layout() -> None:
     assert "HappyMeasure 1.1b6" in text
     assert "tests\\happymeasure\\test_pre_hardware_safety.py" in text
     assert "v1.2b1 Fast release block" not in text
+
+
+def test_current_operator_docs_do_not_reintroduce_old_diary_language() -> None:
+    assert "during the alpha migration" not in _read(DOCS / "HARDWARE_DRY_RUN_GUIDE.md").lower()
+    assert "during tomorrow's test" not in _read(DOCS / "ERROR_RECOVERY.md").lower()
+    assert "future improvements for release" not in _read(DOCS / "TROUBLESHOOTING.md").lower()
 
 
 def test_versioning_policy_does_not_reuse_published_beta() -> None:
