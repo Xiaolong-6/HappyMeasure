@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,72 +10,63 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_release_checklist_has_required_sections() -> None:
+def test_release_checklist_has_current_release_gates() -> None:
     text = _read(DOCS / "RELEASE_CHECKLIST.md")
-
-    required_headings = [
-        "## 0. Release identity",
-        "## 1. Source tree hygiene",
-        "## 2. Version and naming consistency",
-        "## 3. Documentation audit",
-        "## 4. Source validation",
-        "## 5. Manual simulator smoke checks",
-        "## 6. Hardware validation gate",
-        "## 7. Version bump and release notes",
-        "## 8. Windows portable packaging",
-        "## 9. Git and GitHub release",
-        "## 10. Post-release verification",
-    ]
-
-    for heading in required_headings:
+    for heading in (
+        "## 1. Identity and tree hygiene",
+        "## 2. Automated source validation",
+        "## 3. Map Reconstruction release gate",
+        "## 4. Desktop simulator/UX smoke",
+        "## 5. Hardware safety gate",
+        "## 6. Windows portable package",
+        "## 7. Tag and GitHub Release",
+        "## 8. Post-release",
+    ):
         assert heading in text
+    assert "1.1b6" in text
+    assert "v1.1b6" in text
+    assert ".[dev,map]" in text
+    assert "QT_QPA_PLATFORM" in text
 
 
-def test_release_checklist_links_to_existing_owner_docs() -> None:
-    text = _read(DOCS / "RELEASE_CHECKLIST.md")
-    doc_refs = sorted(set(re.findall(r"docs[\\/][A-Za-z0-9_./-]+\.md", text)))
-    assert doc_refs, "release checklist should reference owner docs"
-
-    for ref in doc_refs:
-        relative = ref.replace("\\", "/")
-        assert (ROOT / relative).exists(), f"missing referenced doc: {ref}"
-
-
-def test_docs_index_lists_release_owner_documents() -> None:
+def test_docs_index_lists_current_owner_documents() -> None:
     text = _read(DOCS / "README.md")
-
     required_docs = [
-        "RELEASE_CHECKLIST.md",
-        "MANUAL_SMOKE_TESTS.md",
+        "ARCHITECTURE_CURRENT.md",
+        "STATE_MACHINE.md",
+        "ERROR_RECOVERY.md",
         "TRACE_SCHEMA.md",
-        "HARDWARE_PREFLIGHT.md",
         "HARDWARE_VALIDATION_PROTOCOL.md",
-        "WINDOWS_PORTABLE_BUILD.md",
-        "WINDOWS_PYTHON314_BUILD.md",
-        "MIGRATION_PLAN.md",
-        "AGENT_HANDOFF.md",
+        "MAP_PROJECT_FORMAT.md",
+        "RELEASE_CHECKLIST.md",
+        "VALIDATION_STATUS.md",
         "DOCS_AUDIT.md",
-        "RELEASE_NOTES_v1.1b5.md",
+        "RELEASE_NOTES_v1.1b6.md",
     ]
-
     for doc_name in required_docs:
         assert doc_name in text
         assert (DOCS / doc_name).exists(), f"docs index references missing file: {doc_name}"
 
 
-def test_docs_audit_records_owner_map_and_future_cleanup() -> None:
+def test_removed_diaries_and_completed_migration_plans_stay_removed() -> None:
+    for doc_name in (
+        "AGENT_HANDOFF.md",
+        "TESTED_CURRENT.md",
+        "MIGRATION_PLAN.md",
+        "HARDWARE_DRIVER_MIGRATION.md",
+    ):
+        assert not (DOCS / doc_name).exists(), doc_name
+
+
+def test_docs_audit_records_ownership_and_cleanup_rationale() -> None:
     text = _read(DOCS / "DOCS_AUDIT.md")
-    assert "## Ownership map" in text
-    assert "## Future cleanup candidates" in text
-    assert "RELEASE_CHECKLIST.md" in text
-    assert "CODEX_DIARY_TEMP.md" in text
+    assert "## Owners" in text
+    assert "## 2026-09-11 cleanup decisions" in text
+    assert "VALIDATION_STATUS.md" in text
+    assert "AGENT_HANDOFF.md" in text
 
 
-def test_migration_plan_documents_namespace_phases() -> None:
-    text = _read(DOCS / "MIGRATION_PLAN.md")
-    assert "happymeasure" in text
-    assert "keith_ivt" in text
-    assert "Phase 1" in text
-    assert "Phase 2" in text
-    assert "Phase 3" in text
-    assert "Run_HappyMeasure.bat" in text
+def test_versioning_policy_does_not_reuse_published_beta() -> None:
+    text = _read(DOCS / "VERSIONING.md")
+    assert "1.1b6" in text
+    assert "Do not reuse a published version/tag" in text

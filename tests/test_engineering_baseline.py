@@ -13,7 +13,7 @@ def source_text(relative: str) -> str:
     return (SRC / "keith_ivt" / relative).read_text(encoding="utf-8")
 
 
-def test_alpha4_engineering_modules_are_wired() -> None:
+def test_engineering_modules_are_wired() -> None:
     app = source_text("ui/simple_app.py")
     mixins = source_text("ui/app_mixins.py")
     expected = [
@@ -37,9 +37,10 @@ def test_simple_app_is_composition_root_size_control() -> None:
     app_path = SRC / "keith_ivt" / "ui" / "simple_app.py"
     lines = app_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) < 380
-    assert "def connect_or_check" not in app_path.read_text(encoding="utf-8")
-    assert "def start_sweep" not in app_path.read_text(encoding="utf-8")
-    assert "def _build_restore_panel" not in app_path.read_text(encoding="utf-8")
+    text = app_path.read_text(encoding="utf-8")
+    assert "def connect_or_check" not in text
+    assert "def start_sweep" not in text
+    assert "def _build_restore_panel" not in text
 
 
 def test_app_state_is_synchronized_but_legacy_safe() -> None:
@@ -63,12 +64,14 @@ def test_thread_safe_xy_buffer_is_populated_by_live_points() -> None:
     assert "self._measurement_xy.clear()" in sw
 
 
-def test_documentation_tracks_current_architecture() -> None:
-    assert "1.1b5" in (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "State migration strategy" in (ROOT / "docs" / "ARCHITECTURE_CURRENT.md").read_text(
-        encoding="utf-8"
-    )
-    handoff = (ROOT / "docs" / "AGENT_HANDOFF.md").read_text(encoding="utf-8")
-    assert "ui/hardware_controller.py" in handoff
-    assert "ui/sweep_controller.py" in handoff
-    assert "Known limitations" in handoff
+def test_documentation_tracks_current_architecture_and_release_status() -> None:
+    changelog = (ROOT / "docs" / "CHANGELOG.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs" / "ARCHITECTURE_CURRENT.md").read_text(encoding="utf-8")
+    validation = (ROOT / "docs" / "VALIDATION_STATUS.md").read_text(encoding="utf-8")
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+    assert "1.1b6" in changelog
+    assert "AppState" in architecture
+    assert "1.1b6" in validation
+    assert "ui/sweep_controller.py" in agents
+    assert "output_off()" in agents

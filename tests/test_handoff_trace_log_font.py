@@ -48,8 +48,9 @@ def test_log_rotation_applies_when_limit_is_lowered(tmp_path):
     assert not log_path.exists() or log_path.stat().st_size <= 1024
 
 
-def test_readme_contains_human_developer_handoff():
+def test_readme_points_to_current_release_and_documentation_owners():
     readme = read("README.md")
-    assert "Human developer handoff" in readme
-    assert "1.1b5" in readme
-    assert "Real hardware preflight" in readme
+    assert "1.1b6" in readme
+    assert "docs/README.md" in readme
+    assert "docs/VALIDATION_STATUS.md" in readme
+    assert "docs/HARDWARE_VALIDATION_PROTOCOL.md" in readme
