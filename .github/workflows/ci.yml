@@ -8,9 +8,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: windows-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +46,7 @@ jobs:
   map-ui:
     name: Map Reconstruction UI (Windows / Python 3.12)
     runs-on: windows-latest
+    timeout-minutes: 30
     env:
       QT_QPA_PLATFORM: offscreen
 
