@@ -1,58 +1,53 @@
 # Contributing
 
-HappyMeasure is hardware-facing software. Code changes are not complete until
-the operator-facing documentation is checked.
+HappyMeasure is hardware-facing software. A code change is not complete until operator-facing documentation and the relevant validation gate have been considered.
 
-## Documentation Rule
+## Documentation rule
 
-Every change must do one of these before it is committed:
+Every change must either update the owner documentation or explicitly state why no documentation change is needed.
 
-- Update the relevant documentation.
-- Add a release-note or checklist entry.
-- Explicitly decide that no documentation change is needed, and say why in the
-  commit message, pull request, or handoff note.
+Use `docs/README.md` to locate the owner. In particular:
 
-This applies especially to:
+- user/safety behavior → `README.md` and hardware/user owner docs;
+- packaging/build → `docs/WINDOWS_PORTABLE_BUILD.md` / `docs/RELEASE_CHECKLIST.md`;
+- current validation status → `docs/VALIDATION_STATUS.md`;
+- release history → `docs/CHANGELOG.md` / versioned release notes;
+- architecture/state contracts → `docs/ARCHITECTURE_CURRENT.md`, `docs/STATE_MACHINE.md`, `docs/ERROR_RECOVERY.md`.
 
-- Hardware behavior, safety behavior, Pause/STOP semantics, output state, and
-  compliance handling.
-- Build, packaging, dependency, Python-version, and Windows permission behavior.
-- User-visible UI controls, hover text, settings, presets, export/import, and
-  logs.
-- Validation commands, hardware protocols, and first-run instructions.
+Do not create date-by-date handoff/test diary documents.
 
-## Where to Update
+## Commit hygiene
 
-- User workflow or safety behavior: `README.md`, `docs/HARDWARE_VALIDATION_PROTOCOL.md`,
-  `docs/HARDWARE_DRY_RUN_GUIDE.md`, or `packaging/README_FIRST_PORTABLE.txt`.
-- Packaging or build behavior: `docs/WINDOWS_PORTABLE_BUILD.md`,
-  `docs/WINDOWS_PYTHON314_BUILD.md`, and `docs/RELEASE_CHECKLIST.md`.
-- Release readiness: `docs/RELEASE_CHECKLIST.md`.
-- Public attribution or project scope: `NOTICE.md`, `README.md`, or
-  `docs/README.md`.
-
-## Commit Hygiene
-
-Before committing:
+Before committing at minimum:
 
 ```powershell
-python tests\test_legacy_ui_layout_contracts.py
 python -m compileall -q src tests
+python -m black --check src tests
+python -m ruff check src tests
 ```
 
-For a release candidate, also run the full validation path documented in
-`docs/RELEASE_CHECKLIST.md`.
+Run focused regressions for the changed behavior. Shared hardware, state, settings, packaging or release changes require the broader validation in `docs/RELEASE_CHECKLIST.md`.
 
-## Scoped Map Reconstruction Validation
+## Map Reconstruction
 
-For Map Reconstruction-only UI, visualization, or analysis-control changes:
+For Map-only changes install the optional GUI dependencies and run the offscreen Qt gate:
 
-1. Run focused Map Reconstruction and offscreen Qt regressions.
-2. Run Ruff, Black, mypy, and compileall only for changed Map Reconstruction
-   sources.
-3. Measure `map_reconstruction` coverage separately.
+```powershell
+python -m pip install -e ".[dev,map]"
+$env:QT_QPA_PLATFORM="offscreen"
+python -c "import PySide6, pyqtgraph"
+python -m pytest -q -k "map_reconstruction or phase_window"
+```
 
-Do not run the full HappyMeasure hardware/acquisition validation suite unless
-shared modules, packaging/dependency files, or release metadata change, or the
-work is preparing a repository release. Record the two validation scopes
-separately in `docs/TESTED_CURRENT.md`.
+A release candidate must run this gate even when the ordinary `.[dev]` suite would otherwise skip Qt tests.
+
+## Regression-test discipline
+
+- Prefer behavioral contracts over implementation-string assertions.
+- Preserve tests for output-off, recovery, settings/file compatibility and scientific-data integrity.
+- Remove/consolidate obsolete tests only when stronger coverage remains and the rationale is clear.
+- Never lower the coverage threshold to close a release.
+
+## Hardware
+
+Automated/simulator tests are not real-hardware certification. Follow `docs/HARDWARE_VALIDATION_PROTOCOL.md` for staged hardware work, starting from no-DUT/preflight checks.

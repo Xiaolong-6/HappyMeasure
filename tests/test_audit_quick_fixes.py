@@ -21,10 +21,10 @@ def test_pyproject_coverage_omit_has_no_redundant_happymeasure_diagnostics_entry
     assert "src/happymeasure/diagnostics/*" not in omit
 
 
-def test_coverage_and_mypy_policy_remain_explicitly_deferred() -> None:
+def test_coverage_and_mypy_policy_remain_explicit() -> None:
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert data["tool"]["coverage"]["report"]["fail_under"] == 95
     assert data["tool"]["mypy"]["disallow_untyped_defs"] is False
 
-    migration_plan = (ROOT / "docs" / "MIGRATION_PLAN.md").read_text(encoding="utf-8")
-    assert "deferred policy" in migration_plan.lower()
+    docs_audit = (ROOT / "docs" / "DOCS_AUDIT.md").read_text(encoding="utf-8")
+    assert "documentation ownership" in docs_audit.lower() or "owners" in docs_audit.lower()

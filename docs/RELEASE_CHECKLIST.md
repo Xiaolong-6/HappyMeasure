@@ -1,215 +1,15 @@
-# Release Checklist
+# Release Checklist — HappyMeasure 1.1b6
 
-This checklist is the release-prep source of truth. Run it from a clean working tree after feature work is frozen and before publishing a GitHub Release.
+Use this checklist from a clean release branch after feature freeze. `v1.1b5` already exists publicly; this source line must use `1.1b6` / `v1.1b6`.
 
-## 0. Release identity
+## 1. Identity and tree hygiene
 
-Use simple version labels for public communication. For this release, use `1.1 beta 5` in prose and `1.1b5` in Python/package metadata.
+Expected identity:
 
-
-Set these values before starting the checklist:
-
-- Release version: `1.1b5`.
-- Git tag: `v1.1b5`.
-- Portable zip name: `HappyMeasure-1.1b5-windows-portable.zip`.
-- Release channel: `beta`.
-- Target Python for source validation: project default from `pyproject.toml`.
-- Target Python for Windows portable build: standard script selects Python 3.12,
-  3.11, then 3.13; use the dedicated Python 3.14 script on 3.14-only machines.
-
-## 1. Source tree hygiene
-
-Run from the repository root:
-
-```powershell
-git status --short
-git diff --stat
-```
-
-Confirm:
-
-- No generated/runtime folders are staged: `__pycache__`, `.pytest_cache`, `.coverage`, `htmlcov`, `build`, `dist`, `logs`, `backups`, `.pycache_tmp`, `.tmp-build`, `.build-deps`, `.pip-cache`.
-- No local helper scripts are staged, especially `LOCAL_*.bat` or `LOCAL_*.ps1`.
-- `LICENSE`, `NOTICE.md`, `README.md`, `CONTRIBUTING.md`, and this checklist are present.
-- `.gitignore` still excludes local runtime/build helpers.
-- README hardware warnings and verified-update wording are current.
-- Every behavior/build/UI/safety change has one of: user-facing README note, docs update, changelog/release-note entry, or an explicit no-docs-needed rationale in the diary.
-
-## 2. Version and naming consistency
-
-Confirm all version-bearing files agree:
-
-- `src/keith_ivt/version.py`
-- `pyproject.toml`
-- `README.md`
-- `docs/CHANGELOG.md`
-- `docs/RELEASE_NOTES_<version>.md` if a per-release note exists
-- Any validation/build scripts that embed the release name or zip name
-
-Confirm namespace wording:
-
-- Public product/package namespace is `HappyMeasure` / `happymeasure`.
-- Legacy implementation/compatibility namespace is `keith_ivt`.
-- New public launch examples prefer `python -m happymeasure`.
-- Legacy examples using `keith_ivt` are clearly marked as compatibility paths.
-
-Recommended checks:
-
-```powershell
-python -m pytest tests\test_version_consistency.py tests\test_namespace_migration.py -q
-python -m pytest tests\test_launcher_space_safe.py -q
-```
-
-## 3. Documentation audit
-
-Review the docs index first:
-
-```text
-docs\README.md
-```
-
-Then confirm the release-relevant docs are current:
-
-- `docs/CHANGELOG.md` — human release history.
-- `docs/RELEASE_CHECKLIST.md` — this file.
-- `docs/MANUAL_SMOKE_TESTS.md` — manual UI/data smoke procedure.
-- `docs/TRACE_SCHEMA.md` — CSV/import/export metadata contract.
-- `docs/HARDWARE_PREFLIGHT.md` — safe preflight behavior.
-- `docs/HARDWARE_VALIDATION_PROTOCOL.md` — staged bench validation.
-- `docs/WINDOWS_PORTABLE_BUILD.md` and `docs/WINDOWS_PYTHON314_BUILD.md` — packaging notes.
-- `docs/AGENT_HANDOFF.md` — machine-facing continuation notes.
-
-Do not publish temporary/local-only runtime artifacts. Release notes should be prepared from the agent handoff notes rather than copied verbatim to end users.
-
-## 4. Source validation
-
-Install developer dependencies:
-
-```powershell
-python -m pip install -r requirements-dev.txt
-```
-
-Run the full validation script when available:
-
-```powershell
-python tests\run_full_validation.py
-```
-
-If Python 3.14 reports pycache or temp-file permission errors on Windows, rerun with a temporary cache prefix:
-
-```powershell
-$env:PYTHONPYCACHEPREFIX = Join-Path (Get-Location) ".pycache_tmp"
-python tests\run_full_validation.py
-```
-
-Run focused release-hardening tests:
-
-```powershell
-python -m pytest tests\test_engineering_baseline.py tests\test_update_check.py -q
-python -m pytest tests\test_config_compatibility.py tests\test_trace_schema_contract.py tests\test_hardware_preflight_cli.py -q
-python -m pytest tests\test_fault_injection_safety.py tests\test_sweep_safety.py tests\test_app_state.py -q
-python -m pytest tests\test_data_import_export_store.py tests\test_trace_selection_export_consistency.py -q
-python -m pytest tests\test_start_config_regression.py tests\test_status_light_emoji_font.py -q
-```
-
-Optional desktop-only Tk smoke test:
-
-```powershell
-$env:HAPPYMEASURE_RUN_TK_SMOKE="1"
-python -m pytest tests\test_ui_smoke.py -q
-Remove-Item Env:\HAPPYMEASURE_RUN_TK_SMOKE
-```
-
-## 5. Manual simulator smoke checks
-
-Follow `docs/MANUAL_SMOKE_TESTS.md`. At minimum, confirm:
-
-- `Run_HappyMeasure.bat` starts the app from the repository root.
-- Debug simulator connect/disconnect works.
-- Start works from `idle`, then again after `completed`, `stopped`, and `aborted` ready states.
-- Pause/Stop/Abort do not leave the status bar stuck in `Sweeping`.
-- Canvas connection/simulator status icons scale with UI scale but remain independent of the selected font family and emoji fallback.
-- Trace rename/hide/delete/export/import behavior matches `docs/TRACE_SCHEMA.md`.
-- Update reminder remains non-intrusive. Installation requires explicit
-  confirmation and a release asset with a valid SHA-256 digest.
-
-Record any deviation in `docs/AGENT_HANDOFF.md` before release notes are finalized.
-
-## 6. Hardware validation gate
-
-Do not run a real DUT sweep until staged validation passes.
-
-First run CLI help with no hardware attached:
-
-```powershell
-python -m happymeasure.hardware_preflight --help
-python -m keith_ivt.hardware_preflight --help
-```
-
-Then follow `docs/HARDWARE_VALIDATION_PROTOCOL.md` in order:
-
-- Level 0: communication cable only, no DUT.
-- Level 1: dummy resistors.
-- Level 2: diode or robust test device.
-- Level 3: real DUT.
-
-For each hardware step, record:
-
-- instrument model and firmware from `*IDN?`
-- serial/VISA resource and terminal path
-- wiring/dummy-load details
-- compliance settings
-- whether `output_off` was confirmed after Stop/Abort/error
-- generated CSV files and runtime logs
-
-Preflight must remain safe: open serial, query `*IDN?`, send output off, close resource. It must not source voltage/current or run a sweep.
-
-## 7. Version bump and release notes
-
-After source/manual validation passes:
-
-- Update `src/keith_ivt/version.py`.
-- Update `pyproject.toml` version and description if needed.
-- Update README current version and "What changed" bullets.
-- Update `docs/CHANGELOG.md`.
-- Prepare or update `docs/RELEASE_NOTES_<version>.md`.
-- Ensure release notes distinguish user-facing changes from developer/internal hardening.
-- Confirm update-check behavior still compares the local version against GitHub release tags correctly.
-
-Rerun the version/namespace checks from section 2 after changing versions.
-
-## 8. Windows portable packaging
-
-Build the portable Windows folder app only after sections 1-7 pass:
-
-```powershell
-.\tools\build\Build_Portable_Windows_App.ps1
-```
-
-If PowerShell blocks unsigned scripts, run:
-
-```bat
-tools\build\Build_Portable_Windows_App.bat
-```
-
-If building with Python 3.14, use
-`tools\build\Build_Portable_Windows_App_Python314.bat` or
-`.\tools\build\Build_Portable_Windows_App_Python314.ps1`.
-
-Confirm:
-
-- `dist\HappyMeasure\HappyMeasure.exe` exists.
-- `dist\HappyMeasure\_internal` exists.
-- `README_FIRST.txt`, `HARDWARE_VALIDATION_PROTOCOL.md`, and `HARDWARE_DRY_RUN_GUIDE.md` are copied into `dist\HappyMeasure`.
-- `config\settings.json`, `config\presets.json`, and `examples\simple_cli_sweep.py` are copied into `dist\HappyMeasure`.
-- `dist\HappyMeasure-<version>-windows-portable.zip` exists and contains the whole `HappyMeasure` folder.
-- `build` is absent after a successful script run; if present, treat it only as
-  temporary PyInstaller diagnostics and do not publish it.
-- The packaged exe launches once and stays running.
-- About/update-check UI opens without import errors.
-- Debug simulator can connect and run one short sweep in the packaged app.
-
-## 9. Git and GitHub release
+- prose: `1.1 beta 6`
+- package: `1.1b6`
+- tag: `v1.1b6`
+- artifact: `HappyMeasure-1.1b6-windows-portable.zip`
 
 Before tagging:
 
@@ -218,35 +18,122 @@ git status --short
 git log --oneline -5
 ```
 
-Confirm the release commit contains source/docs/tests only, not `dist`, `build`, logs, caches, or local helper scripts.
+No generated/runtime folders, local helper scripts, logs, hardware-smoke artifacts, `build/` or `dist/` may be committed.
 
-Suggested tag pattern:
+Check version consistency in:
+
+- `src/keith_ivt/version.py`
+- `pyproject.toml`
+- `README.md`
+- `docs/CHANGELOG.md`
+- `docs/RELEASE_NOTES_v1.1b6.md`
+
+## 2. Automated source validation
+
+Install:
 
 ```powershell
-git tag v<version>
+python -m pip install -e ".[dev]"
+```
+
+Run:
+
+```powershell
+python -m compileall -q src tests
+python -m black --check src tests
+python -m ruff check src tests
+python -m mypy src
+python -m pytest -q
+python -m pytest --cov=keith_ivt --cov-report=term -q
+python tests\run_full_validation.py
+```
+
+Coverage gate remains `>=95%` for the configured core scope. Do not lower it to close a release.
+
+## 3. Map Reconstruction release gate
+
+This is mandatory for `1.1b6` because Map Reconstruction has substantial release-visible changes.
+
+```powershell
+python -m pip install -e ".[dev,map]"
+$env:QT_QPA_PLATFORM="offscreen"
+python -c "import PySide6, pyqtgraph"
+python -m pytest -q -k "map_reconstruction or phase_window"
+```
+
+CI has a dedicated Windows/Python 3.12 job that installs `.[dev,map]`. A missing dependency must fail the job rather than silently skipping the Qt suite.
+
+## 4. Desktop simulator/UX smoke
+
+Follow `MANUAL_SMOKE_TESTS.md` plus the current list in `VALIDATION_STATUS.md`.
+
+Pay particular attention to:
+
+- repeated Start/Pause/Resume/Stop/restart;
+- short window / Windows scaling and scrollability;
+- Advanced Acquisition Standard/Fast/Custom state;
+- long Time plot smoothness and full completed trace;
+- trace import/export/rename/delete;
+- Settings review preserving disabled update checks;
+- UI Diagnostics return path;
+- Map CSV replacement, project round-trip and maximized startup.
+
+## 5. Hardware safety gate
+
+Follow `HARDWARE_VALIDATION_PROTOCOL.md` in order. Never skip directly to a real DUT.
+
+Record:
+
+- model/firmware from `*IDN?`;
+- port/baud/terminal/wiring;
+- compliance/range/profile;
+- output-off confirmation after normal completion, Stop, Abort/error and disconnect;
+- generated CSV/log artifacts.
+
+Hardware Diagnostics is communication/output-off only and must never enable output or issue a measurement read.
+
+## 6. Windows portable package
+
+Build only after source gates pass:
+
+```powershell
+.\tools\build\Build_Portable_Windows_App.ps1
+```
+
+or:
+
+```bat
+tools\build\Build_Portable_Windows_App.bat
+```
+
+Verify:
+
+- `dist\HappyMeasure\HappyMeasure.exe`
+- `dist\HappyMeasure\_internal`
+- required readme/safety/config files
+- versioned portable ZIP
+- packaged app launches and closes cleanly
+- simulator connect + short sweep works
+- Map Reconstruction launch works if packaged as supported by the build
+- About/update-check UI has no import error
+
+Record SHA-256 and package size in the final release notes.
+
+## 7. Tag and GitHub Release
+
+Only after source + desktop + selected hardware gate passes:
+
+```powershell
+git tag v1.1b6
 git push origin main --tags
 ```
 
-Create the GitHub Release:
+Create a prerelease named `HappyMeasure 1.1b6`, upload only the verified portable ZIP, and include the actual validation level. Do not reuse or replace the published `v1.1b5` asset/tag.
 
-- Use tag `v<version>`.
-- Mark alpha/beta releases as prerelease.
-- Upload `HappyMeasure-<version>-windows-portable.zip`.
-- Confirm the uploaded asset exposes a `sha256:` digest in GitHub release
-  metadata; otherwise the app must offer manual download only.
-- Include safety status: simulator validated, hardware validation level reached, and whether real-DUT validation is pending.
-- State that verified in-app installation is available only when release
-  metadata includes a SHA-256 digest; otherwise users upgrade manually.
+## 8. Post-release
 
-## 10. Post-release verification
-
-After publishing:
-
-- Open the release page and confirm the asset downloads.
-- Start the previous local version and confirm the update reminder reports the
-  new release when network is available.
-- Confirm a release with a SHA-256 digest offers installation and a release
-  without one falls back to the release page.
-- Confirm offline/no-network update checks remain non-blocking.
-- Download the release zip to a fresh folder and launch `HappyMeasure.exe` once.
-- Record final release status in the permanent changelog.
+- download the uploaded ZIP to a fresh folder and launch it;
+- verify GitHub exposes the expected SHA-256 digest metadata;
+- test update detection from the previous release;
+- verify offline update-check failure is non-blocking;
+- update `VALIDATION_STATUS.md` / `CHANGELOG.md` with the final released state in the next normal source commit if needed.

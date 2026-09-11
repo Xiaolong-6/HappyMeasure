@@ -1,83 +1,70 @@
-# HappyMeasure Documentation Index
+# HappyMeasure Documentation
 
-This directory contains both user-facing release documents and machine-facing handoff notes. Start here before editing docs so release-critical information stays in one place rather than being scattered across README fragments.
+This index is the documentation source of truth. Prefer one owner document per contract; Git history and release notes preserve old implementation detail, so current docs should not become chronological diaries.
 
-The optional Map Reconstruction workspace stores portable scientific sessions
-using the `.hmmap` format documented in `MAP_PROJECT_FORMAT.md`.
-Its Legacy and Phase Window registration semantics are documented in
-`PHASE_WINDOW_RECONSTRUCTION.md`.
+## Start here
 
-## Human-facing quick path
+- `../README.md` — product overview and launch instructions
+- `../AGENTS.md` — machine/developer change discipline and safety invariants
+- `../CONTRIBUTING.md` — contribution and documentation rules
+- `VALIDATION_STATUS.md` — current automated/manual release status
+- `TROUBLESHOOTING.md` — operator troubleshooting
 
-Use these first:
+## Measurement and application contracts
 
-- `../README.md` — human project overview and current user status.
-- `CHANGELOG.md` — release history.
-- `RELEASE_CHECKLIST.md` — source validation, version bump, packaging, GitHub Release, and post-release verification.
-- `MANUAL_SMOKE_TESTS.md` — manual UI/simulator/data smoke checks.
-- `TROUBLESHOOTING.md` — common runtime and hardware issues.
+- `ARCHITECTURE_CURRENT.md` — current component boundaries
+- `STATE_MACHINE.md` — run and connection state semantics
+- `ERROR_RECOVERY.md` — recoverable/fatal error behavior
+- `TRACE_SCHEMA.md` — CSV/import/export metadata contract
+- `SETTINGS_MIGRATION.md` — settings compatibility/migration rules
+- `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding measurement/driver behavior
+- `NAMING.md` — product and Python namespace rules
+- `RESTART_MECHANISM.md` — UI restart behavior
 
-## Hardware and safety path
+## Hardware and safety
 
-Use in this order before real DUT measurement:
+- `HARDWARE_PREFLIGHT.md` — safe communication preflight
+- `HARDWARE_DRY_RUN_GUIDE.md` — disconnected/dummy-load dry-run guidance
+- `HARDWARE_VALIDATION_PROTOCOL.md` — staged real-hardware release gate
 
-- `HARDWARE_PREFLIGHT.md` — safe CLI preflight behavior and expected PASS/FAIL output.
-- `HARDWARE_DRY_RUN_GUIDE.md` — simulator and no-DUT checks.
-- `HARDWARE_VALIDATION_PROTOCOL.md` — staged bench validation from cable-only to real DUT (includes safety rules).
-- `ERROR_RECOVERY.md` — recovery expectations after errors.
+Hardware-facing changes must preserve validation-before-output and `output_off()` cleanup semantics. Simulator/CI success is not evidence of real-hardware verification.
 
-## Build and release packaging
+## Map Reconstruction
 
-- `WINDOWS_PORTABLE_BUILD.md` — standard Windows portable-folder build.
-- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-specific build notes and caveats.
-- `RELEASE_CHECKLIST.md` — final release-prep sequence; build validation is intentionally a late step after version updates.
-- `RELEASE_NOTES_v1.1b5.md` — current release notes.
+- `MAP_PROJECT_FORMAT.md` — authoritative `.hmmap` archive contract
+- `PHASE_WINDOW_RECONSTRUCTION.md` — phase-window reconstruction method
 
-## Architecture and developer references
+Map Reconstruction GUI dependencies are optional (`.[map]`). Its Windows/Python 3.12 offscreen Qt suite is a dedicated release gate.
 
-- `ARCHITECTURE_CURRENT.md` — current architecture map and design decisions.
-- `MIGRATION_PLAN.md` — staged `keith_ivt` -> `happymeasure` namespace migration plan.
-- `STATE_MACHINE.md` — run/connection state contracts.
-- `TRACE_SCHEMA.md` — CSV v2 trace metadata/import/export contract.
-- `SETTINGS_MIGRATION.md` — settings-schema migration notes.
-- `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding drivers and sweep paths.
-- `HARDWARE_DRIVER_MIGRATION.md` — driver-layer migration notes.
-- `../src/map_reconstruction/` — standalone optional-Qt map reconstruction package.
-- `RESTART_MECHANISM.md` — UI restart behavior.
-- `UI_STYLE_GUIDE.md` and `UI_VISUAL_CHECKLIST.md` — UI styling and visual checks.
-- `NAMING.md` — naming conventions.
-- `VERSIONING.md` — versioning policy.
+## Release and build
 
-## Agent handoff notes
-
-- `AGENT_HANDOFF.md` — detailed machine-facing current context.
-- `DOCS_AUDIT.md` — latest documentation ownership audit and cleanup candidates.
-
-## Test documentation
-
-- `../tests/README.md` — test map and validation gates.
-- `TESTED_CURRENT.md` — current test results snapshot.
+- `RELEASE_CHECKLIST.md` — current release process (`1.1b6` candidate)
+- `RELEASE_NOTES_v1.1b6.md` — current release-candidate notes
+- `CHANGELOG.md` — concise release history
+- `WINDOWS_PORTABLE_BUILD.md` — normal Windows portable build
+- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-specific build notes
+- `MANUAL_SMOKE_TESTS.md` — desktop/operator smoke checks
+- `UI_VISUAL_CHECKLIST.md` — visual/responsive checks
+- `UI_DIAGNOSTICS.md` — built-in UI diagnostic scope
+- `UI_STYLE_GUIDE.md` — UI styling conventions
+- `DOCS_AUDIT.md` — documentation ownership/cleanup record
 
 ## Historical release notes
 
-- `RELEASE_NOTES_v0.7a1.md` — v0.7a1 release notes.
-- `RELEASE_NOTES_v1.0b1.md` — v1.0b1 release notes.
-- `RELEASE_NOTES_v1.1b1.md` — v1.1b1 release notes.
-- `RELEASE_NOTES_v1.1b3.md` — v1.1b3 release notes.
-- `RELEASE_NOTES_v1.1b4.md` — v1.1b4 release notes.
+Historical notes are intentionally retained as release records, not current instructions:
 
-## Namespace convention
+- `RELEASE_NOTES_v0.7a1.md`
+- `RELEASE_NOTES_v1.0b1.md`
+- `RELEASE_NOTES_v1.1b1.md`
+- `RELEASE_NOTES_v1.1b3.md`
+- `RELEASE_NOTES_v1.1b4.md`
+- `RELEASE_NOTES_v1.1b5.md`
 
-Use `happymeasure` for public launch commands and documentation. The legacy `keith_ivt` namespace remains available for existing imports while the implementation is migrated incrementally.
+## Documentation policy
 
-## Documentation maintenance rule
-
-When behavior changes, update the most specific document that owns the behavior:
-
-- UI/manual behavior: `README.md` and/or `MANUAL_SMOKE_TESTS.md`.
-- CSV/import/export behavior: `TRACE_SCHEMA.md`.
-- Hardware safety/preflight: `HARDWARE_PREFLIGHT.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.
-- Packaging/release process: `RELEASE_CHECKLIST.md` and build docs.
-- Machine handoff context: `AGENT_HANDOFF.md`.
-
-Avoid duplicating long procedures in multiple files. Link to the owner document instead.
+- Put current behavior in the owner document above.
+- Put release history in `CHANGELOG.md` / release notes.
+- Put current test/manual-gate status in `VALIDATION_STATUS.md`.
+- Do not add date-by-date agent diaries to the repository.
+- Delete migration plans after their decision has become the stable documented architecture.
+- When deleting a document, first move any still-valid contract into its permanent owner.
