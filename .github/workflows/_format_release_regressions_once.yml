@@ -1,0 +1,37 @@
+name: Temporary regression formatter
+
+on:
+  push:
+    branches: [codex/release-1.1b6-hardening]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: codex/release-1.1b6-hardening
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python -m pip install black==26.5.1
+      - name: Format release regressions
+        run: >-
+          python -m black
+          tests/common/test_release_1_1b6_hardening.py
+          tests/map_reconstruction/test_source_replacement_regressions.py
+      - name: Commit formatting if needed
+        shell: bash
+        run: |
+          if git diff --quiet -- tests/common/test_release_1_1b6_hardening.py tests/map_reconstruction/test_source_replacement_regressions.py; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/common/test_release_1_1b6_hardening.py tests/map_reconstruction/test_source_replacement_regressions.py
+          git commit -m "style: format release regressions"
+          git push origin HEAD:codex/release-1.1b6-hardening
