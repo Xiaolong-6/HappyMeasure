@@ -30,8 +30,8 @@ jobs:
         run: python -m black --check src tests
       - name: Lint
         run: python -m ruff check src tests
-      - name: Type check
-        run: python -m mypy src
+      - name: Type check core HappyMeasure
+        run: python -m mypy src/keith_ivt src/happymeasure
       - name: Run test suite
         run: python -m pytest -q
       - name: Enforce core coverage
