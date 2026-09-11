@@ -46,7 +46,7 @@ jobs:
   map-ui:
     name: Map Reconstruction UI (Windows / Python 3.12)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       QT_QPA_PLATFORM: offscreen
 
@@ -69,4 +69,4 @@ jobs:
       - name: Type check Map Reconstruction
         run: python -m mypy src/map_reconstruction
       - name: Run Map Reconstruction release gate
-        run: python -m pytest -q tests/map_reconstruction
+        run: python -m pytest -vv --durations=20 tests/map_reconstruction
