@@ -32,11 +32,11 @@ jobs:
         run: python -m ruff check src tests
       - name: Type check core HappyMeasure
         run: python -m mypy src/keith_ivt src/happymeasure
-      - name: Run test suite
-        run: python -m pytest -q
+      - name: Run core test suite
+        run: python -m pytest -q tests/common tests/happymeasure
       - name: Enforce core coverage
         if: matrix.python-version == '3.14'
-        run: python -m pytest --cov=keith_ivt --cov-report=term -q
+        run: python -m pytest tests/common tests/happymeasure --cov=keith_ivt --cov-report=term -q
 
   map-ui:
     name: Map Reconstruction UI (Windows / Python 3.12)
@@ -55,12 +55,12 @@ jobs:
       - name: Require Qt dependencies
         run: python -c "import PySide6, pyqtgraph; print(PySide6.__version__, pyqtgraph.__version__)"
       - name: Compile Map Reconstruction sources and tests
-        run: python -m compileall -q src/map_reconstruction tests
+        run: python -m compileall -q src/map_reconstruction tests/map_reconstruction
       - name: Check Map Reconstruction formatting
-        run: python -m black --check src/map_reconstruction
+        run: python -m black --check src/map_reconstruction tests/map_reconstruction
       - name: Lint Map Reconstruction
-        run: python -m ruff check src/map_reconstruction
+        run: python -m ruff check src/map_reconstruction tests/map_reconstruction
       - name: Type check Map Reconstruction
         run: python -m mypy src/map_reconstruction
       - name: Run Map Reconstruction release gate
-        run: python -m pytest -q -k "map_reconstruction or phase_window"
+        run: python -m pytest -q tests/map_reconstruction
