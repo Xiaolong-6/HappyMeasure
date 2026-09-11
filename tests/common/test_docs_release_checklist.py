@@ -36,6 +36,7 @@ def test_docs_index_lists_current_owner_documents() -> None:
         "STATE_MACHINE.md",
         "ERROR_RECOVERY.md",
         "TRACE_SCHEMA.md",
+        "SETTINGS_COMPATIBILITY.md",
         "HARDWARE_VALIDATION_PROTOCOL.md",
         "MAP_PROJECT_FORMAT.md",
         "RELEASE_CHECKLIST.md",
@@ -54,6 +55,7 @@ def test_removed_diaries_and_completed_migration_plans_stay_removed() -> None:
         "TESTED_CURRENT.md",
         "MIGRATION_PLAN.md",
         "HARDWARE_DRIVER_MIGRATION.md",
+        "SETTINGS_MIGRATION.md",
     ):
         assert not (DOCS / doc_name).exists(), doc_name
 
@@ -63,7 +65,30 @@ def test_docs_audit_records_ownership_and_cleanup_rationale() -> None:
     assert "## Owners" in text
     assert "## 2026-09-11 cleanup decisions" in text
     assert "VALIDATION_STATUS.md" in text
+    assert "SETTINGS_COMPATIBILITY.md" in text
     assert "AGENT_HANDOFF.md" in text
+
+
+def test_current_architecture_is_not_a_historical_ui_diary() -> None:
+    text = _read(DOCS / "ARCHITECTURE_CURRENT.md")
+    assert "HappyMeasure 1.1b6" in text
+    assert "## Historical UI/simulator refinement note" not in text
+    assert "## Historical theme/adaptive polish note" not in text
+    assert "## Historical visual responsiveness note" not in text
+
+
+def test_settings_doc_matches_active_flat_runtime() -> None:
+    text = _read(DOCS / "SETTINGS_COMPATIBILITY.md")
+    assert "src/keith_ivt/data/settings.py" in text
+    assert "flat dataclass" in text
+    assert "not" in text and "settings_v2.py" in text
+
+
+def test_hardware_protocol_targets_current_release_and_test_layout() -> None:
+    text = _read(DOCS / "HARDWARE_VALIDATION_PROTOCOL.md")
+    assert "HappyMeasure 1.1b6" in text
+    assert "tests\\happymeasure\\test_pre_hardware_safety.py" in text
+    assert "v1.2b1 Fast release block" not in text
 
 
 def test_versioning_policy_does_not_reuse_published_beta() -> None:
