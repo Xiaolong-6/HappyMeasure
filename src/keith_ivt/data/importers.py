@@ -128,21 +128,15 @@ def _config_from_metadata(
         debug_model=str(metadata.get("debug_model") or "Linear resistor 10 kΩ"),
         fast_acquisition=_bool_or_default(metadata.get("fast_acquisition"), False),
         custom_acquisition=_bool_or_default(metadata.get("custom_acquisition"), False),
-        zero_refresh_before_run=_bool_or_default(
-            metadata.get("zero_refresh_before_run"), True
-        ),
+        zero_refresh_before_run=_bool_or_default(metadata.get("zero_refresh_before_run"), True),
         autozero_during_run=_bool_or_default(metadata.get("autozero_during_run"), False),
         digital_filter=_bool_or_default(metadata.get("digital_filter"), False),
         digital_filter_count=_int_or_default(metadata.get("digital_filter_count"), 2),
-        concurrent_measurement=_bool_or_default(
-            metadata.get("concurrent_measurement"), False
-        ),
+        concurrent_measurement=_bool_or_default(metadata.get("concurrent_measurement"), False),
         display_during_run=_bool_or_default(metadata.get("display_during_run"), True),
         measurement_only_read=_bool_or_default(metadata.get("measurement_only_read"), True),
         range_telemetry=_bool_or_default(metadata.get("range_telemetry"), False),
-        source_write_each_sample=_bool_or_default(
-            metadata.get("source_write_each_sample"), False
-        ),
+        source_write_each_sample=_bool_or_default(metadata.get("source_write_each_sample"), False),
         trigger_delay_s=_float_or_default(metadata.get("trigger_delay_s"), 0.0),
     )
 
@@ -249,9 +243,7 @@ def load_csv(path: str | Path) -> list[SweepResult]:
     if combined_format == "long-v2" or (header and header[0] == "trace_index"):
         grouped: dict[int, list[SweepPoint]] = {}
         names: dict[int, str] = {}
-        meta_by_index = {
-            int(m.get("trace_index", i + 1)): m for i, m in enumerate(all_metadata)
-        }
+        meta_by_index = {int(m.get("trace_index", i + 1)): m for i, m in enumerate(all_metadata)}
         for row in data_rows:
             if len(row) < 9:
                 continue
@@ -302,8 +294,4 @@ def load_csv(path: str | Path) -> list[SweepResult]:
             compliance=cfg.compliance,
             device_name=path.stem,
         )
-    return [
-        SweepResult(
-            config=cfg, points=points, warnings=_warnings_from_metadata(metadata)
-        )
-    ]
+    return [SweepResult(config=cfg, points=points, warnings=_warnings_from_metadata(metadata))]

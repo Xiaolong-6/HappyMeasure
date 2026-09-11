@@ -16,7 +16,6 @@ from keith_ivt.drivers.base import DriverCapabilities, instrument_model_from_idn
 from keith_ivt.models import SweepKind, SweepMode
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 
-
 _READY_STATES = {"idle", "stopped", "completed", "aborted"}
 _RUNTIME_RANGE_STATES = {"running", "paused"}
 
@@ -227,7 +226,9 @@ class MeasurementSemanticsMixin(UiMixinTyping):
         warning = getattr(self, "_front_panel_range_warning", None)
         try:
             if actual_title is not None:
-                actual_title.configure(text="Actual range" if telemetry_enabled else "Range snapshot")
+                actual_title.configure(
+                    text="Actual range" if telemetry_enabled else "Range snapshot"
+                )
             if change_value is not None:
                 change_value.configure(
                     text=(

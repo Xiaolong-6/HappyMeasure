@@ -14,7 +14,6 @@ from typing import cast
 from keith_ivt.data.settings import AppSettings
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 
-
 CURRENT_SETTINGS_OVERLAY_FIELDS = frozenset({"check_updates_on_startup"})
 
 

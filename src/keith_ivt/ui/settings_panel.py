@@ -137,9 +137,7 @@ class SettingsPanelMixin(UiMixinTyping):
         )
         if not getattr(self, "_settings_log_trace_bound", False):
             try:
-                self.log_max_kb.trace_add(
-                    "write", lambda *_args: self._on_log_max_kb_changed()
-                )
+                self.log_max_kb.trace_add("write", lambda *_args: self._on_log_max_kb_changed())
                 self._settings_log_trace_bound = True
             except Exception:
                 pass
@@ -244,9 +242,7 @@ class SettingsPanelMixin(UiMixinTyping):
             command=self._show_hardware_diagnostics,
             style="Soft.TButton",
         )
-        hardware_button.grid(
-            row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0)
-        )
+        hardware_button.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         add_tip(
             hardware_button,
             "Run communication and output-off safety checks on the selected real Keithley. No measurement is started and source output is never enabled.",

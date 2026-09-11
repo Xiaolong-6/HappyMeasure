@@ -51,9 +51,7 @@ class HardwareDiagnosticReport:
             "Safety contract: communication/output-off checks only; source output is never enabled.",
             "",
         ]
-        lines.extend(
-            f"[{check.status}] {check.name}: {check.detail}" for check in self.checks
-        )
+        lines.extend(f"[{check.status}] {check.name}: {check.detail}" for check in self.checks)
         return "\n".join(lines)
 
 

@@ -227,9 +227,10 @@ def test_keithley_model_parser_does_not_match_serial_number_substrings() -> None
     collision = "KEITHLEY INSTRUMENTS INC.,MODEL 2400,2401234,B02"
     assert instrument_model_from_idn(collision) == "2400"
     assert supports_fast_acquisition_for_idn(collision) is False
-    assert supports_fast_acquisition_for_idn(
-        "KEITHLEY INSTRUMENTS INC.,MODEL 2401,24001234,B02"
-    ) is True
+    assert (
+        supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2401,24001234,B02")
+        is True
+    )
 
     app = _SemanticsHarness()
     assert app._detect_capabilities_from_idn(collision).supports_fast_acquisition is False

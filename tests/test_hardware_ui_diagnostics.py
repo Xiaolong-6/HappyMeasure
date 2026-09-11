@@ -153,12 +153,10 @@ def test_settings_wires_separate_developer_tools_and_both_diagnostics() -> None:
     settings_panel = (root / "src" / "keith_ivt" / "ui" / "settings_panel.py").read_text(
         encoding="utf-8"
     )
-    diagnostics = (
-        root / "src" / "keith_ivt" / "ui" / "diagnostics_panel.py"
-    ).read_text(encoding="utf-8")
-    mixins = (root / "src" / "keith_ivt" / "ui" / "app_mixins.py").read_text(
+    diagnostics = (root / "src" / "keith_ivt" / "ui" / "diagnostics_panel.py").read_text(
         encoding="utf-8"
     )
+    mixins = (root / "src" / "keith_ivt" / "ui" / "app_mixins.py").read_text(encoding="utf-8")
 
     assert "SettingsPanelMixin" in mixins
     assert "Show developer tools" in settings_panel

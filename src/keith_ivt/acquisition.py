@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from keith_ivt.models import SweepConfig, SweepKind
 
-
 FAST_NPLC = 0.1
 FAST_TRIGGER_DELAY_S = 0.0
 FAST_BENCHMARK_NOTE = (

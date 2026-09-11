@@ -284,11 +284,7 @@ class ProjectState:
                 ),
             },
             "processing": processing,
-            **(
-                {"map_processing": processing}
-                if self.preparation.has_nondefault_state
-                else {}
-            ),
+            **({"map_processing": processing} if self.preparation.has_nondefault_state else {}),
             **(
                 {"preparation": {"signal": self.signal, **self.preparation.to_dict()}}
                 if self.preparation.has_nondefault_state

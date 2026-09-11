@@ -204,12 +204,22 @@ def test_resistor_configs_share_identical_measurement_range() -> None:
     expected_a = 0.1 / 10_000.0
     resistor_range = smoke.choose_measure_range(expected_a)
     standard = smoke.make_cfg(
-        "COM3", 57600, smoke.Terminal.REAR, 0.1, 0.2, 3,
-        constant_v=0.1, measure_range=resistor_range,
+        "COM3",
+        57600,
+        smoke.Terminal.REAR,
+        0.1,
+        0.2,
+        3,
+        constant_v=0.1,
+        measure_range=resistor_range,
     )
     fast = smoke.make_fast_cfg(
-        "COM3", 57600, smoke.Terminal.REAR,
-        duration_s=0.5, constant_v=0.1, measure_range=resistor_range,
+        "COM3",
+        57600,
+        smoke.Terminal.REAR,
+        duration_s=0.5,
+        constant_v=0.1,
+        measure_range=resistor_range,
     )
 
     assert standard.auto_measure_range is False

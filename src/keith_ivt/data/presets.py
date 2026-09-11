@@ -66,6 +66,7 @@ def clean_acquisition_state(raw: Any) -> dict[str, Any]:
     state["trigger_delay_s"] = trigger if trigger >= 0 else 0.0
     return state
 
+
 # Retained as a compatibility name for callers that still import it. New
 # presets use the nested v2 snapshot below, not these legacy flat keys.
 SWEEP_PRESET_KEYS = {

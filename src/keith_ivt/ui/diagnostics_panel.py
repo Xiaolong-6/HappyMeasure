@@ -161,7 +161,10 @@ class DiagnosticsUiMixin(UiMixinTyping):
         if bool(getattr(self.app_state, "is_running", False)):
             return False, "Stop the active measurement before running hardware diagnostics."
         if bool(getattr(self, "_connected", False)):
-            return False, "Disconnect the instrument from the Hardware page before running diagnostics."
+            return (
+                False,
+                "Disconnect the instrument from the Hardware page before running diagnostics.",
+            )
         port = str(self.port.get()).strip()
         if not port:
             return False, "Select a COM port on the Hardware page first."
@@ -364,9 +367,7 @@ class DiagnosticsUiMixin(UiMixinTyping):
             copy_button.configure(state="disabled")
             run_button.configure(state="disabled")
             status.set("Running safe hardware diagnostics...")
-            render(
-                "Running communication/output-off checks. Source output will not be enabled.\n"
-            )
+            render("Running communication/output-off checks. Source output will not be enabled.\n")
             threading.Thread(
                 target=worker,
                 args=(port, baud),

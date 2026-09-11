@@ -125,12 +125,8 @@ class SweepRunner:
                 "MANUAL_OUTPUT is not a SweepRunner sweep. Use the UI safety-interlock path."
             )
         acquisition = resolve_time_acquisition(config)
-        if acquisition.apply_instrument_overrides and not _fast_capability_ok(
-            self.instrument
-        ):
-            raise ValueError(
-                "Fast acquisition is not validated for the connected instrument."
-            )
+        if acquisition.apply_instrument_overrides and not _fast_capability_ok(self.instrument):
+            raise ValueError("Fast acquisition is not validated for the connected instrument.")
         values = (
             []
             if config.sweep_kind is SweepKind.CONSTANT_TIME and acquisition.as_fast_as_possible
