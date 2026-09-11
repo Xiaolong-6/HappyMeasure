@@ -150,6 +150,8 @@ def _project_state(preparation: SignalPreparationConfig) -> ProjectState:
         points_apart=1,
         point_offset=0,
         preparation=preparation,
+        processing=MapProcessingConfig(),
+        flip_y=False,
     )
 
 
