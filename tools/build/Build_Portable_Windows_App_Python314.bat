@@ -23,23 +23,23 @@ if exist "packaging\dist" rmdir /s /q "packaging\dist"
 rem This build script intentionally targets Python 3.14 only.
 rem It does not search for 3.13/3.12/3.11.
 
-if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3,14) else 1)" >nul 2>&1
+if exist ".venv-build-314\Scripts\python.exe" (
+    ".venv-build-314\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3,14) else 1)" >nul 2>&1
     if errorlevel 1 (
-        call :log Existing .venv is missing, broken, or not Python 3.14; deleting .venv
-        rmdir /s /q ".venv"
+        call :log Existing .venv-build-314 is missing, broken, or not Python 3.14; deleting .venv-build-314 (developer .venv is never touched)
+        rmdir /s /q ".venv-build-314"
     )
 )
 
-if not exist ".venv\Scripts\python.exe" (
+if not exist ".venv-build-314\Scripts\python.exe" (
     call :pick_python314
     if errorlevel 1 goto :fail
     call :log Creating build virtual environment with !PY_CMD!
-    !PY_CMD! -m venv .venv
+    !PY_CMD! -m venv .venv-build-314
     if errorlevel 1 goto :fail
 )
 
-call ".venv\Scripts\activate.bat"
+call ".venv-build-314\Scripts\activate.bat"
 if errorlevel 1 goto :fail
 
 python -c "import sys; print('Build Python:', sys.version.replace(chr(10), ' ')); print('Executable:', sys.executable); raise SystemExit(0 if sys.version_info[:2] == (3,14) else 1)"
@@ -51,7 +51,7 @@ if errorlevel 1 (
 python -m pip install --upgrade pip
 if errorlevel 1 goto :fail
 set "PYTHONPATH=%PROJECT_ROOT%\src"
-python -m pip install matplotlib numpy==2.3.5 pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
+python -m pip install -e ".[dev]"
 if errorlevel 1 goto :fail
 python -m pip install --upgrade pyinstaller
 if errorlevel 1 goto :fail

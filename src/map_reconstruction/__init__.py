@@ -6,6 +6,8 @@ Qt so they can be used and tested on headless systems.
 
 from __future__ import annotations
 
+from keith_ivt.version import VERSION as __version__
+
 __all__ = [
     "DualOffsetParams",
     "ReconstructionResult",
@@ -14,9 +16,8 @@ __all__ = [
     "TimingSolution",
     "PreparedSignal",
     "SignalPreparationConfig",
+    "__version__",
 ]
-
-__version__ = "0.1.0"
 
 
 def __getattr__(name: str):

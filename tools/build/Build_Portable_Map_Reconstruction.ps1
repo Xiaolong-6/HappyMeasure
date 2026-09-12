@@ -5,9 +5,11 @@ Set-Location -LiteralPath $ProjectRoot
 
 $LogDir = Join-Path $ProjectRoot "logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-$BuildLog = Join-Path $LogDir "build_portable_windows_app.log"
+$BuildLog = Join-Path $LogDir "build_portable_map_reconstruction.log"
 $BuildLogWritable = $true
+# Prefer the Qt-gate Python first; keep the pyproject >=3.11 floor otherwise.
 $PythonVersions = @("3.12", "3.11", "3.13")
+$BuildVenv = ".venv-build-map"
 
 function Write-Step([string]$Message) {
     Write-Host $Message
@@ -61,36 +63,39 @@ function Pick-Python {
             return @("python")
         }
     }
-    throw "No supported Python was found. Install Python 3.12, 3.11, or 3.13, or make sure the Python launcher can run one of them."
+    throw "No supported Python was found. Install Python 3.12, 3.11, or 3.13 (pyproject requires-python >=3.11)."
 }
 
 Write-Step "=========================================="
-Write-Step "Building HappyMeasure portable Windows app"
+Write-Step "Building Map Reconstruction portable Windows app"
 Write-Step "Working directory: $ProjectRoot"
 Write-Step "Supported build Python versions, in order: $($PythonVersions -join ', ')"
 Write-Step "=========================================="
 
+Write-Step "Automated validation is a packaging precondition, not part of this script."
+Write-Step "Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate."
+
 Remove-Item -Recurse -Force -LiteralPath "build" -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force -LiteralPath "dist" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force -LiteralPath "dist\MapReconstruction" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\build" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\dist" -ErrorAction SilentlyContinue
 
-$VenvPython = Join-Path $ProjectRoot ".venv-build\Scripts\python.exe"
+$VenvPython = Join-Path $ProjectRoot "$BuildVenv\Scripts\python.exe"
 if (Test-Path -LiteralPath $VenvPython) {
     & $VenvPython -c "import sys; allowed={(3,12),(3,11),(3,13)}; raise SystemExit(0 if sys.version_info[:2] in allowed else 1)" *> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Step "Existing .venv-build is missing, broken, or not a supported build Python; deleting .venv-build (developer .venv is never touched)"
-        Remove-Item -Recurse -Force -LiteralPath ".venv-build"
+        Write-Step "Existing $BuildVenv is not a supported build Python; deleting $BuildVenv (developer .venv is never touched)"
+        Remove-Item -Recurse -Force -LiteralPath $BuildVenv
     }
 }
 
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     $PythonCmd = Pick-Python
     Write-Step "Creating build virtual environment with $($PythonCmd -join ' ')"
-    Invoke-PythonCommand $PythonCmd @("-m", "venv", ".venv-build")
+    Invoke-PythonCommand $PythonCmd @("-m", "venv", $BuildVenv)
 }
 
-& ".\.venv-build\Scripts\Activate.ps1"
+& ".\$BuildVenv\Scripts\Activate.ps1"
 python -c "import sys; allowed={(3,12),(3,11),(3,13)}; print('Build Python:', sys.version.replace(chr(10), ' ')); print('Executable:', sys.executable); raise SystemExit(0 if sys.version_info[:2] in allowed else 1)"
 Assert-LastCommand "Python version check"
 
@@ -100,52 +105,43 @@ $env:TEMP = Join-Path $ProjectRoot ".tmp-build"
 $env:TMP = $env:TEMP
 $env:PIP_CACHE_DIR = Join-Path $ProjectRoot ".pip-cache"
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
+# pyproject.toml owns dependencies; the Map build installs the .[map] extra.
 python -m pip install --upgrade pip
 Assert-LastCommand "pip upgrade"
-# pyproject.toml owns dependencies; the build only adds PyInstaller itself.
-python -m pip install -e ".[dev]"
-Assert-LastCommand "project dependency install"
+python -m pip install -e ".[map]"
+Assert-LastCommand "Map dependency install"
 python -m pip install --upgrade pyinstaller
 Assert-LastCommand "PyInstaller install"
 
 Write-Step "Running import smoke check..."
-python -c "import keith_ivt; from keith_ivt.ui.simple_app import main; import matplotlib; import serial; print('Smoke check OK')"
+$env:QT_QPA_PLATFORM = "offscreen"
+python -c "import map_reconstruction; import PySide6, pyqtgraph, numpy; print('Smoke check OK', map_reconstruction.__version__)"
 Assert-LastCommand "Import smoke check"
-
-Write-Step "Automated validation is a packaging precondition, not part of this script."
-Write-Step "Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate."
 
 Write-Step "Running PyInstaller..."
 New-Item -ItemType Directory -Force -Path "build" | Out-Null
 New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-pyinstaller --noconfirm --clean --distpath dist --workpath build packaging\HappyMeasure.spec
+pyinstaller --noconfirm --clean --distpath dist --workpath build packaging\MapReconstruction.spec
 Assert-LastCommand "PyInstaller build"
 
-if (-not (Test-Path -LiteralPath "dist\HappyMeasure\HappyMeasure.exe")) {
-    throw "dist\HappyMeasure\HappyMeasure.exe was not created."
+if (-not (Test-Path -LiteralPath "dist\MapReconstruction\MapReconstruction.exe")) {
+    throw "dist\MapReconstruction\MapReconstruction.exe was not created."
 }
 
-New-Item -ItemType Directory -Force -Path "dist\HappyMeasure\logs" | Out-Null
-New-Item -ItemType Directory -Force -Path "dist\HappyMeasure\examples" | Out-Null
-New-Item -ItemType Directory -Force -Path "dist\HappyMeasure\config" | Out-Null
-Copy-Item -Force "packaging\README_FIRST_PORTABLE.txt" "dist\HappyMeasure\README_FIRST.txt" -ErrorAction SilentlyContinue
-Copy-Item -Force "docs\HARDWARE_VALIDATION_PROTOCOL.md" "dist\HappyMeasure\HARDWARE_VALIDATION_PROTOCOL.md" -ErrorAction SilentlyContinue
-Copy-Item -Force "docs\HARDWARE_DRY_RUN_GUIDE.md" "dist\HappyMeasure\HARDWARE_DRY_RUN_GUIDE.md" -ErrorAction SilentlyContinue
-Copy-Item -Force "config\*.json" "dist\HappyMeasure\config\" -ErrorAction SilentlyContinue
-Copy-Item -Recurse -Force "examples\*" "dist\HappyMeasure\examples\" -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force -Path "dist\MapReconstruction\logs" | Out-Null
+Copy-Item -Force "packaging\README_FIRST_MAP_PORTABLE.txt" "dist\MapReconstruction\README_FIRST.txt" -ErrorAction SilentlyContinue
+Copy-Item -Force "docs\MAP_PROJECT_FORMAT.md" "dist\MapReconstruction\MAP_PROJECT_FORMAT.md" -ErrorAction SilentlyContinue
 
 $Version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-$ZipPath = Join-Path $ProjectRoot "dist\HappyMeasure-$Version-windows-portable.zip"
+$ZipPath = Join-Path $ProjectRoot "dist\MapReconstruction-$Version-windows-portable.zip"
 Remove-Item -Force -LiteralPath $ZipPath -ErrorAction SilentlyContinue
-Compress-Archive -Path "dist\HappyMeasure" -DestinationPath $ZipPath -CompressionLevel Optimal
+Compress-Archive -Path "dist\MapReconstruction" -DestinationPath $ZipPath -CompressionLevel Optimal
 Remove-Item -Recurse -Force -LiteralPath "build" -ErrorAction SilentlyContinue
 
 Write-Step "=========================================="
 Write-Step "Build finished."
-Write-Step "Portable app folder: $ProjectRoot\dist\HappyMeasure"
-Write-Step "Main executable: $ProjectRoot\dist\HappyMeasure\HappyMeasure.exe"
+Write-Step "Portable app folder: $ProjectRoot\dist\MapReconstruction"
+Write-Step "Main executable: $ProjectRoot\dist\MapReconstruction\MapReconstruction.exe"
 Write-Step "Portable zip: $ZipPath"
 Write-Step "=========================================="
-Write-Step "Deliver the zip or the whole dist\HappyMeasure folder, not only HappyMeasure.exe."
-Write-Step "RELEASE REMINDER: After uploading the zip, verify GitHub release metadata exposes a sha256: digest."
-Write-Step "Without that digest, HappyMeasure will intentionally offer manual download only."
+Write-Step "Deliver the zip or the whole dist\MapReconstruction folder, not only MapReconstruction.exe."
