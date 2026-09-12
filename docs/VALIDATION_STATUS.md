@@ -14,28 +14,32 @@ Required before merge/tag:
 - Map job explicitly imports PySide6 and pyqtgraph before tests so missing Qt cannot appear as a successful all-skipped job.
 - Version/namespace/settings/export/safety regressions pass.
 
-Status on creation of the `1.1b6` hardening branch: **pending CI run**.
+Status on creation of the `1.1b6` hardening branch: **pending CI run**. The local
+results below were refreshed on 2026-09-12; they do not claim CI completion.
 
 ## Local automated source gate (operator machine, Python 3.12.10)
 
 Run on `codex/release-1.1b6-hardening` before release packaging:
 
 - `tests/common` + `tests/happymeasure`: **0 failed** (494 collected;
-  remaining skips are `HAPPYMEASURE_RUN_TK_SMOKE`-gated desktop tests, green
-  standalone with the variable set).
+  6 Tk smoke tests are skipped unless `HAPPYMEASURE_RUN_TK_SMOKE=1`).
 - Core coverage (`keith_ivt`): **95.12%** (gate `>=95%`).
 - Map Reconstruction gate with real Qt (`PySide6 6.11.2`, `QT_QPA_PLATFORM=offscreen`,
   zero skips): **175 passed**.
 - `compileall`, Black, Ruff, mypy (`src/keith_ivt`, `src/happymeasure`,
   `src/map_reconstruction`): pass.
-- Tk multi-root runs intermittently fail inside the `tk.Tk()` constructor
-  itself (`Can't find a usable init.tcl` after several create/destroy
-  cycles); every affected test passes standalone, and the production app
-  creates exactly one root per process. This is test-process teardown noise,
-  not a product assertion failure.
-- Packaged executables (built locally, see below): `HappyMeasure.exe` and
-  `MapReconstruction.exe` each launch and stay alive; Map bundle carries only
-  `keith_ivt.version` from HappyMeasure (no Tk/serial acquisition code).
+- Tk smoke with `HAPPYMEASURE_RUN_TK_SMOKE=1`: **6 passed**; the focused stale
+  Constant-Time widget regression also passes.
+- `tests/run_full_validation.py`: **pass** after keeping Map as an independent
+  Qt gate and scoping the `>=95%` coverage threshold to core.
+- Existing packaged executables: `HappyMeasure.exe` and `MapReconstruction.exe`
+  each launched and stayed alive for 5 seconds, then were closed. A relative
+  path scan of the Map bundle found no `keith_ivt`, `serial`, or `tkinter`
+  package tree.
+- Existing ZIP evidence: `HappyMeasure-1.1b6-windows-portable.zip` is 46,456,082
+  bytes (`SHA-256 211B1337035906B0B60C6BC1D3CBC5F36D2BD030CC80F1C88E27CA075259BB8B`);
+  `MapReconstruction-1.1b6-windows-portable.zip` is 277,356,207 bytes
+  (`SHA-256 8642ABD66500901A7D2D1DA3D4090B10D48F589E19ACE36118606D945559D59A`).
 
 Local result: **SOURCE READY** (operator desktop UX list, CI matrix, and
 hardware gate still pending below).
