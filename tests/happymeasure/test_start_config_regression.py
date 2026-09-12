@@ -81,6 +81,7 @@ def test_make_config_accepts_display_sweep_kind_labels_when_tk_enabled() -> None
         cfg = app._make_config()
         assert cfg.sweep_kind is SweepKind.CONSTANT_TIME
         app.sweep_kind.set("Adaptive")
+        app.adaptive_segments.set("0, 1, 0.5")
         cfg = app._make_config()
         assert cfg.sweep_kind is SweepKind.ADAPTIVE
     finally:
@@ -134,9 +135,10 @@ def test_debug_pause_and_stop_buttons_drive_worker_events_when_tk_enabled() -> N
         for _ in range(20):
             app.root.update()
             time.sleep(0.05)
-            if app._run_state == "idle":
+            if app._run_state == "stopped":
                 break
-        assert app._run_state == "idle"
+        # Abort lands on the STOPPED ready state, never silently back to idle.
+        assert app._run_state == "stopped"
         assert app.status.get() in {"Stopped", "Completed"}
     finally:
         app.root.destroy()
