@@ -74,11 +74,23 @@ Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. The har
 
 ## Screenshots
 
-![HappyMeasure hardware simulator page](docs/screenshots/happymeasure-hardware.png)
+### HappyMeasure
 
-![HappyMeasure completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
+![HappyMeasure 1.1b6 hardware simulator page](docs/screenshots/happymeasure-hardware.png)
 
-![HappyMeasure Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
+![HappyMeasure 1.1b6 completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
+
+![HappyMeasure 1.1b6 Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
+
+### Map Reconstruction
+
+The Map Reconstruction examples use a deterministic synthetic trace for illustration; they are not hardware-validation evidence.
+
+![Map Reconstruction Signal Preparation](docs/screenshots/map-reconstruction-preparation.png)
+
+![Map Reconstruction Reconstruction stage](docs/screenshots/map-reconstruction-reconstruction.png)
+
+![Map Reconstruction Map Analysis stage](docs/screenshots/map-reconstruction-analysis.png)
 
 ## Documentation
 
