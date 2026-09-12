@@ -12,4 +12,5 @@ if (Test-Path -LiteralPath $Py) {
 } else {
     $Py = "python"
 }
-& $Py (Join-Path $Root "tests\test_legacy_ui_layout_contracts.py")
+& $Py -m pytest (Join-Path $Root "tests\common") (Join-Path $Root "tests\happymeasure")
+exit $LASTEXITCODE

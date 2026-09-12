@@ -15,7 +15,7 @@ def test_batch_build_script_has_single_python_selection_flow():
 def test_batch_build_script_has_no_accidental_duplicate_header():
     text = (BUILD_DIR / "Build_Portable_Windows_App.bat").read_text(encoding="utf-8")
     assert text.count("Building HappyMeasure portable Windows app") == 1
-    assert text.count('if not exist ".venv\\Scripts\\python.exe"') == 1
+    assert text.count('if not exist ".venv-build\\Scripts\\python.exe"') == 1
 
 
 def test_all_build_scripts_remind_release_owner_to_verify_asset_digest():
@@ -28,7 +28,9 @@ def test_all_build_scripts_remind_release_owner_to_verify_asset_digest():
         text = path.read_text(encoding="utf-8")
         assert "RELEASE REMINDER" in text
         assert "sha256: digest" in text
-        assert "types-pyserial" in text
+        # Dependencies are owned by pyproject.toml (installed via -e ".[dev]");
+        # build scripts must not maintain a hand-written dependency list.
+        assert "pydantic pytest pytest-cov" not in text
 
 
 def test_powershell_python_probe_does_not_shadow_automatic_args_variable():

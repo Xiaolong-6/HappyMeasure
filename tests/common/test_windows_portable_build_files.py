@@ -13,9 +13,20 @@ def test_windows_build_scripts_are_space_path_safe():
     bat = (ROOT / "tools/build/Build_Portable_Windows_App.bat").read_text(encoding="utf-8")
     ps1 = (ROOT / "tools/build/Build_Portable_Windows_App.ps1").read_text(encoding="utf-8")
     assert 'cd /d "%PROJECT_ROOT%"' in bat
-    assert '".venv\\Scripts\\python.exe"' in bat
+    assert '".venv-build\\Scripts\\python.exe"' in bat
     assert "Set-Location -LiteralPath $ProjectRoot" in ps1
     assert "Join-Path" in ps1
+
+
+def test_map_portable_build_files_exist():
+    assert (ROOT / "packaging" / "map_reconstruction_entry.py").is_file()
+    assert (ROOT / "packaging" / "MapReconstruction.spec").is_file()
+    assert (ROOT / "packaging" / "README_FIRST_MAP_PORTABLE.txt").is_file()
+    assert (ROOT / "tools" / "build" / "Build_Portable_Map_Reconstruction.bat").is_file()
+    assert (ROOT / "tools" / "build" / "Build_Portable_Map_Reconstruction.ps1").is_file()
+    spec = (ROOT / "packaging" / "MapReconstruction.spec").read_text(encoding="utf-8")
+    assert 'name="MapReconstruction"' in spec
+    assert "icon=str(MAP_ICON)" in spec
 
 
 def test_portable_build_docs_exist():

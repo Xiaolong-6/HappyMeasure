@@ -16,7 +16,7 @@ if exist "%VENV_PY%" (
 ) else (
     set "PY=python"
 )
-"%PY%" "%PROJECT_DIR%\tests\test_legacy_ui_layout_contracts.py"
+"%PY%" -m pytest "%PROJECT_DIR%\tests\common" "%PROJECT_DIR%\tests\happymeasure"
 set "EXITCODE=%ERRORLEVEL%"
 popd >nul
 pause

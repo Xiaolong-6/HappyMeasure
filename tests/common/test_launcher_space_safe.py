@@ -38,7 +38,7 @@ def test_tool_launchers_set_pythonpath_and_quote_paths():
     for rel in (
         "tools/hardware/Real_Hardware_Preflight.bat",
         "tools/validation/Run_Full_Validation.bat",
-        "tools/validation/Run_Current_Tests.bat",
+        "tools/validation/Run_Core_Validation.bat",
         "tools/diagnostics/Run_Diagnostics.bat",
     ):
         text = read(rel)
@@ -48,7 +48,7 @@ def test_tool_launchers_set_pythonpath_and_quote_paths():
 
     for rel in (
         "tools/validation/Run_Full_Validation.ps1",
-        "tools/validation/Run_Current_Tests.ps1",
+        "tools/validation/Run_Core_Validation.ps1",
         "tools/diagnostics/Run_Diagnostics.ps1",
     ):
         text = read(rel)

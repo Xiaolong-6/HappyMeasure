@@ -19,6 +19,17 @@ def run(cmd: list[str]) -> None:
         raise SystemExit(completed.returncode)
 
 
+def require_map_dependencies() -> None:
+    try:
+        import PySide6  # noqa: F401
+        import pyqtgraph  # noqa: F401
+    except ModuleNotFoundError:
+        print("Full validation requires Map dependencies, but PySide6/pyqtgraph are missing.")
+        print("Install them first, then rerun:")
+        print('    python -m pip install -e ".[dev,map]"')
+        raise SystemExit(2)
+
+
 def main() -> None:
     print(f"Full validation for HappyMeasure {version.VERSION} ({version.RELEASE_STAGE})")
     ok = compileall.compile_dir(str(SRC), quiet=1)
@@ -27,8 +38,11 @@ def main() -> None:
         raise SystemExit("compileall failed")
     print("PASS compileall src tests")
 
-    for domain in ("common", "happymeasure", "map_reconstruction"):
+    for domain in ("common", "happymeasure"):
         run([sys.executable, "-m", "pytest", f"tests/{domain}", "-q"])
+
+    require_map_dependencies()
+    run([sys.executable, "-m", "pytest", "tests/map_reconstruction", "-q"])
 
     run(
         [
