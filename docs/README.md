@@ -32,6 +32,7 @@ Hardware-facing changes must preserve validation-before-output and `output_off()
 
 - `MAP_PROJECT_FORMAT.md` — authoritative `.hmmap` archive contract
 - `PHASE_WINDOW_RECONSTRUCTION.md` — phase-window reconstruction method
+- `MAP_PACKAGING_SIZE_AUDIT.md` — standalone Windows package dependency and size audit
 
 Map Reconstruction GUI dependencies are optional (`.[map]`). Its Windows/Python 3.12 offscreen Qt suite is a dedicated release gate.
 
