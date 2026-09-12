@@ -98,9 +98,7 @@ def test_thread_safe_xy_buffer_is_bounded_thread_safe_and_clearable() -> None:
             value = float(offset + index)
             buffer.append(value, -value)
 
-    threads = [
-        threading.Thread(target=worker, args=(offset,)) for offset in (0, 1000, 2000)
-    ]
+    threads = [threading.Thread(target=worker, args=(offset,)) for offset in (0, 1000, 2000)]
     for thread in threads:
         thread.start()
     for thread in threads:
