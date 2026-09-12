@@ -32,7 +32,7 @@ jobs:
       - name: Compile sources and tests
         run: python -m compileall -q src tests
       - name: Check formatting
-        run: python -m black --check src tests
+        run: python -m black --check --diff src tests
       - name: Lint
         run: python -m ruff check src tests
       - name: Type check core HappyMeasure
@@ -63,7 +63,7 @@ jobs:
       - name: Compile Map Reconstruction sources and tests
         run: python -m compileall -q src/map_reconstruction tests/map_reconstruction
       - name: Check Map Reconstruction formatting
-        run: python -m black --check src/map_reconstruction tests/map_reconstruction
+        run: python -m black --check --diff src/map_reconstruction tests/map_reconstruction
       - name: Lint Map Reconstruction
         run: python -m ruff check src/map_reconstruction tests/map_reconstruction
       - name: Type check Map Reconstruction
