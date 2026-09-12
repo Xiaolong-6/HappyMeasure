@@ -44,7 +44,7 @@ $root = (Resolve-Path .).Path
 $env:TEMP = Join-Path $root ".tmp-build"
 $env:TMP = $env:TEMP
 $env:PIP_CACHE_DIR = Join-Path $root ".pip-cache"
-python -m pip install --target .build-deps matplotlib pyserial pydantic pyinstaller
+python -m pip install --target .build-deps matplotlib pyserial pyinstaller
 $env:PYTHONPATH = (Join-Path $root ".build-deps") + ";" + (Join-Path $root "src")
 python -c "from PyInstaller.__main__ import run; run(['--noconfirm','--clean','--distpath','dist','--workpath','build','packaging\\HappyMeasure.spec'])"
 ```

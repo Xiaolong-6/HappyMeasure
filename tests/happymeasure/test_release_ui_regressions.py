@@ -102,3 +102,44 @@ def test_advanced_acquisition_filter_count_follows_custom_filter_state() -> None
         assert app.digital_filter_count_entry.instate(["disabled"])
     finally:
         app.root.destroy()
+
+
+def test_preset_apply_ignores_destroyed_constant_time_filter_entry() -> None:
+    """Applying a preset must not touch a stale widget from a previous page."""
+
+    try:
+        app = _make_tk_app()
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"Tk not available: {exc}")
+    try:
+        app._ensure_acquisition_vars()
+        app.acquisition_profile.set("Custom")
+        app.digital_filter.set(True)
+        app.digital_filter_count.set(7)
+        app.trigger_delay_s.set(0.004)
+        app.source_write_each_sample.set(True)
+        app.range_telemetry.set(True)
+        app._apply_acquisition_profile_state()
+        snapshot = app._current_preset_snapshot()
+
+        stale_entry = app.digital_filter_count_entry
+        app._show_nav("Preset")
+        app.root.update_idletasks()
+        assert not stale_entry.winfo_exists()
+        assert app.digital_filter_count_entry is stale_entry
+
+        assert app._apply_preset_snapshot(snapshot) is True
+        assert app.acquisition_profile.get() == "Custom"
+        assert app.digital_filter.get() is True
+        assert app.digital_filter_count.get() == 7
+        assert app.trigger_delay_s.get() == 0.004
+        assert app.source_write_each_sample.get() is True
+        assert app.range_telemetry.get() is True
+
+        app._show_nav("Sweep")
+        app.root.update_idletasks()
+        assert app.digital_filter_count_entry is not stale_entry
+        assert app.digital_filter_count_entry.winfo_exists()
+        assert app.digital_filter_count_entry.instate(["!disabled"])
+    finally:
+        app.root.destroy()

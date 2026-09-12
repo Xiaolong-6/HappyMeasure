@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 set "PROJECT_ROOT=%SCRIPT_DIR%..\.."
 for %%I in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fI"
-cd /d "%PROJECT_DIR%"
+cd /d "%PROJECT_ROOT%"
 
 set "BUILD_LOG_DIR=%PROJECT_ROOT%\logs"
 if not exist "%BUILD_LOG_DIR%" mkdir "%BUILD_LOG_DIR%"

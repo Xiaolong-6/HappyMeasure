@@ -27,6 +27,11 @@ def test_map_portable_build_files_exist():
     spec = (ROOT / "packaging" / "MapReconstruction.spec").read_text(encoding="utf-8")
     assert 'name="MapReconstruction"' in spec
     assert "icon=str(MAP_ICON)" in spec
+    bat = (ROOT / "tools" / "build" / "Build_Portable_Map_Reconstruction.bat").read_text(
+        encoding="utf-8"
+    )
+    assert 'cd /d "%PROJECT_ROOT%"' in bat
+    assert 'cd /d "%PROJECT_DIR%"' not in bat
 
 
 def test_portable_build_docs_exist():
