@@ -34,6 +34,15 @@ def test_map_portable_build_files_exist():
     assert 'cd /d "%PROJECT_DIR%"' not in bat
 
 
+def test_map_spec_uses_narrow_runtime_collection():
+    spec = (ROOT / "packaging" / "MapReconstruction.spec").read_text(encoding="utf-8")
+    assert "collect_all" not in spec
+    assert 'hookspath=[str(PROJECT_ROOT / "packaging" / "hooks")]' in spec
+    assert '"PySide6.QtWebEngineCore"' in spec
+    assert (ROOT / "packaging" / "hooks" / "hook-PySide6.QtCore.py").is_file()
+    assert (ROOT / "packaging" / "hooks" / "hook-PySide6.QtGui.py").is_file()
+
+
 def test_portable_build_docs_exist():
     assert (ROOT / "docs/WINDOWS_PORTABLE_BUILD.md").exists()
     assert (ROOT / "packaging/README_FIRST_PORTABLE.txt").exists()
