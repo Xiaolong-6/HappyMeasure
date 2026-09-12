@@ -11,7 +11,7 @@ T = TypeVar("T")
 class SerialRetryPolicy:
     """Small retry/backoff policy for real serial hardware commands.
 
-    The policy is intentionally conservative for alpha hardware bring-up: retry
+    The policy is intentionally conservative for hardware bring-up: retry
     transient serial timeouts a few times, but never hide the final failure.  It
     accepts an optional logger callback so UI/controller code can record the
     command and retry count without coupling this module to Tk.

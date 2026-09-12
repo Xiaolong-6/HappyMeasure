@@ -52,7 +52,7 @@ Retained intentionally:
 - `WINDOWS_PYTHON314_BUILD.md`: still a distinct packaging exception, but not a duplicate owner for common packaging rules.
 - Scientific/format contracts (`TRACE_SCHEMA.md`, `MAP_PROJECT_FORMAT.md`, `PHASE_WINDOW_RECONSTRUCTION.md`): these define reproducibility rather than implementation history.
 - Hardware preflight/dry-run/validation documents: each has a different safety scope.
-- `settings_v2.py` tests/code are retained as an alternate/experimental model, but current operator documentation must not present it as the active persistence format.
+- The former `settings_v2.py` experimental model was removed (code, tests, and Pydantic dependency); the flat dataclass in `SETTINGS_COMPATIBILITY.md` is the only settings representation.
 - Referenced UI screenshots that still illustrate current user-facing areas; stale/unreferenced screenshots are deletion candidates.
 
 ## Staleness rules

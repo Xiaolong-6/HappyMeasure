@@ -184,6 +184,32 @@ class SettingsPanelMixin(UiMixinTyping):
             style="Soft.TButton",
         ).grid(row=3, column=0, columnspan=2, sticky="ew", pady=(6, 0))
 
+        diag_box = ttk.Frame(parent, style="Card.TFrame", padding=(10, 8))
+        diag_box.pack(fill="x", padx=10, pady=4)
+        diag_box.columnconfigure(0, weight=1)
+        self._settings_heading(diag_box, "Diagnostics")
+        ttk.Label(
+            diag_box,
+            text=(
+                "Hardware Diagnostics checks a real instrument with an explicit no-DUT safety gate "
+                "and never enables source output."
+            ),
+            style="Muted.TLabel",
+            wraplength=380,
+            justify="left",
+        ).grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 8))
+        hardware_button = ttk.Button(
+            diag_box,
+            text="Run Hardware Diagnostics...",
+            command=self._show_hardware_diagnostics,
+            style="Soft.TButton",
+        )
+        hardware_button.grid(row=2, column=0, columnspan=2, sticky="ew")
+        add_tip(
+            hardware_button,
+            "Run communication and output-off safety checks on the selected real Keithley. No measurement is started and source output is never enabled.",
+        )
+
         if not bool(developer_tools.get()):
             return
 
@@ -215,9 +241,7 @@ class SettingsPanelMixin(UiMixinTyping):
         ttk.Label(
             dev_box,
             text=(
-                "UI Diagnostics exercises Tk navigation and callbacks without touching hardware. "
-                "Hardware Diagnostics checks a real instrument with an explicit no-DUT safety gate "
-                "and never enables source output."
+                "UI Diagnostics exercises Tk navigation and callbacks without touching hardware."
             ),
             style="Muted.TLabel",
             wraplength=380,
@@ -234,18 +258,6 @@ class SettingsPanelMixin(UiMixinTyping):
         add_tip(
             ui_button,
             "Exercise real Tk navigation/control callbacks and create a shareable UI diagnostic report without connecting to hardware.",
-        )
-
-        hardware_button = ttk.Button(
-            dev_box,
-            text="Run Hardware Diagnostics...",
-            command=self._show_hardware_diagnostics,
-            style="Soft.TButton",
-        )
-        hardware_button.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0))
-        add_tip(
-            hardware_button,
-            "Run communication and output-off safety checks on the selected real Keithley. No measurement is started and source output is never enabled.",
         )
 
 

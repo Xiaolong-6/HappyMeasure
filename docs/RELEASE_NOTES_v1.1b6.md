@@ -28,3 +28,7 @@ HappyMeasure 1.1b6 focuses on long-running acquisition usability, Map Reconstruc
 - Version metadata is advanced to `1.1b6`; the already-published `v1.1b5` release is not reused.
 
 See `VALIDATION_STATUS.md` for the current source/desktop/hardware gate status. Package size, SHA-256 and final hardware status must be filled from the actual release artifact before publication.
+
+## Portable artifacts
+
+One `v1.1b6` tag ships two independent portable ZIPs sharing the single `1.1b6` version: `HappyMeasure-1.1b6-windows-portable.zip` for acquisition and `MapReconstruction-1.1b6-windows-portable.zip` for standalone offline post-processing (no Python, no HappyMeasure install, no instrument required).

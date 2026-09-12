@@ -1,6 +1,11 @@
 # HappyMeasure Windows Portable Build
 
-HappyMeasure is distributed on Windows as a PyInstaller **onedir** portable folder. This document owns the common packaging contract. Python 3.14-specific exceptions/workarounds live in `WINDOWS_PYTHON314_BUILD.md`.
+HappyMeasure is distributed on Windows as PyInstaller **onedir** portable folders. This document owns the common packaging contract. Python 3.14-specific exceptions/workarounds live in `WINDOWS_PYTHON314_BUILD.md`.
+
+There are two independent deliverables sharing one version:
+
+- `HappyMeasure-<version>-windows-portable.zip`: the acquisition application.
+- `MapReconstruction-<version>-windows-portable.zip`: the standalone companion post-processing application. It needs no Python, no HappyMeasure install, and no instrument.
 
 ## Standard build
 
@@ -24,11 +29,33 @@ Python 3.13
 
 For a Python 3.14-specific build, use the dedicated `Build_Portable_Windows_App_Python314` launcher and read `WINDOWS_PYTHON314_BUILD.md`.
 
-Source release gates must already be green before packaging. Packaging is not a substitute for CI/source validation.
+Source release gates must already be green before packaging. Packaging is not a substitute for CI/source validation. Build scripts use dedicated `.venv-build*` environments and never touch the developer `.venv`.
+
+## Map Reconstruction standalone build
+
+From the repository root, run one of:
+
+```bat
+tools\build\Build_Portable_Map_Reconstruction.bat
+```
+
+```powershell
+.\tools\build\Build_Portable_Map_Reconstruction.ps1
+```
+
+This installs `.[map]` from `pyproject.toml` (the dependency owner) into `.venv-build-map`, then builds `packaging\MapReconstruction.spec` with Python 3.12 preferred. A successful build creates:
+
+```text
+dist\MapReconstruction\MapReconstruction.exe
+dist\MapReconstruction\_internal\
+dist\MapReconstruction-<version>-windows-portable.zip
+```
+
+Smoke-test the packaged executable without system Python: launch and close it, import a minimal HappyMeasure CSV, and complete a `.hmmap` save/open round trip.
 
 ## Deliverable
 
-A successful build creates:
+A successful HappyMeasure build creates:
 
 ```text
 dist\HappyMeasure\HappyMeasure.exe
@@ -62,8 +89,8 @@ After building, test the actual packaged executable, not only the source checkou
 2. Run a short debug/simulator acquisition.
 3. Verify CSV export/import and log writing.
 4. Verify STOP/Pause/restart paths used by the current UI.
-5. Launch Map Reconstruction if it is included/supported by the package.
-6. Check About/update metadata UI for import/runtime errors.
+5. Check About/update metadata UI for import/runtime errors.
+6. Separately launch `dist\MapReconstruction\MapReconstruction.exe` and close it cleanly (see Map standalone build above).
 
 Record the final ZIP size and SHA-256 in the release notes/checklist evidence before publication.
 

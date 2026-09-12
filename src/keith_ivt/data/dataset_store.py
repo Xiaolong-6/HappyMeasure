@@ -49,7 +49,7 @@ class DeviceTrace:
 
 
 class DatasetStore:
-    """Small in-memory trace registry for alpha UI development."""
+    """Small in-memory trace registry for desktop UI development."""
 
     def __init__(self) -> None:
         self._traces: list[DeviceTrace] = []

@@ -9,7 +9,9 @@ Expected identity:
 - prose: `1.1 beta 6`
 - package: `1.1b6`
 - tag: `v1.1b6`
-- artifact: `HappyMeasure-1.1b6-windows-portable.zip`
+- artifacts (same release, two independent portable ZIPs sharing one version):
+  - `HappyMeasure-1.1b6-windows-portable.zip` (acquisition application)
+  - `MapReconstruction-1.1b6-windows-portable.zip` (standalone companion post-processing application; no separate version history)
 
 Before tagging:
 
@@ -98,9 +100,12 @@ Record:
 
 Hardware Diagnostics is communication/output-off only and must never enable output or issue a measurement read.
 
-## 6. Windows portable package
+## 6. Windows portable packages
 
-Build only after source gates pass:
+Build only after source gates pass. Build scripts use dedicated
+`.venv-build*` environments and never touch the developer `.venv`.
+
+HappyMeasure acquisition application:
 
 ```powershell
 .\tools\build\Build_Portable_Windows_App.ps1
@@ -120,10 +125,30 @@ Verify:
 - versioned portable ZIP
 - packaged app launches and closes cleanly
 - simulator connect + short sweep works
-- Map Reconstruction launch works if packaged as supported by the build
 - About/update-check UI has no import error
 
-Record SHA-256 and package size in the final release notes.
+Map Reconstruction standalone companion (no Python, no HappyMeasure, no SMU needed):
+
+```powershell
+.\tools\build\Build_Portable_Map_Reconstruction.ps1
+```
+
+or:
+
+```bat
+tools\build\Build_Portable_Map_Reconstruction.bat
+```
+
+Verify:
+
+- `dist\MapReconstruction\MapReconstruction.exe`
+- `dist\MapReconstruction\_internal`
+- `README_FIRST.txt` describing standalone use
+- versioned portable ZIP
+- packaged app launches and closes cleanly without system Python
+- a minimal HappyMeasure CSV imports and a `.hmmap` save/open smoke passes
+
+Record SHA-256 and package size of both ZIPs in the final release notes.
 
 ## 7. Tag and GitHub Release
 
@@ -134,7 +159,7 @@ git tag v1.1b6
 git push origin main --tags
 ```
 
-Create a prerelease named `HappyMeasure 1.1b6`, upload only the verified portable ZIP, and include the actual validation level. Do not reuse or replace the published `v1.1b5` asset/tag.
+Create a prerelease named `HappyMeasure 1.1b6`, upload both verified portable ZIPs, and include the actual validation level. Do not reuse or replace the published `v1.1b5` asset/tag.
 
 ## 8. Post-release
 

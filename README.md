@@ -47,6 +47,8 @@ python -m map_reconstruction
 
 `Run_Map_Reconstruction.bat` is the Windows launcher. Map Reconstruction imports HappyMeasure `single-v2` CSV files and supports self-contained `.hmmap` projects whose embedded source remains authoritative.
 
+For release `1.1b6` there are two portable ZIPs under one version and one `v1.1b6` tag: `HappyMeasure-1.1b6-windows-portable.zip` (acquisition) and `MapReconstruction-1.1b6-windows-portable.zip` (standalone companion; needs no Python, no HappyMeasure install, and no instrument). Map Reconstruction has no independent version history; both report `1.1b6`.
+
 ## Validation
 
 Core validation does not require Qt:

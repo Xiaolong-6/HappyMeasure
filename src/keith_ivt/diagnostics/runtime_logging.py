@@ -35,7 +35,7 @@ def _stamp() -> str:
 class TeeTextIO(io.TextIOBase):
     """Write text to the original stream and to a log file.
 
-    The class is intentionally tiny. It is used during offline-alpha debugging so
+    The class is intentionally tiny. It is used during offline debugging so
     command-prompt tracebacks are not lost when a user only sees a brief console
     flash or closes the window.
     """

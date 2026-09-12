@@ -35,7 +35,7 @@ from keith_ivt.version import APP_NAME, __version__
 
 
 class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
-    """Three-panel offline-alpha UI for HappyMeasure.
+    """Three-panel desktop UI for HappyMeasure.
 
     The historical internal package remains ``keith_ivt`` for import stability,
     but the user-facing product name is HappyMeasure.
@@ -217,7 +217,7 @@ class SimpleKeithIVtApp(AppChromeMixin, AppWorkflowMixin, AppPlotTraceMixin):
         self._refresh_instrument_indicator()
         self._update_run_button_states()
         self._redraw_all_plots()
-        self.log_event("UI ready. Three-panel simulator-first alpha path active.")
+        self.log_event("UI ready. Three-panel simulator-first beta path active.")
         self.root.after(100, self._process_queue)
         if bool(getattr(self.settings, "check_updates_on_startup", True)):
             self.root.after(500, lambda: self._check_for_updates_async(prompt_install=True))

@@ -11,6 +11,7 @@ This file is intentionally concise. Detailed historical notes remain in versione
 - Fixed automatic export naming for underscore-containing trace names and duplicated Time/Adaptive metadata.
 - Added staged Signal Preparation → Reconstruction → Map Analysis workflow, processing/color controls, self-contained `.hmmap` projects and coherent new-source replacement.
 - Added a dedicated Windows/Python 3.12 offscreen Qt Map Reconstruction CI release gate.
+- Added a standalone MapReconstruction portable build sharing the single `1.1b6` version (no Python/HappyMeasure/instrument required).
 - Advanced release identity to `1.1b6`; `v1.1b5` remains the previous published beta.
 
 ## 1.1b5 — Sweep direction and recovery hardening

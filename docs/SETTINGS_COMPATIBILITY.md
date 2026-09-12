@@ -8,7 +8,7 @@ The active desktop settings implementation is `src/keith_ivt/data/settings.py`.
 
 `AppSettings` is a flat dataclass persisted as `config/settings.json`. The format is intentionally simple and backward-compatible: missing or invalid values fall back to safe defaults, known legacy spellings are normalized, and unknown keys are ignored rather than crashing application startup.
 
-The Pydantic module `src/keith_ivt/data/settings_v2.py` exists as an experimental/alternate model and has its own tests, but it is **not** the persistence owner for the desktop application in `1.1b6`. Do not tell users to convert their settings JSON to the nested v2 example unless the runtime is deliberately migrated in a future release.
+The former Pydantic prototype `src/keith_ivt/data/settings_v2.py` was removed; it was never the persistence owner and must not be reintroduced as an alternate format. The flat dataclass above is the only supported settings representation.
 
 ## Load/save behavior
 

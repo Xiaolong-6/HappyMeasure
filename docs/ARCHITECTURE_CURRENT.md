@@ -59,9 +59,7 @@ Time-plot preferences are display policy only:
 
 ### Settings contract
 
-The active desktop persistence owner in `1.1b6` is the flat dataclass `keith_ivt.data.settings.AppSettings` stored in `config/settings.json`. `sanitize_settings_dict()` supplies backward-compatible coercion/defaults. See `SETTINGS_COMPATIBILITY.md`.
-
-`settings_v2.py` is not the active desktop persistence owner and must not be presented to users as an already-completed migration.
+The active desktop persistence owner in `1.1b6` is the flat dataclass `keith_ivt.data.settings.AppSettings` stored in `config/settings.json`. `sanitize_settings_dict()` supplies backward-compatible coercion/defaults. See `SETTINGS_COMPATIBILITY.md`. There is no alternate settings model.
 
 ## Map Reconstruction boundary
 

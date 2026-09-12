@@ -1,7 +1,7 @@
 """Public HappyMeasure package namespace.
 
 This package provides the user-facing import and command namespace.  The
-implementation still lives under ``keith_ivt`` for this alpha cycle; imports
+implementation still lives under ``keith_ivt`` as a compatibility layer; imports
 from ``keith_ivt`` remain supported as a legacy compatibility path.
 """
 

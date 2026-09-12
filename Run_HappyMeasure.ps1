@@ -6,8 +6,13 @@ Set-Location -LiteralPath $ProjectDir
 $env:PYTHONPATH = (Join-Path $ProjectDir "src") + ";" + $env:PYTHONPATH
 $VenvPy = Join-Path $ProjectDir ".venv\Scripts\python.exe"
 
-Write-Host "HappyMeasure offline alpha launcher"
+Write-Host "HappyMeasure desktop launcher"
 Write-Host "Working directory: $ProjectDir"
+
+& python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 3.11 or newer is required (pyproject requires-python >=3.11)."
+}
 
 if ((Test-Path -LiteralPath (Join-Path $ProjectDir ".venv")) -and (-not (Test-Path -LiteralPath $VenvPy))) {
     Write-Host "Existing .venv is incomplete or broken. Recreating it..."

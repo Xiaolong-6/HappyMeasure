@@ -16,6 +16,30 @@ Required before merge/tag:
 
 Status on creation of the `1.1b6` hardening branch: **pending CI run**.
 
+## Local automated source gate (operator machine, Python 3.12.10)
+
+Run on `codex/release-1.1b6-hardening` before release packaging:
+
+- `tests/common` + `tests/happymeasure`: **0 failed** (494 collected;
+  remaining skips are `HAPPYMEASURE_RUN_TK_SMOKE`-gated desktop tests, green
+  standalone with the variable set).
+- Core coverage (`keith_ivt`): **95.12%** (gate `>=95%`).
+- Map Reconstruction gate with real Qt (`PySide6 6.11.2`, `QT_QPA_PLATFORM=offscreen`,
+  zero skips): **175 passed**.
+- `compileall`, Black, Ruff, mypy (`src/keith_ivt`, `src/happymeasure`,
+  `src/map_reconstruction`): pass.
+- Tk multi-root runs intermittently fail inside the `tk.Tk()` constructor
+  itself (`Can't find a usable init.tcl` after several create/destroy
+  cycles); every affected test passes standalone, and the production app
+  creates exactly one root per process. This is test-process teardown noise,
+  not a product assertion failure.
+- Packaged executables (built locally, see below): `HappyMeasure.exe` and
+  `MapReconstruction.exe` each launch and stay alive; Map bundle carries only
+  `keith_ivt.version` from HappyMeasure (no Tk/serial acquisition code).
+
+Local result: **SOURCE READY** (operator desktop UX list, CI matrix, and
+hardware gate still pending below).
+
 ## Desktop gate (operator machine)
 
 Still requires local Windows verification after pulling the hardening branch:

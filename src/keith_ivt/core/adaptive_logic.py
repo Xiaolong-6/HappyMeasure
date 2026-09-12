@@ -13,7 +13,7 @@ MAX_AST_NODES = 200_000
 def logspace(start: float, stop: float, count: int) -> list[float]:
     """Return logarithmically spaced values preserving the sign when possible.
 
-    This helper is intentionally simple for the offline alpha adaptive sweep. It
+    This helper is intentionally simple for the desktop adaptive sweep. It
     supports positive ranges directly. For negative ranges use -logspace(...),
     or define values explicitly in the logic editor.
     """
@@ -128,7 +128,7 @@ def adaptive_values_from_logic(logic: str, *, remove_duplicates: bool = True) ->
     if not values:
         raise ValueError("Adaptive logic produced no values.")
     if len(values) > MAX_ADAPTIVE_POINTS:
-        raise ValueError("Adaptive logic produced too many values for alpha UI.")
+        raise ValueError("Adaptive logic produced too many values for the desktop UI.")
     if any(not math.isfinite(value) for value in values):
         raise ValueError("Adaptive logic produced NaN or infinite source values.")
     return values
