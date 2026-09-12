@@ -21,7 +21,7 @@ results below were refreshed on 2026-09-12; they do not claim CI completion.
 
 Run on `codex/release-1.1b6-hardening` before release packaging:
 
-- `tests/common` + `tests/happymeasure`: **0 failed** (494 collected;
+- `tests/common` + `tests/happymeasure`: **0 failed** (495 collected;
   6 Tk smoke tests are skipped unless `HAPPYMEASURE_RUN_TK_SMOKE=1`).
 - Core coverage (`keith_ivt`): **95.12%** (gate `>=95%`).
 - Map Reconstruction gate with real Qt (`PySide6 6.11.2`, `QT_QPA_PLATFORM=offscreen`,
