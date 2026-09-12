@@ -88,13 +88,17 @@ def test_new_csv_replaces_old_workspace_and_returns_to_preparation(
         window.close()
 
 
-def test_invalid_csv_preserves_existing_workspace(application, tmp_path: Path, monkeypatch) -> None:
+def test_invalid_csv_preserves_existing_workspace(
+    application, tmp_path: Path, monkeypatch
+) -> None:
     window = _window_with_valid_reconstruction(application)
     old_data = window.data
     old_values = window.result.values.copy() if window.result is not None else None
     invalid = tmp_path / "invalid.csv"
     invalid.write_text("not a HappyMeasure CSV\n", encoding="utf-8")
-    monkeypatch.setattr(QtWidgets.QMessageBox, "critical", staticmethod(lambda *_args: None))
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox, "critical", staticmethod(lambda *_args: None)
+    )
     try:
         window.load_file(invalid)
         assert window.data is old_data
