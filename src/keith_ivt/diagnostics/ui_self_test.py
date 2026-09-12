@@ -135,9 +135,7 @@ def _capture_ui_snapshot(app: Any) -> _UiSnapshot:
             variables[name] = deepcopy(var.get())
 
     internals = {
-        name: deepcopy(getattr(app, name))
-        for name in _INTERNAL_STATE_NAMES
-        if hasattr(app, name)
+        name: deepcopy(getattr(app, name)) for name in _INTERNAL_STATE_NAMES if hasattr(app, name)
     }
     plot_views = {
         view: bool(var.get())
@@ -269,9 +267,11 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
             UiDiagnosticCheck(
                 "sweep_page_constructs",
                 PASS if sweep_alive else FAIL,
-                "Sweep page and dynamic-control parent are alive."
-                if sweep_alive
-                else "Sweep dynamic-control parent is not alive after navigation.",
+                (
+                    "Sweep page and dynamic-control parent are alive."
+                    if sweep_alive
+                    else "Sweep dynamic-control parent is not alive after navigation."
+                ),
             )
         )
 
@@ -328,20 +328,29 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
             app.root.update()
             if len(callback_errors) != before_errors:
                 navigation_ok = False
-                navigation_detail = f"Tk callback failed while opening {page}: {callback_errors[-1]}"
+                navigation_detail = (
+                    f"Tk callback failed while opening {page}: {callback_errors[-1]}"
+                )
                 break
             if getattr(app, "_active_nav", None) != page:
                 navigation_ok = False
-                navigation_detail = f"Requested {page}, active page is {getattr(app, '_active_nav', None)!r}."
+                navigation_detail = (
+                    f"Requested {page}, active page is {getattr(app, '_active_nav', None)!r}."
+                )
                 break
             if page == "Sweep":
                 if not app.dynamic_box.winfo_exists():
                     navigation_ok = False
                     navigation_detail = "Sweep returned with a destroyed dynamic-control parent."
                     break
-                if baseline_sweep_children is not None and len(app.dynamic_box.winfo_children()) != baseline_sweep_children:
+                if (
+                    baseline_sweep_children is not None
+                    and len(app.dynamic_box.winfo_children()) != baseline_sweep_children
+                ):
                     navigation_ok = False
-                    navigation_detail = "Sweep dynamic-control child count changed across page reconstruction."
+                    navigation_detail = (
+                        "Sweep dynamic-control child count changed across page reconstruction."
+                    )
                     break
         checks.append(
             UiDiagnosticCheck(
@@ -380,11 +389,12 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
                 combo.event_generate("<<ComboboxSelected>>")
                 app.root.update_idletasks()
                 app.root.update()
-                if app.acquisition_profile.get() != profile or len(callback_errors) != before_errors:
+                if (
+                    app.acquisition_profile.get() != profile
+                    or len(callback_errors) != before_errors
+                ):
                     profile_failures.append(profile)
-            extra_fast = (
-                {"Fast", "Custom"} - set(profiles) if not fast_expected else set()
-            )
+            extra_fast = {"Fast", "Custom"} - set(profiles) if not fast_expected else set()
             if tuple(profiles) != expected_profiles and not extra_fast:
                 if not profile_failures:
                     profile_failures.append(
@@ -397,11 +407,13 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
                 UiDiagnosticCheck(
                     "acquisition_profile_callbacks",
                     PASS if not profile_failures else FAIL,
-                    f"Available profiles exercised: {', '.join(profiles) or 'none'} "
-                    f"(expected {', '.join(expected_profiles)}; "
-                    "unsupported Fast being absent is OK)."
-                    if not profile_failures
-                    else "Profile callback failure: " + ", ".join(profile_failures),
+                    (
+                        f"Available profiles exercised: {', '.join(profiles) or 'none'} "
+                        f"(expected {', '.join(expected_profiles)}; "
+                        "unsupported Fast being absent is OK)."
+                        if not profile_failures
+                        else "Profile callback failure: " + ", ".join(profile_failures)
+                    ),
                 )
             )
 
@@ -562,9 +574,11 @@ def run_ui_self_test(app: Any) -> UiDiagnosticReport:
             UiDiagnosticCheck(
                 "ui_state_restore",
                 PASS if restore_error is None else FAIL,
-                "Original sweep values, acquisition controls, plot views and page were restored."
-                if restore_error is None
-                else restore_error,
+                (
+                    "Original sweep values, acquisition controls, plot views and page were restored."
+                    if restore_error is None
+                    else restore_error
+                ),
             )
         )
 

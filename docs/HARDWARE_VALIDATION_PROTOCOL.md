@@ -1,217 +1,150 @@
-# Hardware validation protocol — HappyMeasure 1.1b5
+# Hardware validation protocol — HappyMeasure 1.1b6
 
-This is a human bench protocol. Do not treat simulator, mock serial, or coverage success as proof of physical hardware safety.
+This is the human bench gate for a release candidate. Simulator, mock serial, CI, and coverage success do **not** prove physical hardware safety or analog correctness.
 
 ## Safety rules
 
-1. Compliance is mandatory.
-   - In voltage-source mode, compliance is current in amperes.
-   - In current-source mode, compliance is voltage in volts.
-2. Confirm the actual Keithley model limits before use.
-3. Confirm front/rear terminal selection before enabling output.
-4. Confirm 2-wire or 4-wire sense mode before measuring.
-5. For high-impedance or insulating devices, use conservative current source and voltage compliance.
-6. Run the simulator first, then a low-risk open-circuit hardware check.
-7. If anything looks wrong, turn output off from the instrument front panel.
+1. Set and independently verify compliance before enabling output.
+   - Voltage-source mode: compliance is current in amperes.
+   - Current-source mode: compliance is voltage in volts.
+2. Confirm the actual instrument model/firmware and its limits.
+3. Confirm front/rear terminal selection and 2-wire/4-wire sense wiring.
+4. Start with simulator/software gates, then no-DUT communication, then a known passive load, then a robust device, and only then a real DUT.
+5. If behavior is unexpected, use the instrument front panel to force output off and stop the test.
+6. After every completion/Stop/Abort/error/disconnect/close check, verify output is off.
 
-## Built-in Level-0 Hardware Diagnostics
+## Level 0A — Built-in Hardware Diagnostics (no DUT, no analog test leads)
 
-For a quick communication/output-safety check, open **Settings**, enable
-**Show developer tools**, and choose **Run Hardware Diagnostics...**.
+In HappyMeasure, enable **Settings → Show developer tools** and choose **Run Hardware Diagnostics...**.
 
-The built-in diagnostic is deliberately narrower than the 0 V smoke runner.
-It requires the debug simulator to be off, no active measurement, the normal
-Hardware-page connection to be disconnected, and an explicit operator
-confirmation that no DUT or analog test leads are connected. It then:
+The Run button must remain blocked unless:
 
-- sends `OUTPUT OFF` before other instrument actions;
-- queries `*IDN?` and verifies a validated Keithley 2400-family identity;
-- queries `:OUTP?` and requires output to report off;
-- sends one short beep using the driver's state-preserving beep helper;
-- closes and reopens the serial port; and
-- verifies the same instrument and output-off state before final cleanup.
+- debug simulator is off;
+- no measurement is active;
+- the normal Hardware-page connection is disconnected;
+- a COM port is selected; and
+- the operator explicitly confirms that no DUT or analog test leads are connected.
 
-The built-in diagnostic never resets/configures the SMU, issues `READ?`, sets a
-source value, starts a measurement, or enables source output. Serial work runs
-off the Tk thread using a snapshot of the selected port and baud rate. Software
-cannot hear the confirmation beep, so the operator must manually confirm that
-exactly one short beep was audible.
+The diagnostic is deliberately narrow:
 
-Passing this check proves only the basic communication/output-off contract. It
-does **not** replace the no-DUT 0 V smoke runner below, Fast release validation,
-dummy-resistor testing, or real-DUT validation.
+1. send `OUTPUT OFF` before other instrument actions;
+2. query `*IDN?` and validate the canonical model field;
+3. query `:OUTP?` and require reported output-off state;
+4. issue one short state-preserving confirmation beep;
+5. close/reopen the serial connection;
+6. verify the same identity and output-off state;
+7. send `OUTPUT OFF` again before releasing each serial session.
 
-## No-DUT Keithley 2400/2401 smoke runner
+It must not reset/configure the SMU, issue `READ?`, set a source value, start a measurement, or enable source output. The operator must manually confirm the audible beep; software cannot hear it.
 
-For a safe open-circuit timing and lifecycle check after the simulator gates,
-copy or use the repository-provided runner:
+Passing this proves only basic communication and output-off behavior.
 
-```bat
-tools\hardware\Run_Keithley2400_Smoke.bat
-```
+## Level 0B — Repository preflight and no-DUT smoke
 
-Before starting, edit `PORT`, `BAUD`, and `TERMINAL` in the batch file if the
-instrument is not on `COM3`, `57600`, and `rear`. The runner accepts Keithley
-2400/2401-family IDs and deliberately uses only:
+With analog terminals disconnected, run the repository preflight/smoke path from an operator-controlled Windows checkout. Configure COM port, baud and terminal for the actual instrument.
 
-- voltage source at `0 V`;
-- current measurement with a `100 µA` compliance;
-- 2-wire sense;
-- disconnected analog terminals / no DUT;
-- output-off after every case.
-
-Mode 1 QUICK covers IDN, confirmation beep, source-delay ownership, finite
-0 V readback, four timing intervals, pause/resume rebase, and stop/restart.
-Mode 2 FULL adds NPLC 1, more intervals, and fixed-versus-auto range-query
-checks. Mode 3 adds the optional battery idle/sleep-prevention observation and
-should only be run when an operator is ready to unplug AC and observe the
-machine.
-
-Each run writes `summary.txt`, `summary.json`, `timing_stats.csv`,
-`runtime.log`, and raw point CSVs under `hardware_smoke_results\<timestamp>\`.
-These local artifacts are intentionally ignored by Git.
-
-### v1.2b1 Fast release block
-
-For the Fast release contract, run the same script with `--release`:
-
-```bat
-.\.venv\Scripts\python.exe tools\hardware\keithley2400_smoke.py --port COM3 --baud 57600 --terminal rear --release
-```
-
-This adds, all at 0 V open-circuit unless noted: a short Standard run
-(`standard.csv`), Fast fixed-range and Fast Auto-range runs
-(`fast_fixed.csv`, `fast_auto.csv`), per-run timing/data-quality statistics
-(mean/median/p95/min/max dt, effective rate, strictly-increasing check,
-duplicate count, overflow count, non-finite count, warnings), a Fast SCPI
-order check (`:SENS:FUNC:CONC OFF` before `:FORM:ELEM CURR`, no per-sample
-range queries), and a bundle of `idn.txt`, `scpi_trace.txt`, and run metadata
-(git commit, IDN, port/baud/terminal, source/compliance/NPLC/range/profile
-settings) inside `summary.json`.
-
-An optional Level-1 resistor comparison is available but never runs by
-default:
-
-```bat
-... --release --resistor-ohms 10000
-```
-
-It sources 0.1 V (Standard and Fast) with 100 µA compliance, refuses to run
-when the expected current is too close to compliance, and compares both
-medians against `V/R` within `--resistor-tolerance` (default 20%). Ask the
-operator for the resistor value when it is not supplied on the command line.
-
-### 2026-09-08 no-DUT bench record
-
-- Instrument: `KEITHLEY INSTRUMENTS INC., MODEL 2401`, firmware `B02 Jan 20 2021`.
-- Mode 1 QUICK: PASS, including one physical confirmation beep and output-off
-  after every case.
-- Mode 2 FULL: PASS; fixed-range path made `0` range queries while auto-range
-  made `66` queries.
-- At NPLC 0.1, the observed readback floor was about `47 ms`; at NPLC 1 it
-  was about `94–109 ms`. Requested `10–20 ms` intervals were classified as
-  hardware/RS-232 throughput-limited, not as scheduler failures.
-- Pause/resume rebase and immediate stop/restart both passed.
-- Mode 3 battery sleep-prevention testing was intentionally not completed;
-  it remains a separate operator-run check.
-
-This record covers only the disconnected no-DUT smoke scope. It is not dummy
-resistor, diode, real-DUT, or packaged-release validation.
-
-## Required order
-
-### Level 0 — No DUT connected: safety, timing, lifecycle
-
-1. Connect only the Keithley 2400/2450 communication cable.
-2. Run the built-in **Hardware Diagnostics** communication/output-off check
-   when using the desktop UI.
-3. Run:
+Preflight:
 
 ```text
 tools\hardware\Real_Hardware_Preflight.bat
 ```
 
-4. Confirm:
-    - `*IDN?` returns the expected instrument.
-    - `:OUTP OFF` is sent.
-    - front/rear terminal selection is what the UI says.
-    - no voltage/current is sourced.
-5. Run the `--release` smoke for the Fast release contract (Standard, Fast
-   fixed-range, Fast Auto-range, pause/resume, stop/restart, SCPI order).
-
-Fast acquisition is validated on the tested 2400-series hardware path,
-specifically MODEL 2401 for the current release evidence. Untested 2450
-support is not claimed: the app offers Fast/Custom only to validated
-hardware, and the runner refuses other families for Fast runs.
-
-Fast with Auto measurement range is allowed, but high-rate range transitions
-are not monitored while live range telemetry is off. For quantitative
-mapping work, use a fixed measurement range; the source range may remain
-Auto.
-
-### Level 1 — Dummy resistor: known passive load, functional comparison
-
-Use known resistors before any real device:
+No-DUT smoke runner:
 
 ```text
-1 kΩ
-10 kΩ
-1 MΩ
+tools\hardware\Run_Keithley2400_Smoke.bat
 ```
 
-Suggested voltage-source check:
+The no-DUT runner is intended to exercise communication, 0 V measurement/timing, pause/resume and stop/restart while preserving output-off cleanup. Inspect its generated `summary.txt`, `summary.json`, timing statistics, runtime log and raw point CSVs under the ignored local results directory.
+
+For the `1.1b6` Fast acquisition gate, use the runner's release mode only on the validated model/context:
 
 ```text
--1 V to +1 V, step 0.25 V, current compliance 10 mA, NPLC 0.1 or 1
+.\.venv\Scripts\python.exe tools\hardware\keithley2400_smoke.py --port COM3 --baud 57600 --terminal rear --release
 ```
 
-Expected result:
+Change port/baud/terminal to the real bench configuration. The current release evidence validates Fast acquisition on **Keithley MODEL 2401**; simulator support and other 2400/2450-family identities are not evidence that Fast mode is validated on those physical models.
+
+Release-mode checks should include:
+
+- short Standard run;
+- Fast fixed-range run;
+- Fast Auto-range run if intentionally supported;
+- timing/data-quality statistics;
+- strictly increasing elapsed time;
+- overflow/non-finite accounting;
+- pause/resume rebase;
+- immediate Stop/restart;
+- SCPI ordering/no unintended per-sample telemetry;
+- output off after every case.
+
+For quantitative mapping/high-rate work, prefer a fixed measurement range. Auto measurement range is allowed only when its behavior is understood; live range telemetry is intentionally optional because extra serial queries affect throughput.
+
+## Level 1 — Known passive load
+
+Use a known resistor before a real device (for example 1 kΩ, 10 kΩ or 1 MΩ as appropriate for the compliance/range). Compare measured current with `I ≈ V/R` using conservative source values.
+
+The smoke runner supports an optional resistor comparison, for example:
 
 ```text
-I ≈ V / R
+... --release --resistor-ohms 10000
 ```
 
-Compare Standard and Fast measured current against the same expectation;
-the `--resistor-ohms` runner mode automates this at 0.1 V.
+Do not run the resistor step unless the physical resistor is actually connected and the expected current is comfortably below compliance. Compare Standard and Fast results when validating Fast behavior.
 
-Abort/STOP once during this level and confirm output goes off.
+During this level, exercise at least one Stop/Abort path and verify output off physically/front-panel-side afterward.
 
-### Level 2 — Diode or robust test device
+## Level 2 — Robust test device
 
-Only after Level 1 passes:
+Only after Level 1 passes, use a robust low-risk device and check:
 
-```text
-small voltage-source diode IV
-small current-source diode IV
-compliance-limited case
-pause/resume/STOP case
-partial-data save case
-```
+- small voltage-source IV;
+- small current-source IV where applicable;
+- compliance-limited behavior;
+- pause/resume and Stop;
+- partial-data save/export;
+- completed Time trace/full-history display;
+- Standard/Fast comparison if Fast is in scope.
 
-### Level 3 — Real DUT
+## Level 3 — Real DUT
 
-Only after Level 2 passes. Save the CSV and the console/runtime logs for every first-run attempt.
+Only after the earlier levels pass. Start with conservative limits and save the measurement CSV plus runtime/bench evidence for the first runs.
 
 ## Pre-hardware software gates
 
-Run before connecting a real DUT:
+Before connecting a DUT, the release branch must already have passed the automated core and Map release gates described in `RELEASE_CHECKLIST.md`.
+
+For a local core checkout:
 
 ```text
-python tests\run_full_validation.py
-python -m pytest tests\test_pre_hardware_safety.py tests\test_mock_visa_command_sequence.py -q
+python -m pip install -e ".[dev]"
+python -m pytest -q tests\common tests\happymeasure
+python -m pytest -q tests\happymeasure\test_pre_hardware_safety.py tests\happymeasure\test_mock_visa_command_sequence.py
 ```
 
-These tests check software intent and output-off recovery paths. They do not verify actual relay state or analog output behavior.
+If the complete local release environment also has `.[dev,map]` installed, `python tests\run_full_validation.py` runs all three test domains plus configured coverage.
 
-## Record in handoff after bench validation
+These verify software intent and recovery paths only; they do not replace the physical output-off checks above.
 
-- Date/time.
-- Operator.
-- Keithley model and firmware.
-- Serial/VISA resource.
-- Front/rear terminal path.
-- Sense wiring.
-- Sweep mode and compliance.
-- DUT/dummy load.
-- Output-off behavior after complete, abort, exception, and close-window.
-- CSV file name and log file names.
+## Previous bench evidence
+
+A 2026-09-08 no-DUT session on `KEITHLEY INSTRUMENTS INC., MODEL 2401`, firmware `B02 Jan 20 2021`, passed the then-current QUICK/FULL communication/timing checks, including confirmation beep, pause/resume rebase, stop/restart and output-off checks. At NPLC 0.1 the observed RS-232/readback floor was roughly 47 ms; at NPLC 1 it was roughly 94–109 ms.
+
+This historical record is useful context but is **not** a substitute for the final `1.1b6` packaged-release/operator gate.
+
+## Record for the current release
+
+Record the final bench evidence in the release/validation record, not in a rolling agent diary:
+
+- date/time and operator;
+- git commit / candidate build;
+- instrument model, firmware and IDN;
+- serial resource, baud and terminal;
+- sense wiring;
+- measurement/profile/compliance/range/NPLC settings;
+- no-DUT / resistor / test-device / DUT used;
+- output-off behavior after complete, Stop, Abort/error, disconnect and close;
+- produced CSV/log/smoke-result filenames;
+- any warning, overflow or throughput limitation observed.
+
+Only after the required stages pass should release notes use language such as hardware-verified.

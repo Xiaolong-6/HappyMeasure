@@ -101,7 +101,9 @@ class SignalPreparationConfig:
             invert_signal = bool(self.invert_signal) if self.invert_signal is not None else False
         else:
             legacy_active = True
-            apply_baseline = legacy_active if self.apply_baseline is None else bool(self.apply_baseline)
+            apply_baseline = (
+                legacy_active if self.apply_baseline is None else bool(self.apply_baseline)
+            )
             invert_signal = (
                 legacy_active and self.output_convention is OutputConvention.DARK_MINUS_MEASURED
                 if self.invert_signal is None

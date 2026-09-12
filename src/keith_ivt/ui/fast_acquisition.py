@@ -294,6 +294,11 @@ class FastAcquisitionMixin(UiMixinTyping):
         entry = getattr(self, "digital_filter_count_entry", None)
         if entry is None:
             return
+        try:
+            if not entry.winfo_exists():
+                return
+        except Exception:
+            return
         enabled = bool(
             getattr(self, "acquisition_profile", None) is not None
             and self.acquisition_profile.get() == PROFILE_CUSTOM

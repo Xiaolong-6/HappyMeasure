@@ -1,10 +1,10 @@
 """Grouped UI mixins for the HappyMeasure application shell.
 
-The alpha UI is still intentionally mixin-based because the original Tk app was
-split from a monolithic prototype. This module reduces the public inheritance
-surface of :class:`SimpleKeithIVtApp` by grouping related mixins into a few
-cohesive layers. Keep feature implementations in their focused modules; use
-these groups only as composition boundaries.
+The UI remains intentionally mixin-based because the original Tk app was split
+from a monolithic prototype. This module reduces the public inheritance surface
+of :class:`SimpleKeithIVtApp` by grouping related mixins into a few cohesive
+layers. Keep feature implementations in their focused modules; use these groups
+only as composition boundaries.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from keith_ivt.ui.plot_panel import PlotPanelMixin
 from keith_ivt.ui.preset_restore_panel import PresetRestorePanelMixin
 from keith_ivt.ui.settings_panel import SettingsPanelMixin
 from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
+from keith_ivt.ui.settings_roundtrip import SettingsRoundTripMixin
 from keith_ivt.ui.status_bar import StatusBarMixin
 from keith_ivt.ui.sweep_config import SweepConfigMixin
 from keith_ivt.ui.sweep_controller import SweepControllerMixin
@@ -57,6 +58,7 @@ class AppWorkflowMixin(
     HardwareControllerMixin,
     SweepControllerMixin,
     DataActionMixin,
+    SettingsRoundTripMixin,
     SettingsPresetMixin,
     UpdateControllerMixin,
 ):

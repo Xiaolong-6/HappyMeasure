@@ -95,7 +95,7 @@ class AppState:
 
     This module is intentionally introduced before the full UI migration.  It
     provides a tested single-state model for subsequent refactors without
-    destabilising the current alpha UI in one large change.
+    destabilising the current beta UI in one large change.
     """
 
     def __init__(self) -> None:

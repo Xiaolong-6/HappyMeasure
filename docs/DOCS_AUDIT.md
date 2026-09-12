@@ -1,56 +1,80 @@
 # Documentation Audit
 
-Date: 2026-05-17
+Last full audit: 2026-09-11, release-candidate line `1.1b6`.
 
-## Scope
+## Objective
 
-This audit checked the current `docs/` tree, top-level README, and release-prep documentation after the namespace, safety, trace/export, config-compatibility, and UI status-icon hardening passes.
+Keep the repository documentation small enough that a developer or release operator can identify the authoritative instruction without comparing several stale diaries, migration plans, implementation notes, or duplicated build recipes.
 
-## Current status
+## Owners
 
-The documentation set is broad enough for alpha handoff, but the release path needed a stronger single source of truth. `docs/RELEASE_CHECKLIST.md` has therefore been expanded into the release-prep owner document covering source hygiene, version naming, documentation audit, source tests, manual smoke tests, hardware validation, version bump, portable packaging, GitHub Release, and post-release verification.
+| Subject | Owner document |
+| --- | --- |
+| Product/launch | `../README.md` |
+| Architecture | `ARCHITECTURE_CURRENT.md` |
+| State model | `STATE_MACHINE.md` |
+| Error recovery | `ERROR_RECOVERY.md` |
+| Operator troubleshooting / Restart UI | `TROUBLESHOOTING.md` |
+| Trace/CSV contract | `TRACE_SCHEMA.md` |
+| Settings compatibility | `SETTINGS_COMPATIBILITY.md` |
+| Hardware validation | `HARDWARE_VALIDATION_PROTOCOL.md` |
+| Map project contract | `MAP_PROJECT_FORMAT.md` |
+| Release procedure | `RELEASE_CHECKLIST.md` |
+| Current validation status | `VALIDATION_STATUS.md` |
+| Release history | `CHANGELOG.md` and versioned release notes |
+| Common Windows packaging | `WINDOWS_PORTABLE_BUILD.md` |
+| Python 3.14 packaging exception | `WINDOWS_PYTHON314_BUILD.md` |
 
-`docs/README.md` now acts as a documentation index and points developers to the document that owns each behavior area.
+## 2026-09-11 cleanup decisions
 
-## Ownership map
+Removed as obsolete/redundant:
 
-- User overview and current status: `README.md`
-- Release procedure: `docs/RELEASE_CHECKLIST.md`
-- Manual simulator/UI/data checks: `docs/MANUAL_SMOKE_TESTS.md`
-- CSV/import/export contract: `docs/TRACE_SCHEMA.md`
-- Hardware preflight: `docs/HARDWARE_PREFLIGHT.md`
-- Staged bench validation: `docs/HARDWARE_VALIDATION_PROTOCOL.md`
-- Build instructions: `docs/WINDOWS_PORTABLE_BUILD.md` and `docs/WINDOWS_PYTHON314_BUILD.md`
-- Machine handoff: `docs/AGENT_HANDOFF.md` and `docs/NEW_THREAD_CONTEXT.md`
-- Namespace migration plan: `docs/MIGRATION_PLAN.md`
-- Temporary implementation diary: `docs/CODEX_DIARY_TEMP.md`
+- `AGENT_HANDOFF.md` — chronological implementation diary duplicated architecture/changelog/release status. Stable machine instructions live in root `AGENTS.md`; current status lives in `VALIDATION_STATUS.md`.
+- `TESTED_CURRENT.md` — accumulated historical test diary. Replaced by the concise `VALIDATION_STATUS.md`; historical validation remains in Git/release notes.
+- `MIGRATION_PLAN.md` — described alpha namespace phases that no longer represent the current beta policy. The stable namespace decision is owned by `NAMING.md` and `AGENTS.md`.
+- `HARDWARE_DRIVER_MIGRATION.md` — 0.5→0.6 migration timeline and examples were historical and partly contradicted the current runtime. Driver-extension guidance remains in `DRIVER_SWEEP_EXTENSION_GUIDE.md` and current architecture docs.
+- `SETTINGS_MIGRATION.md` — described a Pydantic/nested v2 settings migration as if it were the active desktop runtime. `1.1b6` still persists the flat `keith_ivt.data.settings.AppSettings` contract; the accurate owner is now `SETTINGS_COMPATIBILITY.md`.
+- `RESTART_MECHANISM.md` — mixed current behavior with speculative launcher/marker/helper proposals. The implemented Restart UI behavior and operator caveats now live in `TROUBLESHOOTING.md`.
+- `docs/screenshots/happymeasure-settings.png` — no longer referenced and represented an older Settings layout after the developer-tools/diagnostics reorganization.
 
-## Items intentionally not changed
+Consolidated/updated:
 
-- Historical references to `0.7a1` remain where they describe the current alpha release or draft release package name.
-- Internal code examples using `keith_ivt` remain valid where the document is explicitly about implementation modules or legacy compatibility.
-- Build execution remains deferred until after version bump/release-prep, consistent with the current workflow.
+- `ARCHITECTURE_CURRENT.md` — current component boundaries and invariants only; historical UI/theme iteration belongs in Git/release notes.
+- `DRIVER_SWEEP_EXTENSION_GUIDE.md` — developer extension guidance, not a migration diary.
+- `TROUBLESHOOTING.md` — owns launch/import troubleshooting, Restart UI behavior and links to the maintained build/hardware procedures.
+- Windows packaging docs — `WINDOWS_PORTABLE_BUILD.md` owns the common contract; `WINDOWS_PYTHON314_BUILD.md` should contain only the Python 3.14-specific path/workaround.
+- Test documentation — ownership is split into `tests/common/`, `tests/happymeasure/`, and `tests/map_reconstruction/`; obsolete source-shape regressions were replaced by stronger behavior/contract tests where needed.
+- Release validation instructions — core and Map Qt gates are documented separately so optional Qt dependencies cannot create a false-green or an accidental core-install requirement.
 
-## Future cleanup candidates
+Retained intentionally:
 
-These are not release blockers, but they would reduce long-term documentation debt:
+- Versioned release notes: immutable historical context.
+- `WINDOWS_PYTHON314_BUILD.md`: still a distinct packaging exception, but not a duplicate owner for common packaging rules.
+- Scientific/format contracts (`TRACE_SCHEMA.md`, `MAP_PROJECT_FORMAT.md`, `PHASE_WINDOW_RECONSTRUCTION.md`): these define reproducibility rather than implementation history.
+- Hardware preflight/dry-run/validation documents: each has a different safety scope.
+- The former `settings_v2.py` experimental model was removed (code, tests, and Pydantic dependency); the flat dataclass in `SETTINGS_COMPATIBILITY.md` is the only settings representation.
+- Referenced UI screenshots that still illustrate current user-facing areas; stale/unreferenced screenshots are deletion candidates.
 
-1. Convert `CODEX_DIARY_TEMP.md` into polished release notes after final build validation.
-2. Review older roadmap/migration docs for stale future claims such as old `0.7.0` removal targets.
-3. Consider moving obsolete historical notes into an archive folder after the first externally shared beta.
-4. Keep `docs/README.md` as the index; avoid adding new orphan docs without linking them there.
+## Staleness rules
 
+A document is a deletion/consolidation candidate when it is primarily one of:
 
-## External audit follow-up status
+1. a completed migration plan;
+2. a chronological agent/test diary;
+3. a duplicate of an owner document;
+4. instructions for a version no longer supported, unless clearly retained as historical release notes;
+5. a proposed architecture described as current when the runtime still uses a different owner;
+6. an implementation note whose still-valid behavior can live in an existing operator/developer owner document;
+7. an unreferenced screenshot or example of a UI that has materially changed.
 
-The release-blocking quick fixes from the external audit are now tracked as follows:
+Before deleting, search repository references and update them in the same change. Do not delete scientific format/safety contracts merely because they are old; update their current applicability instead.
 
-- `RunState.RUNNING` is explicitly documented and tested as a deprecated alias for `RunState.SWEEPING`.
-- The redundant `src/happymeasure/diagnostics/*` coverage omit entry was removed because `src/happymeasure/*` already covers it.
-- The staged namespace migration is documented in `docs/MIGRATION_PLAN.md`.
-- Strict mypy settings and altered coverage thresholds are deferred policy decisions for a later engineering pass, not next-release blockers.
+## Next audit
 
+Run another docs audit when one of these occurs:
 
-## 1.0b1 release-note update
-
-The current beta release note is `docs/RELEASE_NOTES_v1.0b1.md`. Historical `0.7a1` references may remain only where they describe the previous alpha release.
+- a release changes public file formats or hardware safety semantics;
+- Map Reconstruction stops being optional;
+- the `keith_ivt` compatibility namespace is intentionally removed;
+- Windows packaging/updater ownership changes substantially;
+- the desktop settings runtime intentionally migrates away from the flat `AppSettings` format.

@@ -65,22 +65,22 @@ Remove-Item -Recurse -Force -LiteralPath "dist" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\build" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\dist" -ErrorAction SilentlyContinue
 
-$VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$VenvPython = Join-Path $ProjectRoot ".venv-build-314\Scripts\python.exe"
 if (Test-Path -LiteralPath $VenvPython) {
     & $VenvPython -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3,14) else 1)" *> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Step "Existing .venv is missing, broken, or not Python 3.14; deleting .venv"
-        Remove-Item -Recurse -Force -LiteralPath ".venv"
+        Write-Step "Existing .venv-build-314 is missing, broken, or not Python 3.14; deleting .venv-build-314 (developer .venv is never touched)"
+        Remove-Item -Recurse -Force -LiteralPath ".venv-build-314"
     }
 }
 
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     $PythonCmd = Pick-Python314
     Write-Step "Creating build virtual environment with $($PythonCmd -join ' ')"
-    Invoke-PythonCommand $PythonCmd @("-m", "venv", ".venv")
+    Invoke-PythonCommand $PythonCmd @("-m", "venv", ".venv-build-314")
 }
 
-& ".\.venv\Scripts\Activate.ps1"
+& ".\.venv-build-314\Scripts\Activate.ps1"
 python -c "import sys; print('Build Python:', sys.version.replace(chr(10), ' ')); print('Executable:', sys.executable); raise SystemExit(0 if sys.version_info[:2] == (3,14) else 1)"
 Assert-LastCommand "Python version check"
 
@@ -92,7 +92,7 @@ $env:PIP_CACHE_DIR = Join-Path $ProjectRoot ".pip-cache"
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
 python -m pip install --upgrade pip
 Assert-LastCommand "pip upgrade"
-python -m pip install matplotlib numpy==2.3.5 pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
+python -m pip install -e ".[dev]"
 Assert-LastCommand "project dependency install"
 python -m pip install --upgrade pyinstaller
 Assert-LastCommand "PyInstaller install"

@@ -1,47 +1,28 @@
 # Driver and sweep extension guide
 
-Version: `1.1b5`
+Applies to the `1.1b6` architecture. This is extension guidance, not a migration timeline.
 
-This document explains the new separation between hardware drivers, sweep planning, and measurement execution. It is written for future agents/developers opening a fresh thread.
+## Boundary
 
-## Goal
-
-The UI should eventually support several instrument families and measurement families:
-
-- Keithley 2400/2401 and similar SMUs;
-- future Keysight/NI/other SMUs;
-- IV sweeps;
-- fixed-source time traces;
-- adaptive/table sweeps;
-- future CV and combined IVCV workflows.
-
-The UI must not be the place where hardware-specific SCPI or sweep point generation lives.
-
-## New Python-native architecture
+Hardware-specific SCPI and sweep point generation do not belong in Tk widgets.
 
 ```text
 src/keith_ivt/
-├─ drivers/              # hardware boundary: instrument capabilities + read/write API
-│  ├─ base.py            # SMUDriver protocol, ConnectionProfile, capability dataclasses
-│  ├─ simulated_smu.py   # generic IV/CV-capable simulator
-│  └─ keithley2400_adapter.py
-├─ sweeps/               # driver-neutral sweep plans and value generation
-│  ├─ plan.py            # SweepPlan, plan_from_config, make_plan
-│  └─ table_sweep.py     # simple Start/Stop/Step segment rows
-├─ services/
-│  └─ measurement_service.py  # executes SweepPlan with any SMUDriver
-├─ instrument/           # legacy compatibility layer used by current UI
-├─ core/                 # legacy runner and adaptive helpers
-└─ ui/                   # Tk UI; should call services rather than owning hardware logic
+├─ drivers/              # driver-neutral instrument capability/API boundary
+├─ sweeps/               # driver-neutral sweep plans/value generation
+├─ services/             # measurement/safety orchestration
+├─ instrument/           # current SourceMeter implementations and compatibility layer
+├─ core/                 # sweep execution/adaptive helpers
+└─ ui/                   # Tk composition/controllers
 ```
 
-This is not a direct copy of the MATLAB architecture. It uses Python-style protocols, dataclasses, small functions, and explicit service boundaries.
+The current HappyMeasure UI still uses compatibility paths where needed; new integration work should move toward the driver/service boundaries without bypassing the established safety and data contracts.
 
 ## Driver boundary
 
-New drivers should implement `keith_ivt.drivers.base.SMUDriver`.
+New generic SMU drivers should implement `keith_ivt.drivers.base.SMUDriver` and expose explicit capabilities.
 
-Required core methods:
+Typical operations include:
 
 ```python
 connect(profile)
@@ -56,101 +37,61 @@ output_off()
 close()
 ```
 
-Drivers should expose `capabilities`, for example whether they support:
+Capabilities should describe what the device actually supports (source modes, terminals, 4-wire sense, fixed range, CV, manual output, etc.). UI availability must follow validated capabilities rather than model-name guesses.
 
-- voltage source;
-- current source;
-- CV;
-- front/rear terminals;
-- 4-wire sense;
-- fixed range;
-- manual output.
+Never put device-specific SCPI directly in a UI panel/controller. Hardware identification should use canonical parsers/helpers so diagnostics and acquisition code agree on the connected model.
 
 ## Sweep boundary
 
-Sweep generation should produce a `SweepPlan`, not manipulate UI widgets.
-
-A `SweepPlan` contains:
-
-- source mode;
-- measure mode;
-- source values;
-- compliance;
-- NPLC;
-- execution kind;
-- optional fixed ranges;
-- optional interval;
-- metadata;
-- warnings.
-
-Existing `SweepConfig` can be converted using:
+Sweep generation should produce data/plans rather than manipulate widgets. `SweepConfig` remains the central HappyMeasure measurement configuration and can be converted to driver-neutral planning where supported.
 
 ```python
 from keith_ivt.sweeps import plan_from_config
+
 plan = plan_from_config(config)
 ```
 
-New code should eventually build `SweepPlan` directly.
+Step magnitude is non-negative; Start/Stop determine direction. Adaptive/table segments use the same direction rule.
 
-## Adaptive/table sweep
-
-For the user-facing adaptive sweep, keep the normal path simple:
+For the user-facing Adaptive editor, each non-comment line is:
 
 ```text
-0.1, 1, 0.1
-1, 20, 1
+start, stop, step
 ```
 
-Each non-comment line generates one `start, stop, step` segment in order.
-Step is treated as a magnitude, and each segment's Start and Stop values
-determine its direction; either step sign is accepted. The UI lets the operator
-either preserve repeated values or remove them globally while retaining
-first-occurrence order. This is implemented in:
+Duplicate-value behavior is an explicit configuration choice. Do not encode hidden cleanup in a widget.
 
-```python
-keith_ivt.sweeps.table_sweep.parse_segment_text
-```
+## Constant-Time acquisition
 
-Advanced scripted adaptive logic can remain as a developer/debug feature, but it should not be the default UI path.
+Standard/Fast/Custom acquisition policy is resolved independently of the UI layout. Fast mode is only offered for validated real-instrument contexts; simulator support is a development path, not evidence that another physical model is safe/fast-compatible.
 
-## Measurement execution
+Performance work must preserve:
 
-Use:
+- deterministic next-run configuration;
+- full authoritative measurement data;
+- output-off cleanup on success/stop/error/close;
+- no extra per-sample serial telemetry unless explicitly enabled;
+- acquisition timing independent of plot redraw cadence.
 
-```python
-from keith_ivt.services import MeasurementService
-service = MeasurementService(driver)
-reads = service.run_plan(plan)
-```
+## Adding a driver
 
-This lets the same sweep plan run on:
+1. Implement the driver/protocol boundary and capability metadata.
+2. Add fake/simulator transport tests before hardware access.
+3. Add canonical identification/capability tests.
+4. Exercise connection, configuration, read, stop/error, and `output_off()` cleanup.
+5. Add real-hardware validation to `HARDWARE_VALIDATION_PROTOCOL.md` before claiming support.
+6. Keep unsupported controls unavailable in the UI rather than allowing a late runtime failure.
 
-- simulator;
-- Keithley 2400 adapter;
-- future SMU drivers.
+## Adding a measurement family
 
-## Current migration status
+1. Define configuration/data semantics independently of widgets.
+2. Add generation/execution logic with headless tests.
+3. Define import/export metadata before adding UI actions.
+4. Add recovery/output safety tests for hardware-facing paths.
+5. Add UI only after the underlying contract is stable.
 
-- `MeasurementService` is the public orchestration boundary used by the UI and
-  by driver-neutral `SweepPlan` callers.
-- Legacy `SourceMeter` implementations remain supported internally through
-  `MeasurementService.run_source_meter()` while hardware drivers migrate to
-  `SMUDriver`.
-- New UI and integration code must not call `SweepRunner` directly.
+For CV/IVCV, add explicit capability and configuration fields; do not overload IV fields silently.
 
-## Adding a new SMU driver
+## Compatibility
 
-1. Create a new file under `src/keith_ivt/drivers/`, e.g. `keysight_b2900.py`.
-2. Implement `SMUDriver` protocol.
-3. Add capability metadata.
-4. Add a pure simulator or fake test path if hardware is unavailable.
-5. Add tests that run a simple `SweepPlan` with the driver or a fake transport.
-6. Do not add SCPI directly into UI code.
-
-## Adding CV or IVCV
-
-1. Add capability support in the driver.
-2. Add a plan builder that uses `MeasureMode.CAPACITANCE`.
-3. Keep CV-specific timing/frequency fields in a plan dataclass or metadata; do not overload IV fields silently.
-4. Add simulator outputs for capacitance-vs-bias.
-5. Add import/export metadata keys before adding UI buttons.
+The public product/package is HappyMeasure / `happymeasure`. `keith_ivt` remains the internal/compatibility namespace in this release line. Do not remove compatibility imports without a deliberate versioned decision documented in `NAMING.md` and release notes.

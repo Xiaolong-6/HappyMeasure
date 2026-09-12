@@ -21,24 +21,24 @@ if exist "dist" rmdir /s /q "dist"
 if exist "packaging\build" rmdir /s /q "packaging\build"
 if exist "packaging\dist" rmdir /s /q "packaging\dist"
 
-if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -c "import sys; allowed={(3,12),(3,11),(3,13)}; raise SystemExit(0 if sys.version_info[:2] in allowed else 1)" >nul 2>&1
+if exist ".venv-build\Scripts\python.exe" (
+    ".venv-build\Scripts\python.exe" -c "import sys; allowed={(3,12),(3,11),(3,13)}; raise SystemExit(0 if sys.version_info[:2] in allowed else 1)" >nul 2>&1
     if errorlevel 1 (
-        call :log Existing .venv is missing, broken, or not a supported build Python; deleting .venv
-        rmdir /s /q ".venv"
+        call :log Existing .venv-build is missing, broken, or not a supported build Python; deleting .venv-build (developer .venv is never touched)
+        rmdir /s /q ".venv-build"
     )
 )
 
-if not exist ".venv\Scripts\python.exe" (
+if not exist ".venv-build\Scripts\python.exe" (
     set "PICK_LABEL=pick_python"
     call :%PICK_LABEL%
     if errorlevel 1 goto :fail
     call :log Creating build virtual environment with !PY_CMD!
-    !PY_CMD! -m venv .venv
+    !PY_CMD! -m venv .venv-build
     if errorlevel 1 goto :fail
 )
 
-call ".venv\Scripts\activate.bat"
+call ".venv-build\Scripts\activate.bat"
 if errorlevel 1 goto :fail
 
 python -c "import sys; allowed={(3,12),(3,11),(3,13)}; print('Build Python:', sys.version.replace(chr(10), ' ')); print('Executable:', sys.executable); raise SystemExit(0 if sys.version_info[:2] in allowed else 1)"
@@ -50,7 +50,7 @@ if errorlevel 1 (
 python -m pip install --upgrade pip
 if errorlevel 1 goto :fail
 set "PYTHONPATH=%PROJECT_ROOT%\src"
-python -m pip install matplotlib numpy==2.3.5 pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
+python -m pip install -e ".[dev]"
 if errorlevel 1 goto :fail
 python -m pip install --upgrade pyinstaller
 if errorlevel 1 goto :fail
@@ -59,9 +59,8 @@ call :log Running import smoke check...
 python -c "import keith_ivt; from keith_ivt.ui.simple_app import main; import matplotlib; import serial; print('Smoke check OK')"
 if errorlevel 1 goto :fail
 
-call :log Running test suite...
-python -m pytest
-if errorlevel 1 goto :fail
+call :log Automated validation is a packaging precondition, not part of this script.
+call :log Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate.
 
 call :log Running PyInstaller...
 if not exist "build" mkdir "build"

@@ -8,10 +8,10 @@ from typing import Any
 
 @dataclass
 class AppSettings:
-    """User-editable alpha settings persisted as JSON.
+    """User-editable desktop settings persisted as JSON.
 
-    The file is intentionally small and stable so future agents can extend it
-    without needing a migration framework during the offline alpha phase.
+    The file is intentionally small and stable so it can be extended
+    without needing a migration framework in the current beta line.
     """
 
     log_max_bytes: int = 1_000_000
@@ -135,7 +135,7 @@ def _normalize_theme(value: Any) -> str:
 def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return a backward-compatible, type-safe flat settings dictionary.
 
-    Legacy alpha settings were intentionally stored as a simple flat JSON file.
+    Earlier settings files were intentionally stored as a simple flat JSON file.
     User-edited or older files can therefore contain missing keys, unknown keys,
     strings for booleans, or invalid numeric values. This sanitizer preserves
     known values when they can be interpreted safely and falls back to defaults

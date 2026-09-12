@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+import os
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+pytest.importorskip("PySide6")
+pytest.importorskip("pyqtgraph")
+
+from PySide6 import QtWidgets
+
+from map_reconstruction.ui import main_window as main_window_module
+from map_reconstruction.ui.main_window import MapReconstructionWindow
+
+
+@pytest.fixture(scope="module")
+def application():
+    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+
+
+def test_map_analysis_flip_color_control_is_visible_when_analysis_stage_is_shown(
+    application,
+) -> None:
+    window = MapReconstructionWindow()
+    try:
+        window.show()
+        window._select_stage(2)
+        application.processEvents()
+        assert window.analysis_page.invert_palette_check.text() == "Flip color"
+        assert window.analysis_page.invert_palette_check.isVisible()
+    finally:
+        window.close()
+
+
+def test_map_window_has_sensible_normal_geometry_before_maximized_start(application) -> None:
+    window = MapReconstructionWindow()
+    try:
+        assert window.width() >= 1000
+        assert window.height() >= 700
+    finally:
+        window.close()
+
+
+def test_map_entrypoint_requests_maximized_window(monkeypatch) -> None:
+    events: list[str] = []
+
+    class FakeApplication:
+        @staticmethod
+        def instance():
+            return None
+
+        def __init__(self, _args) -> None:
+            events.append("app-created")
+
+        def exec(self) -> int:
+            events.append("event-loop")
+            return 17
+
+    class FakeWindow:
+        def __init__(self, _path=None) -> None:
+            events.append("window-created")
+
+        def showMaximized(self) -> None:
+            events.append("show-maximized")
+
+    monkeypatch.setattr(main_window_module.QtWidgets, "QApplication", FakeApplication)
+    monkeypatch.setattr(main_window_module, "MapReconstructionWindow", FakeWindow)
+
+    assert main_window_module.run_app() == 17
+    assert events == ["app-created", "window-created", "show-maximized", "event-loop"]

@@ -331,9 +331,7 @@ class SignalPreparationPage(QtWidgets.QWidget):
         self.apply_baseline_combo.setEnabled(not is_none)
         if is_none and bool(self.apply_baseline_combo.currentData()) is True:
             blocker = QtCore.QSignalBlocker(self.apply_baseline_combo)
-            self.apply_baseline_combo.setCurrentIndex(
-                self.apply_baseline_combo.findData(False)
-            )
+            self.apply_baseline_combo.setCurrentIndex(self.apply_baseline_combo.findData(False))
             del blocker
 
     def _emit_configuration_changed(self, *_args: object) -> None:

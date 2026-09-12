@@ -75,22 +75,22 @@ Remove-Item -Recurse -Force -LiteralPath "dist" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\build" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force -LiteralPath "packaging\dist" -ErrorAction SilentlyContinue
 
-$VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+$VenvPython = Join-Path $ProjectRoot ".venv-build\Scripts\python.exe"
 if (Test-Path -LiteralPath $VenvPython) {
     & $VenvPython -c "import sys; allowed={(3,12),(3,11),(3,13)}; raise SystemExit(0 if sys.version_info[:2] in allowed else 1)" *> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Step "Existing .venv is missing, broken, or not a supported build Python; deleting .venv"
-        Remove-Item -Recurse -Force -LiteralPath ".venv"
+        Write-Step "Existing .venv-build is missing, broken, or not a supported build Python; deleting .venv-build (developer .venv is never touched)"
+        Remove-Item -Recurse -Force -LiteralPath ".venv-build"
     }
 }
 
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     $PythonCmd = Pick-Python
     Write-Step "Creating build virtual environment with $($PythonCmd -join ' ')"
-    Invoke-PythonCommand $PythonCmd @("-m", "venv", ".venv")
+    Invoke-PythonCommand $PythonCmd @("-m", "venv", ".venv-build")
 }
 
-& ".\.venv\Scripts\Activate.ps1"
+& ".\.venv-build\Scripts\Activate.ps1"
 python -c "import sys; allowed={(3,12),(3,11),(3,13)}; print('Build Python:', sys.version.replace(chr(10), ' ')); print('Executable:', sys.executable); raise SystemExit(0 if sys.version_info[:2] in allowed else 1)"
 Assert-LastCommand "Python version check"
 
@@ -102,7 +102,8 @@ $env:PIP_CACHE_DIR = Join-Path $ProjectRoot ".pip-cache"
 $env:PYTHONPATH = Join-Path $ProjectRoot "src"
 python -m pip install --upgrade pip
 Assert-LastCommand "pip upgrade"
-python -m pip install matplotlib numpy==2.3.5 pyserial pydantic pytest pytest-cov ruff==0.15.22 black mypy types-pyserial
+# pyproject.toml owns dependencies; the build only adds PyInstaller itself.
+python -m pip install -e ".[dev]"
 Assert-LastCommand "project dependency install"
 python -m pip install --upgrade pyinstaller
 Assert-LastCommand "PyInstaller install"
@@ -111,9 +112,8 @@ Write-Step "Running import smoke check..."
 python -c "import keith_ivt; from keith_ivt.ui.simple_app import main; import matplotlib; import serial; print('Smoke check OK')"
 Assert-LastCommand "Import smoke check"
 
-Write-Step "Running test suite..."
-python -m pytest
-Assert-LastCommand "Test suite"
+Write-Step "Automated validation is a packaging precondition, not part of this script."
+Write-Step "Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate."
 
 Write-Step "Running PyInstaller..."
 New-Item -ItemType Directory -Force -Path "build" | Out-Null

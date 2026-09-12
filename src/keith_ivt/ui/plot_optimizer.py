@@ -92,10 +92,12 @@ class PlotOptimizer:
     def downsample_if_needed(
         self, x: list[float], y: list[float]
     ) -> tuple[list[float], list[float]]:
-        """Downsample data if it exceeds the threshold.
+        """Uniformly decimate very large live line data for render throughput.
 
-        Uses LTTB (Largest-Triangle-Three-Buckets) inspired simple decimation
-        for visual fidelity while reducing render load.
+        This fast live-path reduction is intentionally simple. It is not LTTB
+        and should not be used as the authoritative full-range representation
+        when preserving narrow extrema matters; completed large Time traces use
+        ``extrema_envelope`` instead.
 
         Args:
             x: X coordinates
@@ -107,7 +109,6 @@ class PlotOptimizer:
         if len(x) <= self._max_points:
             return x, y
 
-        # Simple uniform decimation (fast and effective for most cases)
         step = len(x) // self._max_points
         x_ds = x[::step]
         y_ds = y[::step]
@@ -233,7 +234,7 @@ class FastPlotRenderer:
         self.figure = figure
         self.optimizer = PlotOptimizer(max_points_for_downsample=max_points)
         self._axes_cache: dict[int, Axes] = {}
-        self._axis_policy_state: dict[int, dict[str, object]] = {}
+        self._axis_policy_state: dict[int, dict[str, Any]] = {}
 
     def prepare_axes(self, num_subplots: int, rows: int, cols: int) -> list[Axes]:
         """Create or reuse subplot axes.

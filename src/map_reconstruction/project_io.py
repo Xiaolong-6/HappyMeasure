@@ -284,11 +284,7 @@ class ProjectState:
                 ),
             },
             "processing": processing,
-            **(
-                {"map_processing": processing}
-                if self.preparation.has_nondefault_state
-                else {}
-            ),
+            **({"map_processing": processing} if self.preparation.has_nondefault_state else {}),
             **(
                 {"preparation": {"signal": self.signal, **self.preparation.to_dict()}}
                 if self.preparation.has_nondefault_state
@@ -445,9 +441,23 @@ class LoadedProject:
     project_metadata: dict[str, object]
 
 
-def application_version() -> str:
-    """Return installed project version without making development export fragile."""
+try:
+    from keith_ivt.version import VERSION as _SHARED_VERSION
+except Exception:
+    _SHARED_VERSION = ""
 
+
+def application_version() -> str:
+    """Return the shared HappyMeasure release version in every runtime.
+
+    Editable installs, installed packages and the frozen Map executable all
+    report the single version source. ``importlib.metadata`` stays as a
+    fallback only; a frozen executable without package metadata must never
+    degrade saved-project provenance to ``"unknown"``.
+    """
+
+    if _SHARED_VERSION:
+        return _SHARED_VERSION
     try:
         return importlib.metadata.version("HappyMeasure")
     except importlib.metadata.PackageNotFoundError:

@@ -1,142 +1,118 @@
-# Current architecture — HappyMeasure 1.1b5
+# Current architecture — HappyMeasure 1.1b6
 
-HappyMeasure is a simulator-first beta, with the application shell split into focused UI modules for external review.
+This document owns the current runtime boundaries and invariants. Historical UI/refactor detail belongs in Git history, `CHANGELOG.md`, or versioned release notes.
 
-## Standalone Map Reconstruction boundary
+## Repository applications
 
-`src/map_reconstruction/` is a separate optional application in the same
-repository. Its dependency direction is UI → methods/models/processing/QC → NumPy, while
-`importers/happymeasure.py` is the only initial coupling to HappyMeasure and
-only through the `single-v2` file format. The package must not import
-`keith_ivt` UI, sweep runners, serial drivers, hardware controllers, or
-HappyMeasure application state. Qt and PyQtGraph remain optional and are lazy
-from the `map_reconstruction` command entry point; the importer, numerical
-core, display-unit helpers, and QC calculations stay headless-testable.
+The repository contains two user-facing applications with separate UI stacks:
 
-Map value processing lives in `src/map_reconstruction/processing/` and is a
-separate, Qt-free stage after `ReconstructionResult.values`. The raw
-reconstruction is never normalized, display-scaled, clipped, or overwritten.
-`process_map()` applies baseline subtraction, value transform, normalization,
-and optional log10 in that order; degenerate normalization references are
-explicit errors rather than silently skipped operations. Physical log labels
-retain their source unit (for example `log10(Current / A)`), while normalized
-and custom-expression results are unitless. Color limits are computed
-separately for display, and display-unit scaling is never written into the
-scientific arrays. The UI reuses an existing reconstruction when only
-processing or color settings change. Raw CSV export writes the authoritative
-reconstruction, while processed CSV export writes the scientific processed
-values and a JSON sidecar that records source physical unit separately from
-display unit and scale.
+- **HappyMeasure** — Tkinter + Matplotlib measurement application under `src/keith_ivt/`, exposed publicly through the `happymeasure` package/entry point while retaining `keith_ivt` as the compatibility/internal namespace.
+- **Map Reconstruction** — optional PySide6 + PyQtGraph application under `src/map_reconstruction/`, installed with `.[map]`.
 
-HappyMeasure Time plots keep acquisition data and display policy separate:
-marker visibility, the All data/Last N points window, and live redraw interval
-are applied only while preparing plot coordinates. The authoritative live
-points, completed `SweepResult`, CSV exports, and project data remain full
-length. Queue processing throttles redraw requests on the UI thread and forces
-a final refresh when a sweep completes.
+The applications exchange measurement data through documented file formats. Map Reconstruction must not import HappyMeasure UI, application state, or serial-driver internals.
 
-Map Analysis manual color limits are display-only controls. The `Use data min`
-and `Use data max` shortcuts copy finite extremes from the current processed
-map into the display-unit spin boxes without modifying scientific arrays.
-Percentile color limits retain percentile-rank semantics and are labelled
-explicitly in the UI.
-
-The standalone Map Reconstruction UI is composed from focused widgets:
-`ui/main_window.py` coordinates lifecycle and signals, `ui/inspector.py` owns
-controls and immutable configuration snapshots, `ui/trace_view.py` owns the
-raw trace/anchor guides, and `ui/map_views.py` owns map, sample-count, and
-distribution views. `ui/exporting.py` keeps Raw/Processed/Both export dialogs
-and metadata serialization out of the composition root. This split is a UI
-responsibility boundary only; it does not add a reconstruction method or
-change the importer/method APIs.
-
-The workspace presents three explicit stages in a `QStackedWidget`:
-`SignalPreparationPage` owns the selected source signal and time-domain
-baseline preparation, `ReconstructionInspector` owns geometry, registration
-and reconstruction/QC, and `MapAnalysisPage` provides the post-map analysis
-context. The headless `map_reconstruction.preparation` package produces an
-immutable `PreparedSignal`; reconstruction consumes that trace through a small
-`TimeSeriesData` adapter without mutating imported source arrays. Active
-preparation settings are persisted explicitly as schema-v3 project metadata;
-v1/v2 archives load as identity preparation for numerical parity.
-
-Map Reconstruction project persistence is deliberately headless at its core:
-`project_io.py` owns the versioned `.hmmap` ZIP/JSON contract, original raw CSV
-bytes, and SHA-256 verification, while `reporting.py` owns text summaries and
-the optional Qt PDF report. The UI only supplies dialogs, semantic inspector
-state, and current plot widgets. Project archives never treat a cached map as
-authoritative: they reopen by importing the embedded source and rerunning the
-current Dual Offset/processing pipeline.
-
-## Runtime layers
+## HappyMeasure runtime layers
 
 ```text
 src/keith_ivt/
-  models.py                    SweepConfig, SweepPoint, SweepResult
-  core/sweep_runner.py          Hardware-independent sweep runner
-  instrument/                   SourceMeter protocol, simulator, serial 2400 backend
-  data/                         CSV import/export, autosave backup, presets, settings
-  utils/thread_safe.py          Bounded thread-safe live-data buffers
-  ui/app_state.py               Central AppState skeleton and run/connection enums
-  ui/simple_app.py              Thin Tk application composition root (~300 lines)
-  ui/ui_scaffold.py             Content header/canvas scaffold
-  ui/navigation.py              Left drawer navigation and animation
-  ui/status_bar.py              Bottom status bar / connection light
-  ui/operator_bar.py            Bottom operator controls
-  ui/panels.py                  Hardware/Sweep/Settings/Log/About panel builders
-  ui/preset_restore_panel.py    Preset and Restore panel builders
-  ui/sweep_config.py            UI variable binding, adaptive table, SweepConfig construction
-  ui/hardware_controller.py     Capability profile, connection state, field locking
-  ui/sweep_controller.py        Start/pause/stop/queue/completion/error paths
-  ui/plot_panel.py              Matplotlib canvas, vertical plot/trace splitter
-  ui/plot_controls.py           Plot right-click/zoom/unit/range actions
-  ui/trace_panel.py             Trace table rendering and data export/import actions
-  ui/trace_controls.py          Trace context menu, rename/color/delete/visibility
-  ui/data_actions.py            Backup/import/restore/file-opening helpers
-  ui/settings_preset_actions.py Settings review/save and preset application
-  ui/theme.py                   Light/dark Nordic ttk styles
+  models.py                     SweepConfig, SweepPoint, SweepResult
+  acquisition.py                Standard/Fast/Custom acquisition policy
+  core/sweep_runner.py          measurement execution/timing
+  instrument/                   SourceMeter protocol, simulator, Keithley serial backend
+  drivers/                      driver-neutral hardware boundary/adapters
+  sweeps/                       driver-neutral sweep planning
+  services/                     orchestration, preflight and safety services
+  data/                         settings, CSV import/export, presets, persistence
+  diagnostics/                  UI and hardware diagnostic routines
+  utils/thread_safe.py          bounded thread-safe UI/live buffers
+  ui/app_state.py               run/connection state model
+  ui/simple_app.py              Tk composition root
+  ui/*_controller.py            hardware/run/update workflows
+  ui/plot_*.py                  plot rendering, controls and optimization
+  ui/trace_*.py                 trace table/actions
+  ui/settings_*.py              settings review/round-trip actions
 ```
 
-## Guardrails
+### State contract
 
-- `simple_app.py` is the composition root only. New UI logic should go into the relevant mixin module.
-- Connection state is shown only in the bottom status bar, never in the page header.
-- Plot and Traces live in a vertical `ttk.PanedWindow`; the plot pane must remain present even if every view is disabled.
-- During a run, the trace pane is temporarily hidden and the plot shows live data only. After completion, traces are restored.
-- `AppState` is now instantiated by the UI and synchronized with run/connection transitions.
+`AppState` is the application-level owner of run and connection semantics. Compatibility properties may bridge legacy code, but new behavior should not create another independent run-state machine.
 
-## Design decisions
+Worker threads do hardware/timing work and communicate with Tk through the UI queue. Tk widgets are updated on the UI thread.
 
-- **Split by runtime responsibility**: The application was decomposed into small mixin modules because the UI needs fast iteration without introducing a full framework. This keeps Tkinter simple while removing most logic from `simple_app.py`.
-- **State migration strategy**: `ui/app_state.py` is the target single source of truth for run and connection state. It is synchronized with legacy fields rather than replacing them outright to avoid high-risk one-shot migration.
-- **Plot/traces safety contract**: The Matplotlib plot pane must never be removed from the splitter. Trace pane visibility can change during live measurement, but plot must remain stable.
-- **Package size policy**: The project remains source-only. Do not commit virtual environments, `__pycache__`, `.pytest_cache`, generated coverage HTML, large screenshots, or vendor assets.
+### Acquisition/safety contract
 
-## Queue/rendering contract
+Validation must complete before source output can be enabled. All success, stop, abort, error, disconnect, and close paths must preserve best-effort `output_off()` cleanup.
 
-Worker threads may produce points faster than the UI can redraw. The UI must process worker queue messages in bounded batches and redraw live plots once per tick, not once per point. This is required for responsive Pause/Stop in debug simulator mode.
+Fast acquisition may reduce per-sample overhead, but must not weaken output safety or add per-sample serial queries that erase its timing benefit. A following run starts from deterministic application configuration.
 
-## Historical UI/simulator refinement note
+### Queue/rendering contract
 
-- Adaptive sweeps use one multiline editor with a `start, stop, step` segment
-  on each line. The core parser, not Tk widgets, owns validation and value generation.
-- Sweep and Settings boolean controls are colored toggle buttons rather than native checkbox widgets.
-- Source/measure range rows use `label + entry + Auto` in one row; Auto disables the entry and remains clickable only when the sweep panel is editable.
-- Current-source diode debug simulation now inverts the voltage-source diode I(V) curve, so the named debug model behaves consistently across source modes.
-- Mouse-wheel zoom targets only the subplot under the pointer; Ctrl still zooms X, default/Shift zooms Y.
-- Log page height is refreshed when the content canvas resizes, and preset action buttons expand with the pane.
+The worker may produce points faster than Matplotlib should redraw. Queue processing is bounded and live plotting is throttled independently of acquisition timing.
 
+Time-plot preferences are display policy only:
 
-## Historical theme/adaptive polish note
+- marker mode (`Auto` / `On` / `Off`);
+- live history (`All data` / `Last N points`);
+- refresh interval.
 
-- Theme names are now `Light`, `Dark`, and `Debug`. `Light` is the default clean theme; `Debug` is the renamed high-border layout-inspection theme. Existing saved `High contrast` migrates to `Debug`.
-- Common sweep safety controls are intentionally above dynamic sweep controls. Do not move Compliance/NPLC/Source range/Measure range below the Adaptive editor, because that hides range settings in narrow panes.
-- Splitters use the same soft themed paned-window background for the main left/right pane and the plot/trace pane.
+`Last N points` applies to the live Time display path before expensive coordinate preparation. It must never truncate `_live_points`, completed `SweepResult.points`, CSV/project data, or later analysis. Completed large Time traces show the full time range, using extrema-preserving display reduction when needed.
 
+### Settings contract
 
-## Historical visual responsiveness note
+The active desktop persistence owner in `1.1b6` is the flat dataclass `keith_ivt.data.settings.AppSettings` stored in `config/settings.json`. `sanitize_settings_dict()` supplies backward-compatible coercion/defaults. See `SETTINGS_COMPATIBILITY.md`. There is no alternate settings model.
 
-- Navigation is now a push-side rail, not an overlay drawer. It reserves column 0 and the workspace uses column 1. It no longer auto-hides on outside clicks.
-- The Light theme is the default modern card-style theme; Debug keeps strong borders for layout inspection.
-- Sweep content is scrollable from child widgets at large UI scales, including Adaptive mode rows.
-- Operator and status bars follow the workspace column so the side rail does not cover them.
+## Map Reconstruction boundary
+
+`src/map_reconstruction/` is an independent optional application. Its core dependency direction is:
+
+```text
+UI -> preparation/reconstruction/processing/QC/project IO -> NumPy
+```
+
+Qt/PyQtGraph remain optional GUI dependencies. Importers, preparation, numerical reconstruction, processing, project IO and QC should remain headless-testable where practical.
+
+### Three-stage workspace
+
+The UI exposes three explicit stages in a `QStackedWidget`:
+
+1. **Signal Preparation** — source signal selection and time-domain baseline preparation;
+2. **Reconstruction** — geometry/registration/reconstruction/QC;
+3. **Map Analysis** — post-reconstruction scientific processing and display controls.
+
+Preparation produces a display/reconstruction input without mutating imported source arrays. Reconstruction results remain authoritative raw values; processing/color display state is downstream.
+
+Opening a genuinely new CSV is a workspace replacement operation. The candidate is parsed before the current workspace is discarded. Existing meaningful work receives the Save/Discard/Cancel guard. A successful new-source replacement clears stale reconstruction/analysis state and returns to Stage 1; an invalid/cancelled replacement preserves the old workspace.
+
+### Project contract
+
+`project_io.py` owns the versioned `.hmmap` ZIP/JSON format, embedded original source bytes, metadata and hash verification. Projects reopen from the embedded authoritative source and restore persisted workflow settings; a cached displayed map is not the scientific source of truth.
+
+See `MAP_PROJECT_FORMAT.md` for the archive contract.
+
+### Processing/display contract
+
+Raw reconstructed values, processed values and display scaling are distinct layers:
+
+- raw CSV export writes authoritative reconstruction values;
+- processed CSV export writes the scientific processed values plus metadata;
+- display-unit scaling and color limits do not overwrite scientific arrays;
+- percentile color controls represent distribution percentiles, not percentages of the maximum;
+- palette flipping and manual min/max are display controls.
+
+## Extension boundaries
+
+- Hardware-specific SCPI belongs in instrument/driver implementations, not Tk widgets.
+- New sweep generation belongs in sweep/planning logic, not UI widgets.
+- New persisted settings require backward-compatible defaults and Settings round-trip coverage.
+- Public file/schema changes require updates to `TRACE_SCHEMA.md` or `MAP_PROJECT_FORMAT.md` plus compatibility tests.
+- UI composition roots should remain small; put behavior in the responsible controller/mixin/module.
+
+See `DRIVER_SWEEP_EXTENSION_GUIDE.md` for driver/sweep extension patterns and `AGENTS.md` for change/safety discipline.
+
+## Release validation boundary
+
+Automated source validation does not equal hardware validation.
+
+- Core HappyMeasure tests run in the Windows Python matrix.
+- Map Reconstruction has a dedicated Windows/Python 3.12 offscreen Qt gate that installs real `.[map]` dependencies.
+- Portable Windows packaging, desktop visual checks, no-DUT communication checks and dummy-load/real-instrument behavior remain explicit release gates documented in `RELEASE_CHECKLIST.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.

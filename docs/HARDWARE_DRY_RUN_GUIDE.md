@@ -14,13 +14,16 @@ Do not run a sweep first. Confirm communication and force output off first.
 4. Confirm the serial cable/adapter is visible in Windows Device Manager.
 5. Note the COM port and baud rate. Keithley 2400 units commonly use 9600 baud, but verify the instrument menu.
 
-## Step 1 — simulator gate
+## Step 1 — source/simulator gate
+
+Before real hardware work, the core automated source gate should be green. A local core check is:
 
 ```powershell
-python tests/run_full_validation.py
+python -m pip install -e ".[dev]"
+python -m pytest -q tests/common tests/happymeasure
 ```
 
-Do not continue if this fails.
+Map Reconstruction has a separate optional Qt gate and is not required merely to perform the hardware dry run. For a complete release validation environment, follow `RELEASE_CHECKLIST.md`.
 
 ## Step 2 — hardware preflight
 
@@ -32,7 +35,11 @@ Equivalent command:
 python -m happymeasure.hardware_preflight COM3 --baud 9600
 ```
 
-Legacy equivalent remains supported during the alpha migration: `python -m keith_ivt.hardware_preflight COM3 --baud 9600`.
+The compatibility namespace remains supported:
+
+```powershell
+python -m keith_ivt.hardware_preflight COM3 --baud 9600
+```
 
 Expected behavior:
 
@@ -43,14 +50,7 @@ Output OFF command sent successfully
 PASS hardware preflight
 ```
 
-This path sends only:
-
-```text
-*IDN?
-:OUTP OFF
-```
-
-It does not source voltage or current.
+This path sends only the communication/output-off commands documented in `HARDWARE_PREFLIGHT.md`; it does not source voltage or current or run a sweep.
 
 ## Step 3 — UI connection check
 
@@ -60,6 +60,8 @@ It does not source voltage or current.
 4. Click Connect.
 5. Confirm the detected model appears under Hardware and in the status bar.
 6. Click Disconnect and confirm the status returns to disconnected.
+
+The built-in **Hardware Diagnostics** may also be used for its explicit no-DUT/output-off communication check. It is not a substitute for the staged release protocol.
 
 ## Step 4 — first real sweep recommendation
 
@@ -85,17 +87,8 @@ Watch the instrument output indicator. Press EMERGENCY STOP if anything looks wr
 
 ## Stop/Abort expectation
 
-The stop path requests stop from the UI thread and the worker runner sends output off through the instrument context manager. The new serial safety layer retries transient serial failures and uses a best-effort output-off guard, but real hardware output-off must still be visually confirmed on the instrument.
+The stop path requests stop from the UI thread and the worker runner sends output off through the instrument context manager. The serial safety layer retries transient serial failures and uses a best-effort output-off guard, but real hardware output-off must still be visually confirmed on the instrument.
 
 ## Record results
 
-After the test, save:
-
-```text
-logs/console_last_run.log
-logs/error.log
-logs/log.txt
-exported CSV
-screenshot of UI status bar
-instrument model/firmware from *IDN?
-```
+After the test, save the relevant logs, exported CSV, UI status screenshot, and instrument model/firmware from `*IDN?` as described in `HARDWARE_VALIDATION_PROTOCOL.md`.

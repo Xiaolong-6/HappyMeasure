@@ -30,9 +30,7 @@ def _profile_name(cfg) -> str:
     return (
         "Fast"
         if bool(getattr(cfg, "fast_acquisition", False))
-        else "Custom"
-        if bool(getattr(cfg, "custom_acquisition", False))
-        else "Standard"
+        else "Custom" if bool(getattr(cfg, "custom_acquisition", False)) else "Standard"
     )
 
 
@@ -58,9 +56,7 @@ def _acquisition_metadata(cfg) -> dict[str, Any]:
         resolved = resolve_time_acquisition(cfg)
     except Exception:
         fast = bool(getattr(cfg, "fast_acquisition", False))
-        sampling_policy, effective_interval_s = _sampling_contract(
-            cfg, as_fast_as_possible=fast
-        )
+        sampling_policy, effective_interval_s = _sampling_contract(cfg, as_fast_as_possible=fast)
         return {
             "acquisition_profile": profile,
             "fast_acquisition": fast,
@@ -77,9 +73,7 @@ def _acquisition_metadata(cfg) -> dict[str, Any]:
             "display_during_run": bool(getattr(cfg, "display_during_run", True)),
             "measurement_only_read": bool(getattr(cfg, "measurement_only_read", True)),
             "range_telemetry": bool(getattr(cfg, "range_telemetry", False)),
-            "source_write_each_sample": bool(
-                getattr(cfg, "source_write_each_sample", False)
-            ),
+            "source_write_each_sample": bool(getattr(cfg, "source_write_each_sample", False)),
             "trigger_delay_s": float(getattr(cfg, "trigger_delay_s", 0.0)),
         }
 
@@ -281,12 +275,8 @@ def save_combined_csv(results: Iterable[SweepResult], path: str | Path) -> Path:
     same_mode = all(r.config.mode == first.config.mode for r in results)
     first_axis = [p.source_value for p in first.points]
     first_elapsed = [p.elapsed_s for p in first.points]
-    same_source_axis = all(
-        [p.source_value for p in r.points] == first_axis for r in results
-    )
-    same_elapsed_axis = all(
-        [p.elapsed_s for p in r.points] == first_elapsed for r in results
-    )
+    same_source_axis = all([p.source_value for p in r.points] == first_axis for r in results)
+    same_elapsed_axis = all([p.elapsed_s for p in r.points] == first_elapsed for r in results)
     # Wide format reuses the first trace's elapsed column. For Constant
     # Time that is a data corruption risk when two traces share the same
     # source values but have different acquisition timestamps.

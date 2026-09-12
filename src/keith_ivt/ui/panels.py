@@ -213,7 +213,7 @@ class PanelBuilderMixin(UiMixinTyping):
             "Temporary cache",
             self.cache_enabled,
             2,
-            "Optional alpha cache during long sweeps. Default OFF.",
+            "Optional temporary cache during long sweeps. Default OFF.",
         )
         self._entry(
             box,

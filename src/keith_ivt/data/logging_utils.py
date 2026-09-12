@@ -7,7 +7,7 @@ from keith_ivt.data.settings import clamp_log_max_bytes
 
 
 class AppLog:
-    """Small rotating text log for offline-alpha UI state messages."""
+    """Small rotating text log for offline UI state messages."""
 
     def __init__(self, path: str | Path = "logs/log.txt", max_bytes: int = 1_000_000) -> None:
         self.path = Path(path)

@@ -23,6 +23,13 @@ echo Working directory: "%PROJECT_DIR%"
 echo ============================================
 echo.
 
+python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Python 3.11 or newer is required ^(pyproject requires-python ^>=3.11^).
+    set "EXITCODE=1"
+    goto END
+)
+
 if not exist "%VENV_PY%" (
     echo [INFO] Virtual environment not found. Creating...
     call :CREATE_OR_REPAIR_VENV
@@ -127,7 +134,7 @@ echo.
 echo Troubleshooting steps:
 echo 1. Run tools\validation\Run_Full_Validation.bat for full diagnostics
 echo 2. Check logs\error.log for detailed error messages
-echo 3. Ensure Python 3.10+ is installed and in PATH
+echo 3. Ensure Python 3.11+ is installed and in PATH
 echo 4. Verify pyproject.toml exists and is valid
 echo.
 goto END
