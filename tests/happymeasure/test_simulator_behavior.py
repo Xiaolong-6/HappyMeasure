@@ -70,10 +70,20 @@ def test_simulator_compliance_and_fixed_ranges_have_effect(monkeypatch):
         auto_measure_range=False,
         measure_range=4.0,
     )
-    result = run_linear(cfg)
-    # Source is clipped to +/-1 mA before measuring; measurement range then clips voltage to +/-4 V.
-    assert [round(p.source_value, 6) for p in result.points] == [-0.001, 0.0, 0.001]
-    assert [round(p.measured_value, 6) for p in result.points] == [-4.0, 0.0, 4.0]
+    # Runner-level validation now rejects out-of-range requests. Exercise the
+    # simulator's lower-level clipping behavior directly instead.
+    with SimulatedKeithley(resistance_ohm=10_000.0, noise_fraction=0.0, model_name=None) as inst:
+        inst.reset()
+        inst.configure_for_sweep(cfg)
+        clipped = []
+        measured = []
+        for requested in (-2e-3, 0.0, 2e-3):
+            inst.set_source(cfg.source_scpi, requested)
+            source, value = inst.read_source_and_measure()
+            clipped.append(source)
+            measured.append(value)
+    assert [round(value, 6) for value in clipped] == [-0.001, 0.0, 0.001]
+    assert [round(value, 6) for value in measured] == [-4.0, 0.0, 4.0]
 
     ccfg = SweepConfig(
         mode=SweepMode.CURRENT_SOURCE,

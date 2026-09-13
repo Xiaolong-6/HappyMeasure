@@ -6,6 +6,11 @@ from importlib import import_module
 from typing import Any, Optional
 
 from keith_ivt.acquisition import resolve_time_acquisition
+from keith_ivt.drivers.base import (
+    DriverCapabilities,
+    instrument_model_from_idn,
+    supports_fast_acquisition_for_idn,
+)
 from keith_ivt.instrument.base import SourceMeter
 from keith_ivt.services.serial_safety import SerialRetryPolicy
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind
@@ -13,6 +18,7 @@ from keith_ivt.models import SenseMode, SweepConfig, SweepKind
 _SERIAL_IMPORT_ERROR: ImportError | None
 _KEITHLEY_OVERFLOW_SENTINEL = 9.91e37
 _KEITHLEY_OVERFLOW_TOLERANCE = 0.01e37
+_2400_MODELS = {"2400", "2401", "2410", "2420", "2430", "2440"}
 try:
     serial: Any = import_module("serial")
 except ImportError as exc:  # pragma: no cover
@@ -93,7 +99,16 @@ class Keithley2400Serial(SourceMeter):
         return self.retry_policy.run(lambda: self._query_once(command), label=f"query {command!r}")
 
     def identify(self) -> str:
-        return self.query("*IDN?")
+        idn = self.query("*IDN?")
+        model = instrument_model_from_idn(idn)
+        self.capabilities = DriverCapabilities(
+            name=f"Keithley {model}" if model else "Detected serial source-meter",
+            vendor="Keithley" if "KEITHLEY" in idn.upper() else "unknown",
+            model_family="2400-series-smu" if model in _2400_MODELS else "generic-smu",
+            supports_front_rear=model in _2400_MODELS,
+            supports_fast_acquisition=supports_fast_acquisition_for_idn(idn),
+        )
+        return idn
 
     def beep(self, frequency_hz: float = 1000.0, duration_s: float = 0.1) -> None:
         frequency = float(frequency_hz)
@@ -237,7 +252,7 @@ class Keithley2400Serial(SourceMeter):
 
     def output_off(self) -> None:
         # Safety commands must never be reported as successful when the serial
-        # write failed.  Let the error propagate to SweepRunner/context cleanup.
+        # write failed. Let the error propagate to SweepRunner/context cleanup.
         try:
             self.write(":OUTP OFF")
         finally:

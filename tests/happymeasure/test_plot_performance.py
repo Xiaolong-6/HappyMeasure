@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from unittest.mock import Mock
 
 from keith_ivt.ui.plot_optimizer import FastPlotRenderer, PlotOptimizer
@@ -31,13 +30,15 @@ class TestPlotOptimizer:
         assert x_ds[0] == 0
         assert x_ds[-1] == 999
 
-    def test_frame_rate_limiting(self) -> None:
+    def test_frame_rate_limiting(self, monkeypatch) -> None:
+        now = [100.0]
+        monkeypatch.setattr("keith_ivt.ui.plot_optimizer.time.monotonic", lambda: now[0])
         optimizer = PlotOptimizer()
 
         assert optimizer.should_redraw() is True
         optimizer.mark_draw_complete()
         assert optimizer.should_redraw() is False
-        time.sleep(0.06)
+        now[0] += 0.051
         assert optimizer.should_redraw() is True
 
     def test_line_cache_reuses_existing_artist(self) -> None:

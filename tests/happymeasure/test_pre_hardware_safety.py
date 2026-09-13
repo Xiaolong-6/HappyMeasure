@@ -56,7 +56,7 @@ def test_sweep_runner_turns_output_off_after_read_exception() -> None:
     assert meter.calls[-1] == "off"
 
 
-def test_sweep_runner_turns_output_off_when_stop_requested_before_first_point() -> None:
+def test_sweep_runner_stop_before_first_point_never_enables_output() -> None:
     meter = RecordingMeter()
     runner = SweepRunner(meter)
     cfg = SweepConfig(
@@ -64,7 +64,7 @@ def test_sweep_runner_turns_output_off_when_stop_requested_before_first_point() 
     )
     result = runner.run(cfg, should_stop=lambda: True)
     assert result.points == []
-    assert "on" in meter.calls
+    assert "on" not in meter.calls
     assert meter.calls[-1] == "off"
     assert not any(call.startswith("set:") for call in meter.calls)
 

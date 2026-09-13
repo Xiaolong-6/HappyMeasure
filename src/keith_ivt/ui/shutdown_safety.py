@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from tkinter import messagebox
 
+from keith_ivt.data.backup import autosave_result
+from keith_ivt.models import SweepResult
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 
@@ -76,8 +78,41 @@ class ShutdownSafetyMixin(UiMixinTyping):
             self.log_event("Measurement cleanup completed; closing application.")
             self.root.destroy()
 
+    def _rescue_partial_result(self, exc: Exception) -> SweepResult | None:
+        config = getattr(self, "_live_config", None)
+        points = list(getattr(self, "_live_points", []) or [])
+        if config is None or not points:
+            return None
+
+        first_line = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+        result = SweepResult(
+            config=config,
+            points=points,
+            warnings=[f"Partial data recovered after measurement error: {first_line}"],
+        )
+        setattr(self, "_last_result", result)
+
+        try:
+            trace = self._datasets.add_result(result, f"{config.device_name} (partial)")
+            setattr(self, "_selected_trace_id", trace.trace_id)
+            self._refresh_trace_list()
+            self.log_event(f"Recovered {len(points)} partial point(s) into the trace list.")
+        except Exception as dataset_exc:
+            self.log_event(f"Partial dataset registration failed: {dataset_exc}")
+
+        try:
+            backup_path = autosave_result(result)
+            setattr(self, "_last_backup_path", backup_path)
+            self.backup_text.set(f"Backup: {backup_path.name}")
+            self._mark_last_save("error-backup")
+            self.log_event(f"Partial measurement auto-backup saved: {backup_path}")
+        except Exception as backup_exc:
+            self.log_event(f"Partial measurement backup failed: {backup_exc}")
+        return result
+
     def _handle_error(self, exc: Exception) -> None:
         close_after = bool(getattr(self, "_close_after_sweep", False))
+        self._rescue_partial_result(exc)
         super()._handle_error(exc)
         if close_after:
             self._close_after_sweep = False

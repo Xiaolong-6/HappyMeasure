@@ -152,6 +152,22 @@ class SweepRunner:
             if current_range_control is not None:
                 state = self._initialize_current_range_state(config, current_range_control)
                 last_actual_range_A = state.actual_range_A
+
+            # Never enable output before the first requested source value is
+            # loaded. This avoids a transient at a reset/default setpoint and
+            # makes Stop-before-first-point a true no-output path.
+            if _should_stop():
+                return SweepResult(config=config, points=[])
+            initial_source: float | None
+            if config.sweep_kind is SweepKind.CONSTANT_TIME:
+                initial_source = float(config.constant_value)
+            else:
+                initial_source = float(values[0]) if values else None
+            if initial_source is None:
+                return SweepResult(config=config, points=[])
+            self.instrument.set_source(config.source_scpi, initial_source)
+            if _should_stop():
+                return SweepResult(config=config, points=[])
             self.instrument.output_on()
 
             is_continuous_time = (
@@ -160,7 +176,6 @@ class SweepRunner:
             if config.sweep_kind is SweepKind.CONSTANT_TIME:
                 index = 0
                 slot_index = 0
-                self.instrument.set_source(config.source_scpi, config.constant_value)
                 t0_ns = _acquisition_clock_ns()
                 next_deadline_ns = t0_ns
                 elapsed_before_pause_ns = 0
@@ -182,10 +197,6 @@ class SweepRunner:
                     if was_paused:
                         next_deadline_ns = _acquisition_clock_ns()
                         if fast_finite:
-                            # Paused time is not acquisition time. Move the
-                            # duration origin forward by the pause duration via
-                            # a fresh origin at resume while preserving elapsed
-                            # time already acquired.
                             t0_ns = next_deadline_ns - elapsed_before_pause_ns
                     if acquisition.source_write_each_sample:
                         self.instrument.set_source(config.source_scpi, config.constant_value)
@@ -203,8 +214,6 @@ class SweepRunner:
                     )
                     if stable_read is None:
                         break
-                    # Every completed acquisition consumes one scheduled slot,
-                    # whether the sample is stored or skipped as overflow.
                     slot_index += 1
                     assert t0_ns is not None
                     elapsed_ns = _acquisition_clock_ns() - t0_ns
@@ -260,7 +269,8 @@ class SweepRunner:
                         _interruptible_sleep(0.05, _should_stop)
                     if _should_stop():
                         break
-                    self.instrument.set_source(config.source_scpi, source_value)
+                    if index > 1:
+                        self.instrument.set_source(config.source_scpi, source_value)
                     _interruptible_sleep(config.delay_s, _should_stop)
                     if _should_stop():
                         break

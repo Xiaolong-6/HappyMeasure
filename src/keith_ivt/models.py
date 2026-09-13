@@ -269,12 +269,15 @@ def validate_config(config: SweepConfig) -> None:
     if not config.auto_measure_range and not math.isfinite(float(config.measure_range)):
         raise ValueError("Fixed measure range must be finite when Auto measure range is off.")
 
+    requested_source_values: list[float]
     if config.sweep_kind is SweepKind.MANUAL_OUTPUT:
         if not math.isfinite(float(config.constant_value)):
             raise ValueError("Manual output value must be finite.")
+        requested_source_values = [float(config.constant_value)]
     elif config.sweep_kind is SweepKind.CONSTANT_TIME:
         if not math.isfinite(float(config.constant_value)):
             raise ValueError("Constant value must be finite.")
+        requested_source_values = [float(config.constant_value)]
         if not config.continuous_time:
             if not math.isfinite(float(config.duration_s)):
                 raise ValueError("Duration must be finite.")
@@ -294,11 +297,22 @@ def validate_config(config: SweepConfig) -> None:
                     f"Use at least about {min_interval:.3f} s."
                 )
     elif config.sweep_kind is SweepKind.ADAPTIVE:
-        source_values_for_config(config)
+        requested_source_values = source_values_for_config(config)
     else:
-        source_values_for_config(config)
-    if not config.auto_source_range and config.source_range <= 0:
-        raise ValueError("Fixed source range must be positive when Auto source range is off.")
+        requested_source_values = source_values_for_config(config)
+
+    if not config.auto_source_range:
+        if config.source_range <= 0:
+            raise ValueError("Fixed source range must be positive when Auto source range is off.")
+        maximum_requested = max(
+            (abs(float(value)) for value in requested_source_values), default=0.0
+        )
+        tolerance = max(1e-15, abs(float(config.source_range)) * 1e-12)
+        if maximum_requested > float(config.source_range) + tolerance:
+            raise ValueError(
+                f"Requested source magnitude {maximum_requested:.12g} exceeds fixed "
+                f"source range {config.source_range:.12g}."
+            )
     if not config.auto_measure_range and config.measure_range <= 0:
         raise ValueError("Fixed measure range must be positive when Auto measure range is off.")
     if config.compliance <= 0:
