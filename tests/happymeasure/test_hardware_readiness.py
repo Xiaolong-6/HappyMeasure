@@ -49,6 +49,10 @@ def test_hardware_preflight_identifies_instrument_and_confirms_output_off(monkey
         def output_off(self):
             calls.append("output_off")
 
+        def query(self, command):
+            calls.append(f"query:{command}")
+            return "0"
+
         def close(self):
             calls.append("close")
 
@@ -59,4 +63,12 @@ def test_hardware_preflight_identifies_instrument_and_confirms_output_off(monkey
     assert result.port == "COM9"
     assert "MODEL 2400" in result.idn
     assert result.output_off_confirmed is True
-    assert calls == ["init:COM9:9600", "connect", "identify", "output_off", "close"]
+    assert calls == [
+        "init:COM9:9600",
+        "connect",
+        "output_off",
+        "query::OUTP?",
+        "identify",
+        "output_off",
+        "close",
+    ]

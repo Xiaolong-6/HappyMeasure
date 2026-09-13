@@ -24,6 +24,7 @@ from keith_ivt.ui.preset_restore_panel import PresetRestorePanelMixin
 from keith_ivt.ui.settings_panel import SettingsPanelMixin
 from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
 from keith_ivt.ui.settings_roundtrip import SettingsRoundTripMixin
+from keith_ivt.ui.shutdown_safety import ShutdownSafetyMixin
 from keith_ivt.ui.status_bar import StatusBarMixin
 from keith_ivt.ui.sweep_config import SweepConfigMixin
 from keith_ivt.ui.sweep_controller import SweepControllerMixin
@@ -54,6 +55,7 @@ class AppChromeMixin(
 class AppWorkflowMixin(
     AppStateBridgeMixin,
     FastAcquisitionMixin,
+    ShutdownSafetyMixin,
     SweepConfigMixin,
     HardwareControllerMixin,
     SweepControllerMixin,

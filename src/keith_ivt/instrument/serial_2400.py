@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from keith_ivt.acquisition import resolve_time_acquisition
 from keith_ivt.instrument.base import SourceMeter
-from keith_ivt.services.serial_safety import OutputOffGuard, SerialRetryPolicy
+from keith_ivt.services.serial_safety import SerialRetryPolicy
 from keith_ivt.models import SenseMode, SweepConfig, SweepKind
 
 _SERIAL_IMPORT_ERROR: ImportError | None
@@ -29,7 +29,7 @@ class Keithley2400Serial(SourceMeter):
         self,
         port: str,
         baud_rate: int = 9600,
-        timeout: float = 20.0,
+        timeout: float = 5.0,
         retry_policy: SerialRetryPolicy | None = None,
     ):
         self.port = port
@@ -85,6 +85,11 @@ class Keithley2400Serial(SourceMeter):
         return raw
 
     def query(self, command: str) -> str:
+        # READ? is an acquisition operation, not an idempotent status query.
+        # Retrying it can silently create an extra sample and also delays an
+        # operator Stop while the worker is blocked in serial I/O.
+        if command.strip().upper() == ":READ?":
+            return self._query_once(command)
         return self.retry_policy.run(lambda: self._query_once(command), label=f"query {command!r}")
 
     def identify(self) -> str:
@@ -156,9 +161,6 @@ class Keithley2400Serial(SourceMeter):
         if acquisition.apply_instrument_overrides:
             self.write(f":TRIG:DEL {acquisition.trigger_delay_s:.12g}")
             self.write(f":SENS:FUNC:CONC {'ON' if acquisition.concurrent_measurement else 'OFF'}")
-            # On a 2400-series SMU, changing concurrent-function state can
-            # replace the selected function. Restore the configured quantity
-            # after that command; this is setup-only, never a Fast hot-path write.
             self.write(f":SENS:FUNC '{meas}'")
             if acquisition.digital_filter:
                 self.write(":SENS:AVER:TCON REP")
@@ -177,9 +179,6 @@ class Keithley2400Serial(SourceMeter):
         else:
             self.write(f":FORM:ELEM {src},{meas}")
 
-        # Telemetry-off mode deliberately snapshots range only at setup. The
-        # runner can still call its existing range-state API, but those calls
-        # hit the cache rather than adding AUTO?/RANGE? serial queries per point.
         if not self._range_telemetry and config.auto_measure_range:
             try:
                 self._cached_measure_range = float(self.query(f":SENS:{meas}:RANG?"))
@@ -206,7 +205,6 @@ class Keithley2400Serial(SourceMeter):
 
     def _normalise_measurement(self, value: float) -> float:
         """Convert only the documented Keithley overflow sentinel to NaN."""
-
         numeric = float(value)
         if abs(abs(numeric) - _KEITHLEY_OVERFLOW_SENTINEL) <= _KEITHLEY_OVERFLOW_TOLERANCE:
             self._measurement_overflow_pending = True
@@ -214,8 +212,6 @@ class Keithley2400Serial(SourceMeter):
         return numeric
 
     def consume_measurement_overflow(self) -> bool:
-        """Return whether the most recent READ? contained Keithley's overflow sentinel."""
-
         overflowed = self._measurement_overflow_pending
         self._measurement_overflow_pending = False
         return overflowed
@@ -240,10 +236,12 @@ class Keithley2400Serial(SourceMeter):
         self._range_telemetry = True
 
     def output_off(self) -> None:
-        OutputOffGuard().turn_off(
-            lambda: self.write(":OUTP OFF"), context="Keithley2400Serial.output_off"
-        )
-        self._restore_fast_acquisition_settings()
+        # Safety commands must never be reported as successful when the serial
+        # write failed.  Let the error propagate to SweepRunner/context cleanup.
+        try:
+            self.write(":OUTP OFF")
+        finally:
+            self._restore_fast_acquisition_settings()
 
     def get_current_autorange(self) -> bool:
         if not self._range_telemetry:
@@ -254,9 +252,6 @@ class Keithley2400Serial(SourceMeter):
         return value
 
     def set_current_autorange(self, enabled: bool) -> None:
-        # A setter stays a single write: range snapshots belong to
-        # configure_for_sweep, set_current_range, and get_current_range so the
-        # historical command sequence — and the Fast hot path — gain no query.
         self.write(f":SENS:CURR:RANG:AUTO {'ON' if enabled else 'OFF'}")
         self._cached_autorange = bool(enabled)
 
