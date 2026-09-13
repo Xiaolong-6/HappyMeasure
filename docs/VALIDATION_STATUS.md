@@ -2,51 +2,49 @@
 
 Release candidate: **HappyMeasure `1.1b6`**
 
-This file records only the current gate. Historical test counts belong in Git history and release notes.
+This file records the current release gate. Historical implementation notes and superseded artifact measurements belong in Git history/release records, not here.
+
+## Current decision
+
+Status on 2026-09-13: **SOURCE READY**.
+
+The automated source gate is green. Desktop/package smoke and staged real-hardware validation are still required before `v1.1b6` can be described as hardware-verified or released.
 
 ## Automated source gate
 
-Required before merge/tag:
+Required before hardware validation or tagging:
 
-- Python 3.11/3.12/3.13/3.14 Windows CI: compileall, Black, Ruff, mypy, full pytest.
+- Windows Python 3.11/3.12/3.13/3.14: compileall, Black, Ruff, mypy and core pytest.
 - Python 3.14 core coverage: `>=95%`.
-- Dedicated Windows/Python 3.12 Map Reconstruction job with `.[dev,map]` and `QT_QPA_PLATFORM=offscreen`.
-- Map job explicitly imports PySide6 and pyqtgraph before tests so missing Qt cannot appear as a successful all-skipped job.
+- Dedicated Windows/Python 3.12 Map Reconstruction job with `.[dev,map]`, PySide6/pyqtgraph import checks, mypy and the offscreen Qt release gate.
 - Version/namespace/settings/export/safety regressions pass.
 
-Status on creation of the `1.1b6` hardening branch: **pending CI run**. The local
-results below were refreshed on 2026-09-12; they do not claim CI completion.
+Audited green baseline on 2026-09-13:
 
-## Local automated source gate (operator machine, Python 3.12.10)
+- commit `19983f1` (`P1` release-correctness hardening);
+- GitHub Actions run `34763860068`: all five jobs passed;
+- Python 3.11, 3.12, 3.13 and 3.14 core jobs: pass;
+- Python 3.14 core coverage: **95.04%** (required `>=95%`);
+- Map Reconstruction Windows/Python 3.12 Qt gate: pass;
+- hardware preflight parser/verification coverage: 100% in the coverage report.
 
-Run on `codex/release-1.1b6-hardening` before release packaging:
+`P2` is the release/audit closeout: operator safety wording, release documentation and regression checks. The **SOURCE READY** decision remains valid only while current `main`/HEAD CI stays green.
 
-- `tests/common` + `tests/happymeasure`: **0 failed** (495 collected;
-  6 Tk smoke tests are skipped unless `HAPPYMEASURE_RUN_TK_SMOKE=1`).
-- Core coverage (`keith_ivt`): **95.12%** (gate `>=95%`).
-- Map Reconstruction gate with real Qt (`PySide6 6.11.2`, `QT_QPA_PLATFORM=offscreen`,
-  zero skips): **175 passed**.
-- `compileall`, Black, Ruff, mypy (`src/keith_ivt`, `src/happymeasure`,
-  `src/map_reconstruction`): pass.
-- Tk smoke with `HAPPYMEASURE_RUN_TK_SMOKE=1`: **6 passed**; the focused stale
-  Constant-Time widget regression also passes.
-- `tests/run_full_validation.py`: **pass** after keeping Map as an independent
-  Qt gate and scoping the `>=95%` coverage threshold to core.
-- Existing packaged executables: `HappyMeasure.exe` and `MapReconstruction.exe`
-  each launched and stayed alive for 5 seconds, then were closed. A relative
-  path scan of the Map bundle found no `keith_ivt`, `serial`, or `tkinter`
-  package tree.
-- Existing ZIP evidence: `HappyMeasure-1.1b6-windows-portable.zip` is 46,456,082
-  bytes (`SHA-256 211B1337035906B0B60C6BC1D3CBC5F36D2BD030CC80F1C88E27CA075259BB8B`);
-  `MapReconstruction-1.1b6-windows-portable.zip` is 277,356,207 bytes
-  (`SHA-256 8642ABD66500901A7D2D1DA3D4090B10D48F589E19ACE36118606D945559D59A`).
+## Safety hardening included in this candidate
 
-Local result: **SOURCE READY** (operator desktop UX list, CI matrix, and
-hardware gate still pending below).
+- `OUTPUT OFF` write failures from the real serial driver propagate instead of being silently converted into success.
+- Hardware preflight sends `OUTPUT OFF`, queries `:OUTP?`, and requires a reported off state before passing.
+- `READ?` is not automatically replayed after a timeout; the default serial timeout is bounded for stop responsiveness.
+- STOP is explicitly cooperative: active serial I/O must return before software cleanup can complete. For immediate physical output-off, use the instrument front panel.
+- Closing the main window during a run requests Stop and waits for cleanup instead of destroying the UI immediately.
+- The first requested source setpoint is written before `OUTPUT ON`.
+- Fixed source ranges reject requested setpoints outside the configured range before a run starts.
+- Measurement failures can rescue already-acquired points into a partial trace/backup instead of discarding all collected data.
+- Fast/Custom real-hardware acquisition remains capability-gated; the current release evidence is specifically for Keithley MODEL 2401.
 
-## Desktop gate (operator machine)
+## Desktop/package gate
 
-Still requires local Windows verification after pulling the hardening branch:
+Still requires operator verification on the actual Windows release candidate:
 
 1. HappyMeasure launches at normal and short/low-resolution window sizes.
 2. Settings developer section remains scrollable/reachable after UI Diagnostics.
@@ -54,22 +52,32 @@ Still requires local Windows verification after pulling the hardening branch:
 4. Long live Time plot follows smoothly without axis flicker; completed trace can display the whole run.
 5. Trace save/export names are readable and contain no duplicated tokens.
 6. Map Reconstruction opens maximized; Restore gives a usable normal window.
-7. CSV A → reconstruct/analyse → CSV B correctly resets to the new source/workspace.
+7. CSV A -> reconstruct/analyse -> CSV B resets to the new source/workspace.
 8. `.hmmap` save/open round-trip is coherent.
 9. `Flip color`, manual min/max and percentile controls are visible and responsive.
-10. Windows portable build launches and simulator smoke succeeds.
+10. Fresh Windows portable builds launch and simulator/package smoke succeeds.
+
+Do **not** reuse the previously measured portable ZIP sizes/hashes as final evidence after source changes. Rebuild both packages from the final release commit and record the new size and SHA-256 in the final release record.
 
 ## Hardware gate
 
 Automated tests do **not** certify real hardware.
 
-Before publishing `v1.1b6`, follow `HARDWARE_VALIDATION_PROTOCOL.md`. At minimum repeat the safe 2401 no-DUT/0 V smoke and then the chosen dummy-load/DUT gate. Confirm `OUTPUT OFF` after completion, Stop, Abort, disconnect and error paths.
+Before publishing `v1.1b6`, follow `HARDWARE_VALIDATION_PROTOCOL.md` in order. Begin with no DUT/analog leads, run the output-off preflight, then the no-DUT 2401 smoke, then a known passive load before any real DUT.
 
-Fast/Custom cleanup contract: a run always starts with instrument reset/configuration, so the next run is deterministic. Post-Fast cleanup normalizes operator-facing filter/autozero/display state and always keeps output-off safety primary; it does not claim to restore an unknown arbitrary pre-run front-panel configuration.
+At minimum confirm physical/front-panel `OUTPUT OFF` after:
+
+- normal completion;
+- STOP;
+- Abort/error;
+- disconnect;
+- application close after an active run.
+
+Fast/Custom cleanup contract: every run starts from instrument reset/configuration, so the next run is deterministic. Post-Fast cleanup normalizes operator-facing filter/autozero/display state and keeps output-off safety primary; it does not claim to restore an unknown arbitrary pre-run front-panel configuration.
 
 ## Release status vocabulary
 
-- **SOURCE READY**: automated source/Qt gates pass.
+- **SOURCE READY**: current automated core/Qt gates pass.
 - **DESKTOP READY**: source gates plus local Windows UX/package smoke pass.
-- **HARDWARE VERIFIED**: staged hardware gate also passes.
-- **RELEASED**: tag/release/artifact are published and post-release download/update checks pass.
+- **HARDWARE VERIFIED**: the selected staged real-hardware gate also passes with recorded evidence.
+- **RELEASED**: tag/release/artifacts are published and post-release download/update checks pass.

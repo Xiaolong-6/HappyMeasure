@@ -94,10 +94,40 @@ def test_hardware_protocol_targets_current_release_and_test_layout() -> None:
     assert "v1.2b1 Fast release block" not in text
 
 
+def test_hardware_smoke_runner_targets_current_release() -> None:
+    text = _read(ROOT / "tools" / "hardware" / "keithley2400_smoke.py")
+    assert "1.1b6 Fast release block" in text
+    assert "v1.2b1" not in text
+
+
 def test_current_operator_docs_do_not_reintroduce_old_diary_language() -> None:
     assert "during the alpha migration" not in _read(DOCS / "HARDWARE_DRY_RUN_GUIDE.md").lower()
     assert "during tomorrow's test" not in _read(DOCS / "ERROR_RECOVERY.md").lower()
     assert "future improvements for release" not in _read(DOCS / "TROUBLESHOOTING.md").lower()
+
+
+def test_stop_safety_copy_is_cooperative_not_emergency() -> None:
+    paths = (
+        DOCS / "HARDWARE_DRY_RUN_GUIDE.md",
+        ROOT / "src" / "keith_ivt" / "ui" / "operator_bar.py",
+        ROOT / "src" / "keith_ivt" / "ui" / "panels.py",
+        ROOT / "src" / "keith_ivt" / "ui" / "sweep_controller.py",
+    )
+    for path in paths:
+        text = _read(path)
+        assert "Emergency Stop" not in text
+        assert "Emergency stop requested" not in text
+    assert "cooperative" in _read(DOCS / "HARDWARE_DRY_RUN_GUIDE.md").lower()
+    assert "immediate physical output-off" in _read(
+        ROOT / "src" / "keith_ivt" / "ui" / "operator_bar.py"
+    )
+
+
+def test_preflight_docs_require_output_state_verification() -> None:
+    text = _read(DOCS / "HARDWARE_PREFLIGHT.md")
+    assert ":OUTP?" in text
+    assert "Require an OFF/0 state" in text
+    assert "does not issue READ?" in text
 
 
 def test_versioning_policy_does_not_reuse_published_beta() -> None:

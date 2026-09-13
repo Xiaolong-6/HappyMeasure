@@ -4,26 +4,26 @@ Target: first safe HappyMeasure check with a real Keithley 2400/2450-style sourc
 
 ## Safety principle
 
-Do not run a sweep first. Confirm communication and force output off first.
+Do not run a sweep first. Confirm communication, force output off, and verify the reported output state before any sourced measurement.
 
 ## Step 0 — physical setup
 
 1. Put the instrument in a known idle state.
-2. Remove or protect sensitive DUTs for the first communication test.
-3. Confirm the front/rear terminal selection on the instrument matches the UI setting.
+2. Keep the DUT and analog test leads disconnected for the first communication test.
+3. Confirm the front/rear terminal selection on the instrument matches the intended UI setting.
 4. Confirm the serial cable/adapter is visible in Windows Device Manager.
 5. Note the COM port and baud rate. Keithley 2400 units commonly use 9600 baud, but verify the instrument menu.
 
 ## Step 1 — source/simulator gate
 
-Before real hardware work, the core automated source gate should be green. A local core check is:
+Before real hardware work, the automated source gate should be green. A local core check is:
 
 ```powershell
 python -m pip install -e ".[dev]"
 python -m pytest -q tests/common tests/happymeasure
 ```
 
-Map Reconstruction has a separate optional Qt gate and is not required merely to perform the hardware dry run. For a complete release validation environment, follow `RELEASE_CHECKLIST.md`.
+Map Reconstruction has a separate Qt gate and is not required merely to perform the no-DUT hardware dry run. For the complete release validation environment, follow `RELEASE_CHECKLIST.md`.
 
 ## Step 2 — hardware preflight
 
@@ -41,16 +41,19 @@ The compatibility namespace remains supported:
 python -m keith_ivt.hardware_preflight COM3 --baud 9600
 ```
 
-Expected behavior:
+Expected behavior includes:
 
 ```text
 Opening serial port COM3 at 9600 baud
+Output OFF verified by :OUTP? -> 0
 *IDN? -> KEITHLEY INSTRUMENTS INC.,MODEL 2400,...
-Output OFF command sent successfully
 PASS hardware preflight
+Output OFF confirmed: True
 ```
 
-This path sends only the communication/output-off commands documented in `HARDWARE_PREFLIGHT.md`; it does not source voltage or current or run a sweep.
+This path sends only the communication/output-off commands documented in `HARDWARE_PREFLIGHT.md`; it does not source voltage/current, issue `READ?`, or run a sweep.
+
+If preflight does not pass, do not proceed to a sweep. Confirm physical output-off on the instrument front panel before touching wiring or a DUT.
 
 ## Step 3 — UI connection check
 
@@ -60,14 +63,15 @@ This path sends only the communication/output-off commands documented in `HARDWA
 4. Click Connect.
 5. Confirm the detected model appears under Hardware and in the status bar.
 6. Click Disconnect and confirm the status returns to disconnected.
+7. Confirm the instrument output is physically OFF.
 
 The built-in **Hardware Diagnostics** may also be used for its explicit no-DUT/output-off communication check. It is not a substitute for the staged release protocol.
 
-## Step 4 — first real sweep recommendation
+## Step 4 — first sourced measurement
 
-Use a resistor or dummy load first.
+Use a resistor or other known passive dummy load before a real DUT.
 
-Recommended starting point:
+Recommended conservative starting point:
 
 ```text
 Mode: VOLTAGE source
@@ -83,11 +87,17 @@ Terminal: match the instrument
 Sense: 2-wire unless using a real Kelvin fixture
 ```
 
-Watch the instrument output indicator. Press EMERGENCY STOP if anything looks wrong.
+Before pressing Start, calculate the expected current from the known load and confirm it is comfortably below compliance.
 
-## Stop/Abort expectation
+## STOP / error / close expectation
 
-The stop path requests stop from the UI thread and the worker runner sends output off through the instrument context manager. The serial safety layer retries transient serial failures and uses a best-effort output-off guard, but real hardware output-off must still be visually confirmed on the instrument.
+The HappyMeasure **STOP** control is cooperative. It requests sweep termination and output-off cleanup, but it cannot interrupt a serial transaction already in progress. Active instrument I/O must return before software cleanup can complete.
+
+For an immediate physical hazard response, use the instrument front-panel OUTPUT OFF control rather than relying on the desktop STOP button.
+
+After normal completion, STOP, Abort/error, disconnect, and closing the application after an active run, visually confirm physical/front-panel `OUTPUT OFF` during the hardware validation stage.
+
+A real-driver `OUTPUT OFF` write failure is surfaced as an error; secondary cleanup guards may make another best-effort attempt, but software must not report a hardware-safe pass when output-off cannot be verified.
 
 ## Record results
 

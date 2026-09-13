@@ -68,7 +68,7 @@ class OperatorBarMixin(UiMixinTyping):
         self.pause_btn.grid(row=1, column=1, sticky="ew", padx=6, pady=(3, 0))
         add_tip(
             self.pause_btn,
-            "Pause or resume point collection. Pause holds the current source state; it does not turn output off. Use STOP for output off.",
+            "Pause or resume point collection. Pause holds the current source state; it does not turn output off. Use STOP to request sweep termination and output-off cleanup.",
         )
         self.stop_btn = ttk.Button(
             controls, text="STOP", style="Stop.TButton", command=self.abort_sweep
@@ -76,7 +76,7 @@ class OperatorBarMixin(UiMixinTyping):
         self.stop_btn.grid(row=1, column=2, sticky="ew", padx=(6, 0), pady=(3, 0))
         add_tip(
             self.stop_btn,
-            "Safety stop: abort the sweep and request output off at the next safe point. Confirm Output OFF on the instrument front panel.",
+            "Cooperative STOP: request sweep termination and output-off cleanup at the next safe software point. Active serial I/O cannot be interrupted; use the instrument front panel for immediate physical output-off.",
         )
 
         self._operator_groups = (device_box, operator_box, controls)

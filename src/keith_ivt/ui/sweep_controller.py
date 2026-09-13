@@ -172,7 +172,9 @@ class SweepControllerMixin(UiMixinTyping):
         self._set_run_state("stopping")
         self._reset_live_measurement_status()
         self._close_auto_front_panel_popup()
-        self.log_event("Emergency stop requested.")
+        self.log_event(
+            "Stop requested. Active instrument I/O must return before OUTPUT OFF cleanup can complete."
+        )
 
     def _manual_output_interlock(self, config: SweepConfig) -> None:
         msg = (

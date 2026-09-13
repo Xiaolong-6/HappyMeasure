@@ -485,7 +485,7 @@ def main() -> int:
     ap.add_argument(
         "--release",
         action="store_true",
-        help="add the v1.2b1 Fast release block: Standard, Fast fixed-range, "
+        help="add the 1.1b6 Fast release block: Standard, Fast fixed-range, "
         "Fast Auto-range, pause/resume, stop/restart, SCPI order and artifact bundle",
     )
     ap.add_argument(
@@ -694,7 +694,7 @@ def main() -> int:
             f"stopped={len(stopped['points'])}, restarted={len(restarted['points'])}",
         )
 
-        # R. v1.2b1 Fast release block: Standard, Fast fixed-range, Fast
+        # R. 1.1b6 Fast release block: Standard, Fast fixed-range, Fast
         # Auto-range, SCPI order, overflow audit, and the artifact bundle.
         if args.release:
             (out / "idn.txt").write_text(str(report.get("idn", "")), encoding="utf-8")

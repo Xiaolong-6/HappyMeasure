@@ -552,7 +552,12 @@ class PanelBuilderMixin(UiMixinTyping):
             ),
         ).grid(row=row, column=0, sticky="w", pady=(8, 4))
         row += 1
-        safety = "⚠ Always use the debug simulator before connecting real hardware.\n⚠ Verify wiring and compliance limits externally.\n⚠ The Emergency Stop button requests output-off at the next safe point."
+        safety = (
+            "⚠ Always use the debug simulator before connecting real hardware.\n"
+            "⚠ Verify wiring and compliance limits externally.\n"
+            "⚠ STOP is cooperative: active instrument I/O must return before software OUTPUT OFF cleanup.\n"
+            "⚠ For immediate physical output-off, use the instrument front panel."
+        )
         ttk.Label(
             box,
             text=safety,
