@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from keith_ivt.data.backup import autosave_result
-from keith_ivt.models import SweepResult
+from keith_ivt.models import SweepConfig, SweepResult
 from keith_ivt.ui.mixin_typing import UiMixinTyping
 
 
@@ -12,6 +14,10 @@ class AutoBackupPreferenceMixin(UiMixinTyping):
     in the cooperative MRO. Manual ``backup_now()`` remains available regardless
     of the automatic-backup preference.
     """
+
+    _last_result: SweepResult | None
+    _last_backup_path: Path | None
+    _live_config: SweepConfig | None
 
     def _handle_complete(self, result: SweepResult) -> None:
         was_stopping = self._run_state == "stopping" or self._stop_requested
