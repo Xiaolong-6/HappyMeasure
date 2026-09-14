@@ -26,6 +26,25 @@ class _Var:
         self.value = value
 
 
+class _Widget:
+    def __init__(self) -> None:
+        self.options: dict[str, object] = {}
+
+    def configure(self, **kwargs) -> None:
+        self.options.update(kwargs)
+
+    def winfo_exists(self) -> bool:
+        return True
+
+
+class _Root:
+    def __init__(self) -> None:
+        self.update_calls = 0
+
+    def update_idletasks(self) -> None:
+        self.update_calls += 1
+
+
 class _Delegate:
     def connect_or_disconnect(self) -> None:
         self.delegate_calls += 1
@@ -34,14 +53,30 @@ class _Delegate:
 class _AutoDetectHarness(SerialAutoDetectMixin, _Delegate):
     def __init__(self) -> None:
         self._connected = False
+        self._run_state = "idle"
         self.debug = _Var(False)
         self.port = _Var("COM3")
         self.baud_rate = _Var(9600)
+        self.hardware_profile_text = _Var("--")
+        self.detect_btn = _Widget()
+        self.port_combo = _Widget()
+        self.root = _Root()
         self.logs: list[str] = []
         self.delegate_calls = 0
 
     def log_event(self, message: str) -> None:
         self.logs.append(message)
+
+    def _safe_configure(self, attr: str, **kwargs) -> None:
+        widget = getattr(self, attr, None)
+        if widget is not None:
+            widget.configure(**kwargs)
+
+    def _refresh_port_choices(self) -> list[str]:
+        return [str(self.port.get())]
+
+    def _update_run_button_states(self) -> None:
+        pass
 
 
 def test_available_serial_ports_filters_blanks_and_degrades(monkeypatch) -> None:
@@ -149,6 +184,52 @@ def test_discovery_uses_enumerated_ports_and_can_return_none(monkeypatch) -> Non
 
     assert result is None
     assert calls == [("COM6", 9600)]
+
+
+def test_manual_auto_detect_updates_selectors_and_detected_model(monkeypatch) -> None:
+    harness = _AutoDetectHarness()
+    match = SerialDiscoveryResult(
+        port="COM8",
+        baud_rate=38400,
+        idn="KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0",
+        model="2400",
+    )
+    monkeypatch.setattr(
+        serial_auto_detect,
+        "discover_supported_serial_hardware",
+        lambda **kwargs: match,
+    )
+
+    assert harness.auto_detect_hardware() is True
+
+    assert harness.port.get() == "COM8"
+    assert harness.baud_rate.get() == 38400
+    assert harness.hardware_profile_text.get() == "Keithley 2400 — detected on COM8 @ 38400"
+    assert harness.root.update_calls == 1
+    assert harness.detect_btn.options["text"] == "Auto Detect"
+    assert any("Auto-detected Keithley 2400" in message for message in harness.logs)
+
+
+def test_manual_auto_detect_reports_no_match_without_changing_selection(monkeypatch) -> None:
+    harness = _AutoDetectHarness()
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        serial_auto_detect,
+        "discover_supported_serial_hardware",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        serial_auto_detect.messagebox,
+        "showwarning",
+        lambda title, text: warnings.append((title, text)),
+    )
+
+    assert harness.auto_detect_hardware() is False
+
+    assert harness.port.get() == "COM3"
+    assert harness.baud_rate.get() == 9600
+    assert harness.hardware_profile_text.get() == "No supported Keithley detected"
+    assert warnings and warnings[0][0] == "Hardware not detected"
 
 
 def test_connect_auto_detect_updates_port_and_baud_before_delegate(monkeypatch) -> None:
