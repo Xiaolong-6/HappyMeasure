@@ -21,6 +21,7 @@ from keith_ivt.ui.panels import PanelBuilderMixin
 from keith_ivt.ui.plot_controls import PlotInteractionMixin
 from keith_ivt.ui.plot_panel import PlotPanelMixin
 from keith_ivt.ui.preset_restore_panel import PresetRestorePanelMixin
+from keith_ivt.ui.serial_auto_detect import SerialAutoDetectMixin
 from keith_ivt.ui.settings_panel import SettingsPanelMixin
 from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
 from keith_ivt.ui.settings_roundtrip import SettingsRoundTripMixin
@@ -57,6 +58,7 @@ class AppWorkflowMixin(
     FastAcquisitionMixin,
     ShutdownSafetyMixin,
     SweepConfigMixin,
+    SerialAutoDetectMixin,
     HardwareControllerMixin,
     SweepControllerMixin,
     DataActionMixin,
