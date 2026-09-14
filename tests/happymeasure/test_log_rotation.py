@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from keith_ivt.data.logging_utils import AppLog
+from keith_ivt.data.settings import AppSettings, load_settings, save_settings
 
 
 def test_lowering_log_limit_rotates_existing_oversized_file(tmp_path: Path) -> None:
@@ -32,3 +33,17 @@ def test_write_rotates_before_crossing_configured_limit(tmp_path: Path) -> None:
 
     assert list(tmp_path.glob("log_*.txt"))
     assert "second" in log_path.read_text(encoding="utf-8")
+
+
+def test_record_log_disabled_keeps_ui_line_without_persisting(tmp_path: Path) -> None:
+    settings_path = tmp_path / "settings.json"
+    save_settings(AppSettings(record_log=False), settings_path)
+    load_settings(settings_path)
+    log_path = tmp_path / "disabled" / "log.txt"
+    try:
+        line = AppLog(path=log_path).write("visible in UI only")
+        assert "visible in UI only" in line
+        assert not log_path.exists()
+    finally:
+        # Restore the process-global runtime preference for later tests.
+        load_settings(tmp_path / "missing-default-settings.json")
