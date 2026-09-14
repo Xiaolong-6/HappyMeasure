@@ -181,11 +181,7 @@ def audit_folder(path: Path, app_name: str) -> list[str]:
         rel = item.relative_to(path).as_posix()
         is_file = item.is_file()
         failures.extend(_name_failures(rel, str(path), is_file=is_file))
-        if (
-            is_file
-            and item.suffix.lower() in _TEXT_SUFFIXES
-            and item.stat().st_size <= 2 * MIB
-        ):
+        if is_file and item.suffix.lower() in _TEXT_SUFFIXES and item.stat().st_size <= 2 * MIB:
             text = item.read_text(encoding="utf-8", errors="replace")
             is_internal = rel.lower().startswith("_internal/")
             failures.extend(

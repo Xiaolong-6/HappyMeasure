@@ -9,13 +9,13 @@ and tags are chosen deliberately by a human during release finalization; see
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.1 beta 17"
-VERSION = "1.1b17"
+APP_CODENAME = "1.1 beta 18"
+VERSION = "1.1b18"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.1b17 internal build: narrows HappyMeasure Matplotlib packaging to runtime "
-    "content and hardens artifact privacy/path classification."
+    "1.1b18 internal build: applies the exact formatter output to the portable "
+    "artifact audit after the runtime-slimming change."
 )
 __build_note__ = BUILD_NOTE
