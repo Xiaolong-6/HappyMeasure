@@ -32,7 +32,6 @@ def format_current_range(value_A: float | None) -> str:
             if abs(scaled - round(scaled)) < 1e-9:
                 return f"{int(round(scaled))} {unit}"
             return f"{scaled:.3g} {unit}"
-    return f"{value:.3g} A"
 
 
 def current_range_labels() -> list[str]:
