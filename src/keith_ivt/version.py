@@ -9,13 +9,13 @@ and tags are chosen deliberately by a human during release finalization; see
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.1 beta 15"
-VERSION = "1.1b15"
+APP_CODENAME = "1.1 beta 16"
+VERSION = "1.1b16"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.1b15 internal build: formats the portable artifact audit and makes Map "
-    "dependency checks path-aware so NumPy OpenBLAS is not misclassified as SciPy."
+    "1.1b16 internal build: applies the release formatter to the portable artifact "
+    "audit so the source gate can advance to package validation."
 )
 __build_note__ = BUILD_NOTE

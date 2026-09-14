@@ -150,9 +150,7 @@ def audit_zip(path: Path, app_name: str) -> list[str]:
         exe_suffix = f"{app_name}/{app_name}.exe".lower()
         if not any(name.replace("\\", "/").lower().endswith(exe_suffix) for name in names):
             failures.append(f"{path.name}: missing {app_name}.exe")
-        if not any(
-            "/_internal/" in f"/{name.replace(chr(92), '/').lower()}" for name in names
-        ):
+        if not any("/_internal/" in f"/{name.replace(chr(92), '/').lower()}" for name in names):
             failures.append(f"{path.name}: missing _internal runtime directory")
         if not any(name.lower().endswith("/readme_first.txt") for name in names):
             failures.append(f"{path.name}: missing README_FIRST.txt")
