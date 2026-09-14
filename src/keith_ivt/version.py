@@ -9,13 +9,13 @@ and tags are chosen deliberately by a human during release finalization; see
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.1 beta 18"
-VERSION = "1.1b18"
+APP_CODENAME = "1.1 beta 19"
+VERSION = "1.1b19"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.1b18 internal build: applies the exact formatter output to the portable "
-    "artifact audit after the runtime-slimming change."
+    "1.1b19 internal build: keeps the artifact-audit privacy regression effective "
+    "without storing a workstation-home path literal in tracked test source."
 )
 __build_note__ = BUILD_NOTE

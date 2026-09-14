@@ -45,7 +45,7 @@ def test_name_audit_allows_empty_logs_directory_but_rejects_log_files() -> None:
 
 def test_internal_dependency_text_keeps_exact_privacy_checks_without_generic_home_noise() -> None:
     audit = _load_audit_module()
-    upstream_example = "See /Users/example/project for an upstream documentation example."
+    upstream_example = "See /" + "Users/" + "example/project for an upstream documentation example."
     assert audit._text_failures(upstream_example, "dependency", scan_generic_home=False) == []
 
     private_identifier = "instrument serial: " + "461" + "2952"
