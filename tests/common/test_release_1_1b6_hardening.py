@@ -33,6 +33,12 @@ class _BaseSettingsSnapshot:
 class _SettingsHarness(SettingsRoundTripMixin, _BaseSettingsSnapshot):
     def __init__(self, check_updates: bool) -> None:
         self.check_updates_on_startup = _Var(check_updates)
+        self.settings = AppSettings(check_updates_on_startup=check_updates)
+
+
+class _SettingsHarnessWithoutLiveVar(SettingsRoundTripMixin, _BaseSettingsSnapshot):
+    def __init__(self, check_updates: bool) -> None:
+        self.settings = AppSettings(check_updates_on_startup=check_updates)
 
 
 def _legacy_snapshot_fields() -> set[str]:
@@ -51,6 +57,13 @@ def _legacy_snapshot_fields() -> set[str]:
 def test_update_check_preference_survives_current_settings_snapshot() -> None:
     assert _SettingsHarness(False)._current_settings().check_updates_on_startup is False
     assert _SettingsHarness(True)._current_settings().check_updates_on_startup is True
+
+
+def test_update_check_preference_does_not_require_live_tk_variable() -> None:
+    assert (
+        _SettingsHarnessWithoutLiveVar(False)._current_settings().check_updates_on_startup is False
+    )
+    assert _SettingsHarnessWithoutLiveVar(True)._current_settings().check_updates_on_startup is True
 
 
 def test_current_settings_snapshot_has_explicit_appsettings_field_parity() -> None:

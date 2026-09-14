@@ -1,11 +1,9 @@
 # Built-in Diagnostics
 
-HappyMeasure exposes **Run Hardware Diagnostics...** directly under
-**Settings > Diagnostics**, always visible. **Run UI Diagnostics...** stays
-behind **Settings > Show developer tools**. The developer-tools visibility
-switch is independent of **Use debug simulator**: the simulator selects a
-backend, while Developer Tools only exposes diagnostic and development
-controls.
+HappyMeasure keeps both **Run UI Diagnostics...** and **Run Hardware Diagnostics...**
+behind **Settings > Show developer tools**. The developer-tools visibility switch
+is independent of **Use debug simulator**: the simulator selects a backend,
+while Developer Tools only exposes diagnostic and development controls.
 
 ## UI Diagnostics
 

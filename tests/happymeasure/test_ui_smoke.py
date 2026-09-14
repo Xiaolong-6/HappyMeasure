@@ -137,42 +137,50 @@ def _settings_buttons_by_text(app, root) -> dict[str, object]:
     try:
         from tkinter import ttk
 
-        if isinstance(widget, ttk.Button) and widget.winfo_ismapped():
-            text = str(widget.cget("text"))
+        if isinstance(root, ttk.Button) and root.winfo_ismapped():
+            text = str(root.cget("text"))
             if text in ("Run Hardware Diagnostics...", "Run UI Diagnostics..."):
-                found[text] = widget
+                found[text] = root
     except Exception:
         pass
     return found
 
 
-def test_tk_hardware_diagnostics_visible_without_developer_tools() -> None:
+def test_tk_diagnostics_hidden_without_developer_tools() -> None:
     from keith_ivt.ui.simple_app import SimpleKeithIVtApp
 
     app = SimpleKeithIVtApp()
     try:
         app.root.update_idletasks()
         app._ensure_developer_tools_var()
+        app.debug.set(False)
         app.developer_tools_visible.set(False)
         app._show_nav("Settings")
         app.root.update_idletasks()
         buttons = _settings_buttons_by_text(app, app.current_content)
-        assert "Run Hardware Diagnostics..." in buttons
+        assert "Run Hardware Diagnostics..." not in buttons
         assert "Run UI Diagnostics..." not in buttons
     finally:
         app.root.destroy()
 
 
-def test_tk_ui_diagnostics_visible_with_developer_tools() -> None:
+def test_tk_diagnostics_visible_with_developer_tools_after_page_rebuild() -> None:
     from keith_ivt.ui.simple_app import SimpleKeithIVtApp
 
     app = SimpleKeithIVtApp()
     try:
         app.root.update_idletasks()
         app._ensure_developer_tools_var()
-        # Debug simulator must be off before developer tools can be shown.
         app.debug.set(False)
         app.developer_tools_visible.set(True)
+        app._show_nav("Settings")
+        app.root.update_idletasks()
+        buttons = _settings_buttons_by_text(app, app.current_content)
+        assert "Run Hardware Diagnostics..." in buttons
+        assert "Run UI Diagnostics..." in buttons
+
+        app._show_nav("Hardware")
+        app.root.update_idletasks()
         app._show_nav("Settings")
         app.root.update_idletasks()
         buttons = _settings_buttons_by_text(app, app.current_content)
