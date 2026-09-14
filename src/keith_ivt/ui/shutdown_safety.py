@@ -100,14 +100,20 @@ class ShutdownSafetyMixin(UiMixinTyping):
         except Exception as dataset_exc:
             self.log_event(f"Partial dataset registration failed: {dataset_exc}")
 
-        try:
-            backup_path = autosave_result(result)
-            setattr(self, "_last_backup_path", backup_path)
-            self.backup_text.set(f"Backup: {backup_path.name}")
-            self._mark_last_save("error-backup")
-            self.log_event(f"Partial measurement auto-backup saved: {backup_path}")
-        except Exception as backup_exc:
-            self.log_event(f"Partial measurement backup failed: {backup_exc}")
+        if bool(getattr(self.settings, "auto_save_backup", True)):
+            try:
+                backup_path = autosave_result(result)
+                setattr(self, "_last_backup_path", backup_path)
+                self.backup_text.set(f"Backup: {backup_path.name}")
+                self._mark_last_save("error-backup")
+                self.log_event(f"Partial measurement auto-backup saved: {backup_path}")
+            except Exception as backup_exc:
+                self.log_event(f"Partial measurement backup failed: {backup_exc}")
+        else:
+            self.backup_text.set("Backup: auto-save off")
+            self.log_event(
+                "Partial measurement recovered in memory; automatic backup is disabled in Default Settings."
+            )
         return result
 
     def _handle_error(self, exc: Exception) -> None:

@@ -20,9 +20,12 @@ def test_validation_script_reads_runtime_version_not_stale_literal() -> None:
     assert "version.VERSION" in text
 
 
-def test_docs_reference_current_version_and_namespace_migration() -> None:
-    for rel in ("README.md", "docs/CHANGELOG.md"):
-        assert version.VERSION in (ROOT / rel).read_text(encoding="utf-8"), rel
+def test_docs_describe_dynamic_internal_version_and_namespace_policy() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    versioning = (ROOT / "docs" / "VERSIONING.md").read_text(encoding="utf-8")
+    assert "internal build identity" in readme
+    assert "Every commit must increment" in versioning
+    assert "human" in versioning.lower() and "public release" in versioning.lower()
 
     naming = (ROOT / "docs" / "NAMING.md").read_text(encoding="utf-8")
     assert "Public Python package/CLI namespace: `happymeasure`" in naming

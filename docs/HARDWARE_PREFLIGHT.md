@@ -4,86 +4,78 @@ HappyMeasure includes a minimal serial preflight for Keithley 2400-family instru
 
 ## Purpose
 
-The preflight is a safety gate before the first real sweep after installing or updating the app. It verifies that the serial resource is reachable, forces source output off, and requires the instrument to report that output is actually off.
+The preflight verifies serial communication, forces source output off, and requires the instrument to report that output is actually off before any real measurement is attempted.
 
-HappyMeasure can also auto-detect the COM port and baud rate used by a supported Keithley 2400-family instrument. Discovery is deliberately narrow: it sends `*IDN?` only and does not source, measure, reset, or change instrument configuration.
+## GUI Detect COM behavior
 
-## What it does
+The Hardware-page **Detect COM** button is deliberately passive:
 
-With automatic discovery enabled (or when no port is supplied):
+1. enumerate COM ports reported by Windows/pyserial;
+2. update the COM choices;
+3. if only one port is present, select it;
+4. send **no SCPI command**;
+5. do **not** guess or scan baud rates.
+
+The operator selects the instrument baud rate. Model identification happens during normal Connect using that selected COM + baud.
+
+This design avoids repeatedly sending malformed serial data at guessed baud rates, which can make a Keithley report communication/parser errors such as `-101 Invalid character`.
+
+## CLI automatic COM discovery
+
+The command-line preflight may discover which detected COM port hosts a supported Keithley, but it uses **one operator-selected baud only**. It never scans alternate baud rates.
 
 ```text
-1. Enumerate Windows serial ports
-2. Try the current/preferred COM and baud first
-3. Probe HappyMeasure-supported baud rates using *IDN? only
-4. Accept only a supported Keithley 2400-family identity
+1. Enumerate detected COM ports
+2. At the selected --baud, send one short *IDN? probe per candidate port
+3. Accept only a supported Keithley 2400-family identity
+4. Never retry using a different baud
 ```
 
-The actual preflight then performs:
+Wrong baud/framing can still produce an instrument communication error, so explicit COM + baud is preferred when those settings are already known.
+
+## Preflight sequence
+
+After the port is selected/discovered:
 
 ```text
-1. Open the detected/selected serial port
+1. Open serial port
 2. Send OUTPUT OFF
 3. Query :OUTP?
-4. Require an OFF/0 state
+4. Require OFF/0
 5. Query *IDN?
 6. Send OUTPUT OFF again during cleanup
-7. Close the port
+7. Close port
 ```
 
-The order is deliberate: the preflight forces and verifies output-off before identity work.
-
-## What it does not do
-
-```text
-It does not source voltage.
-It does not source current.
-It does not issue READ?.
-It does not run a sweep.
-It does not reset/configure the SMU.
-It does not modify user presets.
-```
+The preflight does not source voltage/current, issue `READ?`, run a sweep, or reset/configure the SMU.
 
 ## Commands
 
-Recommended automatic form:
+Explicit known settings are the clearest form:
 
-```bat
-python -m happymeasure.hardware_preflight
+```powershell
+.\.venv\Scripts\python.exe -m happymeasure.hardware_preflight COM3 --baud 57600
 ```
 
-Equivalent explicit automatic form:
+Automatic COM discovery at one selected baud:
 
-```bat
-python -m happymeasure.hardware_preflight --auto
+```powershell
+.\.venv\Scripts\python.exe -m happymeasure.hardware_preflight --auto --baud 57600
 ```
 
-Manual override remains supported:
+Omitting the port also selects automatic COM discovery at the supplied/default baud.
 
-```bat
-python -m happymeasure.hardware_preflight COM3 --baud 9600
+Legacy compatibility namespace remains available:
+
+```powershell
+.\.venv\Scripts\python.exe -m keith_ivt.hardware_preflight COM3 --baud 57600
 ```
 
-Legacy compatibility namespace remains supported as well:
+## Expected pass
 
-```bat
-python -m keith_ivt.hardware_preflight COM3 --baud 9600
-```
-
-HappyMeasure currently auto-scans the baud rates exposed by the acquisition UI: `9600`, `19200`, `38400`, and `57600`.
-
-## GUI connection behavior
-
-For a real-hardware connection, the existing **Connect** action now performs the same lightweight discovery first. It tries the currently selected COM/baud combination first, then other detected COM ports and supported baud rates. When a supported Keithley is found, HappyMeasure updates the COM and baud fields and continues through the normal connection/identity/beep path.
-
-If no supported instrument is found, manual connection behavior remains available using the selected COM/baud settings.
-
-## Expected pass behavior
-
-A successful automatic run logs the equivalent of:
+A pass requires both a supported identity and verified output-off state, for example:
 
 ```text
-Auto-detected Keithley 2401 on COM3 at 57600 baud
 Opening serial port COM3 at 57600 baud
 Output OFF verified by :OUTP? -> 0
 *IDN? -> KEITHLEY INSTRUMENTS INC.,MODEL 2401,...
@@ -91,27 +83,10 @@ PASS hardware preflight
 Output OFF confirmed: True
 ```
 
-Exact wrapper/CLI formatting may add the initial safety notice, but a pass requires `output_off_confirmed=True` from the verified `:OUTP?` state.
+Do not store the physical instrument serial number in repository documentation or tests.
 
-## Expected failure behavior
+## Failure behavior
 
-The preflight must fail if:
+A failure is not evidence that output is physically off. Use the instrument front-panel OUTPUT control to verify a safe state before changing wiring or touching a DUT.
 
-- automatic discovery cannot find a supported instrument and no manual settings are used;
-- the serial port cannot be opened;
-- `OUTPUT OFF` cannot be sent;
-- `:OUTP?` fails;
-- `:OUTP?` reports a non-off state; or
-- ordinary serial/resource operations fail.
-
-A failed preflight is **not** evidence that output is physically off. Use the instrument front panel to force/verify output off before touching a DUT or changing wiring.
-
-## Manual safety notes
-
-Before real hardware testing:
-
-- Keep the DUT and analog test leads disconnected for the first preflight.
-- Confirm the instrument front panel also shows output off after preflight.
-- If automatic discovery fails, confirm COM and baud against the instrument menu and retry manually.
-- Do not run a real sweep until preflight passes.
-- If immediate physical output-off is required, use the instrument front-panel control; software STOP cannot interrupt a serial transaction already in progress.
+If communication fails, verify the Windows COM port and the instrument's own RS-232 settings (baud, data bits/parity and terminator as applicable) rather than repeatedly probing alternate baud rates.

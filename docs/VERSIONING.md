@@ -1,33 +1,45 @@
 # Versioning policy
 
-HappyMeasure uses PEP 440-compatible prerelease versions for Python/package metadata and matching `v<version>` Git tags.
+HappyMeasure separates the **internal source-build identity** from the **public release decision**.
 
-## Format
+## Internal build version
 
-Current beta examples:
+During active development the runtime/package version uses a PEP 440 beta serial such as:
 
 ```text
-Python/package: 1.1b6
-Git tag:        v1.1b6
-Prose:          1.1 beta 6
+1.1b7
+1.1b8
+1.1b9
 ```
 
-Do not reuse a published version/tag for different source. If `v1.1b5` is already public, any later behavior change must have a new version such as `1.1b6`.
+Every commit must increment the beta serial by exactly one relative to its first parent. `src/keith_ivt/version.py` and `pyproject.toml` must match in the same commit.
 
-## Meaning
+Examples:
 
-- `aN`: alpha/development validation build.
-- `bN`: beta build for broader testing while UI/hardware behavior may still change.
-- `rcN`: release candidate with blocker-only changes expected.
-- `.postN`: packaging/documentation-only correction to an otherwise identical release; do not use it for behavior changes.
+- parent `1.1b6` → next commit `1.1b7`;
+- parent `1.1b7` → next commit `1.1b8`;
+- a bug-fix-only commit still increments the internal build number;
+- documentation-only commits also increment it.
 
-## When to increment
+The CI version-policy gate checks the whole pushed/PR commit range, not just final HEAD, so multiple unnumbered commits cannot be hidden behind one final bump.
 
-- Increment the beta/alpha serial for another prerelease within the current feature line.
-- Increment minor/major when product scope or compatibility policy warrants it.
-- Never overwrite/rebuild an already published tag as though it were the same release.
-- Keep runtime metadata, `pyproject.toml`, README, changelog, release checklist, release notes and artifact names consistent.
+## Public release version
 
-## Current baseline
+The public release name/tag is chosen deliberately by a human after release validation. Internal build serials are not themselves a promise that a build will be published.
 
-`1.1b6` is the current source/release candidate. It remains a beta until the automated source/Qt gates, Windows desktop/package smoke, and selected staged hardware validation are complete. See `VALIDATION_STATUS.md` for the current gate rather than recording test state here.
+If release finalization intentionally changes the version line rather than continuing the current beta serial, that decision must be explicit in the release-finalization commit and the runtime/package/tag/artifact identity must be made consistent before publication. Do not silently rename a build after artifacts are produced.
+
+## Published releases
+
+- Never reuse a published tag/version for different source.
+- Never replace a published artifact while pretending it is the same build.
+- Build artifacts only from the exact commit selected for release.
+- Record the selected tag/version and artifact hashes in the final GitHub Release record.
+
+## Source of truth
+
+- runtime identity: `src/keith_ivt/version.py`
+- package identity: `pyproject.toml`
+- policy enforcement: `tools/release/check_version_sequence.py` and CI
+
+Current operational docs intentionally avoid hardcoding the latest internal serial so they do not become stale on every commit.

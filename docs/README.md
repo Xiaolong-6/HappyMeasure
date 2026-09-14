@@ -1,14 +1,14 @@
 # HappyMeasure Documentation
 
-This index is the documentation source of truth. Prefer one owner document per contract; Git history and release notes preserve old implementation detail, so current docs should not become chronological diaries.
+This index is the documentation source of truth. Current behavior belongs in an owner document; obsolete migration diaries and stale version-specific instructions should be removed rather than preserved as active documentation.
 
 ## Start here
 
 - `../README.md` — product overview and launch instructions
 - `../AGENTS.md` — machine/developer change discipline and safety invariants
-- `../CONTRIBUTING.md` — contribution and documentation rules
-- `VALIDATION_STATUS.md` — current automated/manual release status
-- `TROUBLESHOOTING.md` — operator troubleshooting, including current Restart UI behavior
+- `../CONTRIBUTING.md` — contribution, versioning and validation rules
+- `VALIDATION_STATUS.md` — current validation scope and release readiness definitions
+- `TROUBLESHOOTING.md` — operator troubleshooting
 
 ## Measurement and application contracts
 
@@ -16,57 +16,43 @@ This index is the documentation source of truth. Prefer one owner document per c
 - `STATE_MACHINE.md` — run and connection state semantics
 - `ERROR_RECOVERY.md` — recoverable/fatal error behavior
 - `TRACE_SCHEMA.md` — CSV/import/export metadata contract
-- `SETTINGS_COMPATIBILITY.md` — active flat-settings persistence and compatibility rules
-- `DRIVER_SWEEP_EXTENSION_GUIDE.md` — adding measurement/driver behavior
+- `SETTINGS_COMPATIBILITY.md` — flat-settings persistence and compatibility rules
+- `DRIVER_SWEEP_EXTENSION_GUIDE.md` — measurement/driver extension guidance
 - `NAMING.md` — product and Python namespace rules
 
 ## Hardware and safety
 
-- `HARDWARE_PREFLIGHT.md` — safe communication preflight
-- `HARDWARE_DRY_RUN_GUIDE.md` — disconnected/dummy-load dry-run guidance
-- `HARDWARE_VALIDATION_PROTOCOL.md` — staged real-hardware release gate
+- `HARDWARE_PREFLIGHT.md` — safe serial preflight and COM/baud behavior
+- `HARDWARE_DRY_RUN_GUIDE.md` — disconnected/no-DUT dry-run guidance
+- `HARDWARE_VALIDATION_PROTOCOL.md` — staged real-hardware validation and evidence scope
 
-Hardware-facing changes must preserve validation-before-output and `output_off()` cleanup semantics. Simulator/CI success is not evidence of real-hardware verification.
+Simulator/CI success is not proof of real-hardware compatibility. Existing MODEL 2401 no-DUT evidence is recorded in `VALIDATION_STATUS.md` without publishing the instrument serial number.
 
 ## Map Reconstruction
 
 - `MAP_PROJECT_FORMAT.md` — authoritative `.hmmap` archive contract
 - `PHASE_WINDOW_RECONSTRUCTION.md` — phase-window reconstruction method
-- `MAP_PACKAGING_SIZE_AUDIT.md` — standalone Windows package dependency and size audit
-
-Map Reconstruction GUI dependencies are optional (`.[map]`). Its Windows/Python 3.12 offscreen Qt suite is a dedicated release gate.
+- `MAP_PACKAGING_SIZE_AUDIT.md` — packaging dependency/size rationale
 
 ## Release and build
 
-- `RELEASE_CHECKLIST.md` — current release process (`1.1b6` candidate)
-- `RELEASE_NOTES_v1.1b6.md` — current release-candidate notes
-- `CHANGELOG.md` — concise release history
+- `VERSIONING.md` — internal per-commit build numbering and human release-version policy
+- `RELEASE_CHECKLIST.md` — release procedure
+- `RELEASE_NOTES_NEXT.md` — current release draft
+- `CHANGELOG.md` — concise historical release record
 - `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build contract
-- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14-only packaging differences/workaround
+- `WINDOWS_PYTHON314_BUILD.md` — Python 3.14 packaging exception
 - `MANUAL_SMOKE_TESTS.md` — desktop/operator smoke checks
 - `UI_VISUAL_CHECKLIST.md` — visual/responsive checks
-- `UI_DIAGNOSTICS.md` — built-in UI/hardware diagnostic scope
+- `UI_DIAGNOSTICS.md` — built-in diagnostics scope
 - `UI_STYLE_GUIDE.md` — UI styling conventions
-- `DOCS_AUDIT.md` — documentation ownership/cleanup record
 
-## Historical release notes
-
-Historical notes are intentionally retained as release records, not current instructions:
-
-- `RELEASE_NOTES_v0.7a1.md`
-- `RELEASE_NOTES_v1.0b1.md`
-- `RELEASE_NOTES_v1.1b1.md`
-- `RELEASE_NOTES_v1.1b3.md`
-- `RELEASE_NOTES_v1.1b4.md`
-- `RELEASE_NOTES_v1.1b5.md`
+Historical versioned release-note files were removed from the active tree. Git history and `CHANGELOG.md` retain release history without leaving stale operational instructions or workstation-specific paths in current documentation.
 
 ## Documentation policy
 
-- Put current behavior in the owner document above.
-- Put release history in `CHANGELOG.md` / release notes.
-- Put current test/manual-gate status in `VALIDATION_STATUS.md`.
-- Do not add date-by-date agent diaries to the repository.
-- Delete migration plans after their decision has become the stable documented architecture.
-- Delete superseded implementation notes after moving any still-current contract into the permanent owner document.
-- Keep release-build special-case documents narrow; common packaging instructions belong in `WINDOWS_PORTABLE_BUILD.md`.
-- When deleting a document, first move any still-valid contract into its permanent owner.
+- Keep one current owner document per contract.
+- Delete superseded implementation notes after preserving any still-valid contract in its owner document.
+- Do not add chronological agent/test diaries.
+- Do not commit workstation usernames, home-directory paths, private local paths, or physical instrument serial numbers.
+- Release notes must use portable relative paths and sanitized hardware identifiers.

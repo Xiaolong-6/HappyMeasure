@@ -2,11 +2,9 @@
 
 HappyMeasure is a Windows-friendly Tkinter + Matplotlib measurement application for Keithley-style source-measure workflows, with an optional standalone Map Reconstruction application.
 
-Current source candidate: **`1.1b6` (1.1 beta 6)**.
-
-> `1.1b6` is a source/release candidate until the packaged Windows build and the final operator hardware gate are completed. Do not describe it as hardware-verified before those checks pass.
-
 The public product/package names are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains supported as the internal/compatibility namespace.
+
+The app title and package metadata use the internal build identity from `src/keith_ivt/version.py`. Internal beta serials advance on every commit; the public release version/tag is chosen by a human during release finalization. See `docs/VERSIONING.md`.
 
 ## Start HappyMeasure
 
@@ -25,20 +23,20 @@ python -m happymeasure
 
 Legacy `python -m keith_ivt` remains available for compatibility.
 
-## What is in 1.1b6
+## Current development highlights
 
-- Long-running Time plots use live-only display windows, Time-specific marker policy, redraw throttling, and extrema-preserving full-range display for large completed traces. The authoritative measurement data are never truncated by display settings.
-- Constant-Time acquisition adds validated Standard/Fast/Custom profiles while preserving the existing output-off safety contract and deterministic next-run configuration.
-- Settings and diagnostics were reorganized; UI Diagnostics remains developer-facing and Hardware Diagnostics uses a no-DUT/output-off-only safety path.
-- Export filename generation no longer duplicates underscore-containing device names or Time/Adaptive tokens.
-- Map Reconstruction now has staged Signal Preparation → Reconstruction → Map Analysis workflow, reproducible `.hmmap` projects, explicit source replacement behavior, processing/color controls, and a maximized standalone startup.
-- Map UI tests are a dedicated Windows CI release gate with real PySide6/pyqtgraph dependencies instead of silently skipping when Qt is absent.
+- Long-running Time plots support live display-only switching between **All data** and **Last N points** while a measurement is running; authoritative acquired/exported data remain complete.
+- Constant-Time acquisition supports Standard/Fast/Custom profiles while preserving output-off safety and deterministic next-run configuration.
+- Settings includes persistent automatic-backup and log-recording preferences, both defaulting to enabled.
+- Developer-only UI and hardware diagnostics are grouped under **Show developer tools**; hardware diagnostics remain no-DUT/output-off-only.
+- Serial **Detect COM** only enumerates Windows COM ports. It does not guess baud rates or send SCPI; the operator selects baud before Connect.
+- Map Reconstruction provides Signal Preparation → Reconstruction → Map Analysis, self-contained `.hmmap` projects, processing/color controls, and a standalone portable build.
 
-See `docs/RELEASE_NOTES_v1.1b6.md` for the release-candidate summary and `docs/CHANGELOG.md` for history.
+See `docs/RELEASE_NOTES_NEXT.md` for the current release draft and `docs/CHANGELOG.md` for historical releases.
 
 ## Standalone Map Reconstruction
 
-Install the optional GUI dependencies:
+Install optional GUI dependencies:
 
 ```powershell
 python -m pip install -e ".[map]"
@@ -47,18 +45,16 @@ python -m map_reconstruction
 
 `Run_Map_Reconstruction.bat` is the Windows launcher. Map Reconstruction imports HappyMeasure `single-v2` CSV files and supports self-contained `.hmmap` projects whose embedded source remains authoritative.
 
-For release `1.1b6` there are two portable ZIPs under one version and one `v1.1b6` tag: `HappyMeasure-1.1b6-windows-portable.zip` (acquisition) and `MapReconstruction-1.1b6-windows-portable.zip` (standalone companion; needs no Python, no HappyMeasure install, and no instrument). Map Reconstruction has no independent version history; both report `1.1b6`.
-
 ## Validation
 
-Core validation does not require Qt:
+Core validation:
 
 ```powershell
 python -m pip install -e ".[dev]"
 python -m pytest -q tests/common tests/happymeasure
 ```
 
-Map Reconstruction has its own release gate:
+Map Reconstruction release gate:
 
 ```powershell
 python -m pip install -e ".[dev,map]"
@@ -66,44 +62,29 @@ $env:QT_QPA_PLATFORM="offscreen"
 python -m pytest -q tests/map_reconstruction
 ```
 
-After both dependency sets are installed, the complete local validation entry point is:
+After both dependency sets are installed:
 
 ```powershell
 python tests\run_full_validation.py
 ```
 
-Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. The hardware preflight and Hardware Diagnostics must not source voltage/current or run a measurement.
+Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. Hardware preflight and Hardware Diagnostics must not source voltage/current or run a measurement.
 
-## Screenshots
+## Hardware evidence scope
 
-### HappyMeasure
-
-![HappyMeasure 1.1b6 hardware simulator page](docs/screenshots/happymeasure-hardware.png)
-
-![HappyMeasure 1.1b6 completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
-
-![HappyMeasure 1.1b6 Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
-
-### Map Reconstruction
-
-The Map Reconstruction examples use a deterministic synthetic trace for illustration; they are not hardware-validation evidence.
-
-![Map Reconstruction Signal Preparation](docs/screenshots/map-reconstruction-preparation.png)
-
-![Map Reconstruction Reconstruction stage](docs/screenshots/map-reconstruction-reconstruction.png)
-
-![Map Reconstruction Map Analysis stage](docs/screenshots/map-reconstruction-analysis.png)
+The current development line has passed a real Keithley MODEL 2401 no-DUT communication/control smoke including output-off verification, Standard/Fast acquisition, pause/resume, Stop/restart and SCPI-order checks. This evidence does **not** claim quantitative analog accuracy, passive-load validation, arbitrary DUT validation, or validation of every 2400-family model.
 
 ## Documentation
 
-Start with `docs/README.md`. Important release documents are:
+Start with `docs/README.md`. Important owner documents include:
 
-- `docs/VALIDATION_STATUS.md` — current source/desktop/hardware gate status
-- `docs/RELEASE_CHECKLIST.md` — release procedure
-- `docs/HARDWARE_VALIDATION_PROTOCOL.md` — staged hardware verification
-- `docs/TRACE_SCHEMA.md` — CSV/import/export contract
-- `docs/MAP_PROJECT_FORMAT.md` — `.hmmap` project contract
-- `docs/WINDOWS_PORTABLE_BUILD.md` — Windows packaging
+- `docs/VALIDATION_STATUS.md`
+- `docs/RELEASE_CHECKLIST.md`
+- `docs/HARDWARE_VALIDATION_PROTOCOL.md`
+- `docs/TRACE_SCHEMA.md`
+- `docs/MAP_PROJECT_FORMAT.md`
+- `docs/WINDOWS_PORTABLE_BUILD.md`
+- `docs/VERSIONING.md`
 
 ## Windows portable build
 
@@ -113,7 +94,7 @@ After source validation passes:
 tools\build\Build_Portable_Windows_App.bat
 ```
 
-Do not publish `build/`, `dist/`, caches, logs, local helper scripts, or test artifacts. The release artifact is the versioned portable ZIP described in `docs/RELEASE_CHECKLIST.md`.
+Do not publish `build/`, `dist/`, caches, logs, local helper scripts, hardware-smoke artifacts, or files containing workstation-specific absolute paths. Release artifacts are built from the final human-selected release commit.
 
 ## Attribution
 

@@ -1,5 +1,7 @@
 {
   "log_max_bytes": 1000448,
+  "auto_save_backup": true,
+  "record_log": true,
   "default_mode": "VOLT",
   "default_start": -1.0,
   "default_stop": 1.0,

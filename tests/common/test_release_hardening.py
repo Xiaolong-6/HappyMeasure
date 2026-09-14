@@ -6,7 +6,7 @@ import textwrap
 from dataclasses import fields
 from pathlib import Path
 
-from keith_ivt.data.settings import AppSettings
+from keith_ivt.data.settings import AppSettings, sanitize_settings_dict
 from keith_ivt.diagnostics.hardware_self_test import _supported_identity
 from keith_ivt.ui.settings_preset_actions import SettingsPresetMixin
 from keith_ivt.ui.settings_roundtrip import (
@@ -60,9 +60,7 @@ def test_update_check_preference_survives_current_settings_snapshot() -> None:
 
 
 def test_update_check_preference_does_not_require_live_tk_variable() -> None:
-    assert (
-        _SettingsHarnessWithoutLiveVar(False)._current_settings().check_updates_on_startup is False
-    )
+    assert _SettingsHarnessWithoutLiveVar(False)._current_settings().check_updates_on_startup is False
     assert _SettingsHarnessWithoutLiveVar(True)._current_settings().check_updates_on_startup is True
 
 
@@ -72,23 +70,40 @@ def test_current_settings_snapshot_has_explicit_appsettings_field_parity() -> No
     assert represented == expected
 
 
+def test_new_data_safety_preferences_default_on_for_older_settings() -> None:
+    sanitized = sanitize_settings_dict({"default_port": "COM9"})
+    assert sanitized["auto_save_backup"] is True
+    assert sanitized["record_log"] is True
+
+
+def test_plot_layout_settings_match_actual_ui_choices() -> None:
+    assert sanitize_settings_dict({"default_plot_layout": "Auto"})["default_plot_layout"] == "Auto"
+    assert (
+        sanitize_settings_dict({"default_plot_layout": "Horizontal"})["default_plot_layout"]
+        == "Horizontal"
+    )
+    assert (
+        sanitize_settings_dict({"default_plot_layout": "Vertical"})["default_plot_layout"]
+        == "Vertical"
+    )
+
+
 def test_hardware_diagnostic_model_check_uses_actual_idn_model_field() -> None:
-    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2400,12345,A01")
-    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2401,12345,B02")
-    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2410,12345,C01")
-    assert not _supported_identity("OTHER,MODEL 2401,12345,B02")
+    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2400,TESTSERIAL,A01")
+    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2401,TESTSERIAL,B02")
+    assert _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2410,TESTSERIAL,C01")
+    assert not _supported_identity("OTHER,MODEL 2401,TESTSERIAL,B02")
     assert not _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2450,SERIAL2401,1.0")
     assert not _supported_identity("KEITHLEY INSTRUMENTS INC.,MODEL 9999,SERIAL2400,1.0")
     assert not _supported_identity("KEITHLEY 2401")
 
 
-def test_ci_has_non_skipping_map_qt_release_gate() -> None:
+def test_ci_has_non_skipping_map_qt_and_version_policy_gates() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert 'pip install -e ".[dev,map]"' in ci
     assert "QT_QPA_PLATFORM: offscreen" in ci
     assert "import PySide6, pyqtgraph" in ci
     assert "python -m mypy src/map_reconstruction" in ci
-    # The contract is a real pytest invocation targeting the Map suite, not a
-    # specific verbosity flag (-q vs -vv/--durations are presentation only).
-    assert "python -m pytest" in ci
     assert "tests/map_reconstruction" in ci
+    assert "check_version_sequence.py" in ci
+    assert "fetch-depth: 0" in ci

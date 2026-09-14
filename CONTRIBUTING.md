@@ -1,36 +1,51 @@
 # Contributing
 
-HappyMeasure is hardware-facing software. A code change is not complete until operator-facing documentation and the relevant validation gate have been considered.
+HappyMeasure is hardware-facing software. A change is not complete until operator-facing documentation and the relevant validation gate have been considered.
 
 ## Documentation rule
 
-Every change must either update the owner documentation or explicitly state why no documentation change is needed.
+Every change must either update the owner documentation or explicitly state why no documentation change is needed. Use `docs/README.md` to locate the owner.
 
-Use `docs/README.md` to locate the owner. In particular:
+Do not create date-by-date handoff/test diary documents. Remove superseded instructions after preserving still-current contracts in their owner document.
 
-- user/safety behavior → `README.md` and hardware/user owner docs;
-- packaging/build → `docs/WINDOWS_PORTABLE_BUILD.md` / `docs/RELEASE_CHECKLIST.md`;
-- current validation status → `docs/VALIDATION_STATUS.md`;
-- release history → `docs/CHANGELOG.md` / versioned release notes;
-- architecture/state contracts → `docs/ARCHITECTURE_CURRENT.md`, `docs/STATE_MACHINE.md`, `docs/ERROR_RECOVERY.md`.
+## Internal version rule
 
-Do not create date-by-date handoff/test diary documents.
+Every commit must increment the internal beta serial by exactly one and keep these two files consistent:
+
+- `src/keith_ivt/version.py`
+- `pyproject.toml`
+
+Example: `1.1b7` → `1.1b8` on the very next commit, even when the commit only changes docs/tests. CI checks commit-by-commit history, not just final HEAD. See `docs/VERSIONING.md`.
+
+The public release version/tag is a separate human decision made after release validation.
+
+## Privacy/repository hygiene
+
+Do not commit:
+
+- `C:\Users\<real-user>\...`, `/home/<real-user>/...`, `/Users/<real-user>/...` or equivalent workstation-specific paths;
+- physical instrument serial numbers;
+- personal local directory layouts, logs, caches or hardware-smoke result folders;
+- generated `build/` / `dist/` content.
+
+Use relative paths, environment variables and synthetic hardware identifiers in tests/examples.
 
 ## Commit hygiene
 
 Before committing at minimum:
 
 ```powershell
-python -m compileall -q src tests
-python -m black --check src tests
-python -m ruff check src tests
+python tools\release\check_version_sequence.py --base HEAD^ --head HEAD
+python -m compileall -q src tests tools\release
+python -m black --check src tests tools\release
+python -m ruff check src tests tools\release
 ```
 
-Run focused regressions for the changed behavior. Shared hardware, state, settings, packaging or release changes require the broader validation in `docs/RELEASE_CHECKLIST.md`.
+Run focused regressions for changed behavior. Shared hardware, state, settings, packaging or release changes require the broader validation in `docs/RELEASE_CHECKLIST.md`.
 
 ## Map Reconstruction
 
-For Map-only changes install the optional GUI dependencies and run the owned offscreen Qt test domain:
+For Map-only changes install optional GUI dependencies and run the owned offscreen Qt domain:
 
 ```powershell
 python -m pip install -e ".[dev,map]"
@@ -51,4 +66,4 @@ A release candidate must run this gate with real Qt dependencies; a dependency-d
 
 ## Hardware
 
-Automated/simulator tests are not real-hardware certification. Follow `docs/HARDWARE_VALIDATION_PROTOCOL.md` for staged hardware work, starting from no-DUT/preflight checks.
+Automated/simulator tests are not real-hardware certification. Existing release-line hardware evidence is recorded in `docs/VALIDATION_STATUS.md`; rerun physical tests only when the changed boundary invalidates that evidence or the release owner explicitly asks for deeper bench validation.

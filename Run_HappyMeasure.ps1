@@ -85,8 +85,8 @@ if (-not (Test-Path -LiteralPath $VenvPy)) {
     throw ".venv\Scripts\python.exe was not created."
 }
 
-# A copied/synced venv can keep an absolute reference to another Windows user
-# profile, e.g. C:\Users\carll\... . Validate both startup and version.
+# A copied/synced venv can keep an absolute reference to a different Windows
+# profile. Validate the interpreter itself rather than trusting the copied path.
 if (-not (Test-CompatiblePython -Exe $VenvPy)) {
     Write-Host "Existing .venv is stale or points to a missing/unsupported base Python. Recreating it..."
     Remove-Item -LiteralPath $VenvDir -Recurse -Force -ErrorAction SilentlyContinue

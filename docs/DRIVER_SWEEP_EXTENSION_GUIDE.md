@@ -1,6 +1,6 @@
 # Driver and sweep extension guide
 
-Applies to the `1.1b6` architecture. This is extension guidance, not a migration timeline.
+This document describes the current architecture. It is extension guidance, not a migration timeline.
 
 ## Boundary
 
@@ -94,4 +94,4 @@ For CV/IVCV, add explicit capability and configuration fields; do not overload I
 
 ## Compatibility
 
-The public product/package is HappyMeasure / `happymeasure`. `keith_ivt` remains the internal/compatibility namespace in this release line. Do not remove compatibility imports without a deliberate versioned decision documented in `NAMING.md` and release notes.
+The public product/package is HappyMeasure / `happymeasure`. `keith_ivt` remains the internal/compatibility namespace. Do not remove compatibility imports without a deliberate versioned decision documented in `NAMING.md` and release notes.

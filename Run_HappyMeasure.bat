@@ -52,9 +52,8 @@ if not exist "%PROJECT_DIR%\.venv\pyvenv.cfg" (
     if errorlevel 1 goto END
 )
 
-rem A copied/synced venv can keep an absolute reference to another Windows user
-rem profile, e.g. C:\Users\carll\... . The python.exe file may exist but cannot
-rem start. Validate it before launch and rebuild if stale.
+rem A copied/synced venv can retain an absolute reference to a different Windows
+rem profile. Validate the interpreter itself before launch and rebuild if stale.
 "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
 if errorlevel 1 (
     echo [INFO] Existing virtual environment is stale or points to a missing/unsupported base Python. Recreating...

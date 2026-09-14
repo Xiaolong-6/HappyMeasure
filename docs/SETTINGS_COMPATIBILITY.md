@@ -1,53 +1,53 @@
 # Settings compatibility contract
 
-This document describes the settings format used by the HappyMeasure desktop application in the `1.1b6` release line.
+HappyMeasure persists desktop settings through the flat `keith_ivt.data.settings.AppSettings` dataclass in `config/settings.json`.
 
-## Runtime owner
+The format is intentionally backward-compatible: missing/invalid values fall back locally, known aliases are normalized, and unknown keys are ignored rather than crashing startup.
 
-The active desktop settings implementation is `src/keith_ivt/data/settings.py`.
+## Persisted application preferences
 
-`AppSettings` is a flat dataclass persisted as `config/settings.json`. The format is intentionally simple and backward-compatible: missing or invalid values fall back to safe defaults, known legacy spellings are normalized, and unknown keys are ignored rather than crashing application startup.
+Application-level preferences include:
 
-The former Pydantic prototype `src/keith_ivt/data/settings_v2.py` was removed; it was never the persistence owner and must not be reintroduced as an alternate format. The flat dataclass above is the only supported settings representation.
+- `auto_save_backup` — automatically save completed/partial recovered measurements; default `true`;
+- `record_log` — persist normal application event logging; default `true`;
+- `log_max_bytes` — rotating event-log size limit;
+- `cache_enabled` / `cache_interval_points`;
+- hardware connection defaults;
+- Time-plot display preferences;
+- UI appearance and startup behavior;
+- update-check preference.
 
-## Load/save behavior
+Manual **Backup now** remains available even when automatic backup is disabled.
 
-`load_settings()`:
+## Time-plot settings
 
-- returns defaults when the file is absent, unreadable, malformed JSON, or not an object;
-- accepts only keys present in the current `AppSettings` dataclass;
-- coerces supported boolean/string/numeric legacy values where safe;
-- clamps bounded values such as UI font size and log size;
-- normalizes known aliases such as `FRONT` → `FRON` and historical theme names;
-- preserves valid user choices such as `check_updates_on_startup=False`.
+Time-plot history is display policy only:
 
-`save_settings()` writes the sanitized flat dictionary back to JSON. Adding a new persisted field therefore requires all of the following:
-
-1. add a default to `AppSettings`;
-2. add coercion/validation in `sanitize_settings_dict()` if the field is not a free-form string;
-3. include the field in the Settings UI round-trip if it is user-editable there;
-4. add a regression proving an older JSON file without the field still loads;
-5. add a round-trip regression when silent reset would be user-visible.
-
-## Current plot settings
-
-Time-plot display preferences are application/view settings and do not change acquired data:
-
-- `time_plot_marker_mode`: `Auto`, `On`, or `Off`;
 - `time_plot_history_mode`: `All data` or `Last N points`;
 - `time_plot_history_points`: positive integer;
-- `time_plot_refresh_ms`: one of `100`, `250`, `500`, or `1000`.
+- `time_plot_marker_mode`: `Auto`, `On`, `Off`;
+- `time_plot_refresh_ms`: `100`, `250`, `500`, `1000`.
 
-`Last N points` applies to the live display path only. The authoritative live buffer, completed `SweepResult`, CSV export, and project data remain complete.
+The live History control can be changed while a measurement is running. It must not truncate `_live_points`, completed `SweepResult.points`, CSV export or project data.
+
+## Settings review dialog
+
+`Review Default Settings...` must be able to open even when a setting has no dedicated live Tk variable. Application-only fields fall back to the current `AppSettings` value rather than assuming a widget/variable exists.
+
+The review/save path must preserve all persisted fields, including values that differ from defaults.
 
 ## Compatibility rules
 
-- Existing flat settings files must remain readable across beta updates.
-- Missing fields use current defaults; a new field must never make an old file invalid.
-- Invalid individual values should fall back locally rather than discarding unrelated valid settings.
-- The Settings review/save path must preserve all persisted user preferences, including values that differ from defaults.
-- Do not introduce a second automatic migration format without first making it the single runtime owner and documenting rollback/compatibility behavior.
+Adding a persisted field requires:
+
+1. a default in `AppSettings`;
+2. sanitizer/coercion support when needed;
+3. Settings review round-trip support if user-editable;
+4. a regression showing old JSON without the field still loads;
+5. a round-trip regression when silent reset would be user-visible.
+
+Do not reintroduce the removed experimental `settings_v2.py`/alternate persistence model unless it deliberately becomes the single runtime owner with an explicit migration/rollback design.
 
 ## Resetting settings
 
-For troubleshooting, close HappyMeasure and rename or remove `config/settings.json`; the application will recreate defaults on the next save/startup path. Keep a copy if user-specific ports, plotting preferences, or update-check settings matter.
+For troubleshooting, close HappyMeasure and rename/remove `config/settings.json`; missing values will fall back to built-in defaults. Keep a copy when user-specific connection or plotting preferences matter.

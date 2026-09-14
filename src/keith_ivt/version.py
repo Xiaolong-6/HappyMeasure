@@ -1,21 +1,22 @@
 """Single runtime version source for HappyMeasure.
 
-HappyMeasure is the product and public Python package name.  The historical
-``keith_ivt`` namespace remains as a compatibility layer for existing imports,
-tests, and local launch scripts.
+``VERSION`` is the internal source-build identity. During active development the
+beta serial is incremented by exactly one on every commit. Public release names
+and tags are chosen deliberately by a human during release finalization; see
+``docs/VERSIONING.md``.
 """
 
 APP_NAME = "HappyMeasure"
 PACKAGE_NAME = "happymeasure"
 LEGACY_PACKAGE_NAME = "keith_ivt"
-APP_CODENAME = "1.1 beta 6"
-VERSION = "1.1b6"
+APP_CODENAME = "1.1 beta 7"
+VERSION = "1.1b7"
 __version__ = VERSION
 RELEASE_STAGE = "beta"
 __release_stage__ = RELEASE_STAGE
 BUILD_NOTE = (
-    "1.1b6: hardens long-running Time plotting, Fast acquisition and diagnostics; "
-    "adds the staged Map Reconstruction workflow; and closes settings, export, "
-    "workspace-lifecycle, and release-validation regressions."
+    "1.1b7 internal build: release-prep documentation/privacy cleanup, live Time-history "
+    "controls, developer diagnostics cleanup, safer serial detection, and persistent "
+    "backup/log preferences."
 )
 __build_note__ = BUILD_NOTE

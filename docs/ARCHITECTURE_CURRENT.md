@@ -1,15 +1,15 @@
-# Current architecture — HappyMeasure 1.1b6
+# Current architecture — HappyMeasure
 
-This document owns the current runtime boundaries and invariants. Historical UI/refactor detail belongs in Git history, `CHANGELOG.md`, or versioned release notes.
+This document owns current runtime boundaries and invariants. Historical UI/refactor detail belongs in Git history and the changelog.
 
 ## Repository applications
 
-The repository contains two user-facing applications with separate UI stacks:
+The repository contains two user-facing applications:
 
-- **HappyMeasure** — Tkinter + Matplotlib measurement application under `src/keith_ivt/`, exposed publicly through the `happymeasure` package/entry point while retaining `keith_ivt` as the compatibility/internal namespace.
+- **HappyMeasure** — Tkinter + Matplotlib measurement application under `src/keith_ivt/`, exposed through the public `happymeasure` package/entry point while retaining `keith_ivt` as the compatibility/internal namespace.
 - **Map Reconstruction** — optional PySide6 + PyQtGraph application under `src/map_reconstruction/`, installed with `.[map]`.
 
-The applications exchange measurement data through documented file formats. Map Reconstruction must not import HappyMeasure UI, application state, or serial-driver internals.
+The applications exchange scientific data through documented file formats. Map Reconstruction must not depend on HappyMeasure UI/application state/serial internals.
 
 ## HappyMeasure runtime layers
 
@@ -18,101 +18,59 @@ src/keith_ivt/
   models.py                     SweepConfig, SweepPoint, SweepResult
   acquisition.py                Standard/Fast/Custom acquisition policy
   core/sweep_runner.py          measurement execution/timing
-  instrument/                   SourceMeter protocol, simulator, Keithley serial backend
-  drivers/                      driver-neutral hardware boundary/adapters
-  sweeps/                       driver-neutral sweep planning
+  instrument/                   simulator and Keithley serial backend
+  drivers/                      driver-neutral hardware adapters
   services/                     orchestration, preflight and safety services
-  data/                         settings, CSV import/export, presets, persistence
-  diagnostics/                  UI and hardware diagnostic routines
-  utils/thread_safe.py          bounded thread-safe UI/live buffers
+  data/                         settings, CSV IO, presets, backups/logging
+  diagnostics/                  UI/hardware diagnostics
   ui/app_state.py               run/connection state model
   ui/simple_app.py              Tk composition root
   ui/*_controller.py            hardware/run/update workflows
-  ui/plot_*.py                  plot rendering, controls and optimization
+  ui/plot_*.py                  plot rendering/interaction
   ui/trace_*.py                 trace table/actions
-  ui/settings_*.py              settings review/round-trip actions
+  ui/settings_*.py              settings review/round-trip
 ```
 
-### State contract
+### State and safety contract
 
-`AppState` is the application-level owner of run and connection semantics. Compatibility properties may bridge legacy code, but new behavior should not create another independent run-state machine.
+`AppState` owns run/connection semantics. Worker threads do hardware/timing work and communicate with Tk through the UI queue; Tk widgets remain UI-thread-owned.
 
-Worker threads do hardware/timing work and communicate with Tk through the UI queue. Tk widgets are updated on the UI thread.
-
-### Acquisition/safety contract
-
-Validation must complete before source output can be enabled. All success, stop, abort, error, disconnect, and close paths must preserve best-effort `output_off()` cleanup.
-
-Fast acquisition may reduce per-sample overhead, but must not weaken output safety or add per-sample serial queries that erase its timing benefit. A following run starts from deterministic application configuration.
+Validation should complete before source output can be enabled. Success, Stop, abort/error, disconnect and close paths must preserve best-effort `output_off()` cleanup. Fast acquisition must not add per-sample queries that erase its timing benefit or weaken output safety.
 
 ### Queue/rendering contract
 
-The worker may produce points faster than Matplotlib should redraw. Queue processing is bounded and live plotting is throttled independently of acquisition timing.
+Queue draining is bounded and live plotting is throttled independently of acquisition timing.
 
-Time-plot preferences are display policy only:
-
-- marker mode (`Auto` / `On` / `Off`);
-- live history (`All data` / `Last N points`);
-- refresh interval.
-
-`Last N points` applies to the live Time display path before expensive coordinate preparation. It must never truncate `_live_points`, completed `SweepResult.points`, CSV/project data, or later analysis. Completed large Time traces show the full time range, using extrema-preserving display reduction when needed.
+Time-plot controls are display-only. During an active run the operator may switch between `All data` and `Last N points` and change N. Those changes must affect only rendered data; authoritative acquisition buffers/results/exports remain complete.
 
 ### Settings contract
 
-The active desktop persistence owner in `1.1b6` is the flat dataclass `keith_ivt.data.settings.AppSettings` stored in `config/settings.json`. `sanitize_settings_dict()` supplies backward-compatible coercion/defaults. See `SETTINGS_COMPATIBILITY.md`. There is no alternate settings model.
+The active persistence owner is the flat `keith_ivt.data.settings.AppSettings` dataclass. Missing fields use defaults and user-editable fields round-trip through Settings. `auto_save_backup` and `record_log` default to enabled.
+
+### Serial discovery contract
+
+The GUI **Detect COM** action only enumerates OS-reported COM ports. It does not send SCPI and never scans baud rates. Connect/model identification uses the user-selected COM + baud. CLI preflight may probe candidate COM ports at one selected baud only.
 
 ## Map Reconstruction boundary
 
-`src/map_reconstruction/` is an independent optional application. Its core dependency direction is:
+`src/map_reconstruction/` is an independent optional application. Its dependency direction is:
 
 ```text
 UI -> preparation/reconstruction/processing/QC/project IO -> NumPy
 ```
 
-Qt/PyQtGraph remain optional GUI dependencies. Importers, preparation, numerical reconstruction, processing, project IO and QC should remain headless-testable where practical.
+The UI exposes Signal Preparation → Reconstruction → Map Analysis. Imported source arrays remain authoritative; preprocessing/reconstruction/display layers must not silently overwrite source scientific data.
 
-### Three-stage workspace
-
-The UI exposes three explicit stages in a `QStackedWidget`:
-
-1. **Signal Preparation** — source signal selection and time-domain baseline preparation;
-2. **Reconstruction** — geometry/registration/reconstruction/QC;
-3. **Map Analysis** — post-reconstruction scientific processing and display controls.
-
-Preparation produces a display/reconstruction input without mutating imported source arrays. Reconstruction results remain authoritative raw values; processing/color display state is downstream.
-
-Opening a genuinely new CSV is a workspace replacement operation. The candidate is parsed before the current workspace is discarded. Existing meaningful work receives the Save/Discard/Cancel guard. A successful new-source replacement clears stale reconstruction/analysis state and returns to Stage 1; an invalid/cancelled replacement preserves the old workspace.
-
-### Project contract
-
-`project_io.py` owns the versioned `.hmmap` ZIP/JSON format, embedded original source bytes, metadata and hash verification. Projects reopen from the embedded authoritative source and restore persisted workflow settings; a cached displayed map is not the scientific source of truth.
-
-See `MAP_PROJECT_FORMAT.md` for the archive contract.
-
-### Processing/display contract
-
-Raw reconstructed values, processed values and display scaling are distinct layers:
-
-- raw CSV export writes authoritative reconstruction values;
-- processed CSV export writes the scientific processed values plus metadata;
-- display-unit scaling and color limits do not overwrite scientific arrays;
-- percentile color controls represent distribution percentiles, not percentages of the maximum;
-- palette flipping and manual min/max are display controls.
+`project_io.py` owns the versioned `.hmmap` ZIP/JSON format, embedded source bytes, metadata and hash verification.
 
 ## Extension boundaries
 
-- Hardware-specific SCPI belongs in instrument/driver implementations, not Tk widgets.
-- New sweep generation belongs in sweep/planning logic, not UI widgets.
-- New persisted settings require backward-compatible defaults and Settings round-trip coverage.
-- Public file/schema changes require updates to `TRACE_SCHEMA.md` or `MAP_PROJECT_FORMAT.md` plus compatibility tests.
-- UI composition roots should remain small; put behavior in the responsible controller/mixin/module.
-
-See `DRIVER_SWEEP_EXTENSION_GUIDE.md` for driver/sweep extension patterns and `AGENTS.md` for change/safety discipline.
+- hardware-specific SCPI belongs in instrument/driver implementations, not Tk widgets;
+- sweep generation belongs in planning/core logic, not UI widgets;
+- persisted settings require backward-compatible defaults and round-trip tests;
+- public file/schema changes require updates to `TRACE_SCHEMA.md` or `MAP_PROJECT_FORMAT.md` plus compatibility tests;
+- composition roots should remain small.
 
 ## Release validation boundary
 
-Automated source validation does not equal hardware validation.
-
-- Core HappyMeasure tests run in the Windows Python matrix.
-- Map Reconstruction has a dedicated Windows/Python 3.12 offscreen Qt gate that installs real `.[map]` dependencies.
-- Portable Windows packaging, desktop visual checks, no-DUT communication checks and dummy-load/real-instrument behavior remain explicit release gates documented in `RELEASE_CHECKLIST.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.
+Automated source validation does not equal hardware validation. Core tests, the Map Qt gate, portable packaging and the recorded no-DUT hardware scope are separate evidence layers described in `RELEASE_CHECKLIST.md`, `VALIDATION_STATUS.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.

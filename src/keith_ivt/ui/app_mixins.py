@@ -10,6 +10,7 @@ only as composition boundaries.
 from __future__ import annotations
 
 from keith_ivt.ui.app_state_bridge import AppStateBridgeMixin
+from keith_ivt.ui.backup_preference import AutoBackupPreferenceMixin
 from keith_ivt.ui.data_actions import DataActionMixin
 from keith_ivt.ui.diagnostics_panel import DiagnosticsUiMixin
 from keith_ivt.ui.fast_acquisition import FastAcquisitionMixin
@@ -31,6 +32,7 @@ from keith_ivt.ui.status_bar import StatusBarMixin
 from keith_ivt.ui.sweep_config import SweepConfigMixin
 from keith_ivt.ui.sweep_controller import SweepControllerMixin
 from keith_ivt.ui.theme import ThemeMixin
+from keith_ivt.ui.time_plot_live_controls import TimePlotLiveControlsMixin
 from keith_ivt.ui.trace_controls import TraceInteractionMixin
 from keith_ivt.ui.trace_panel import TracePanelMixin
 from keith_ivt.ui.update_controller import UpdateControllerMixin
@@ -59,6 +61,7 @@ class AppWorkflowMixin(
     AppStateBridgeMixin,
     FastAcquisitionMixin,
     ShutdownSafetyMixin,
+    AutoBackupPreferenceMixin,
     SweepConfigMixin,
     SerialAutoDetectMixin,
     HardwareControllerMixin,
@@ -72,6 +75,7 @@ class AppWorkflowMixin(
 
 
 class AppPlotTraceMixin(
+    TimePlotLiveControlsMixin,
     PlotPanelMixin,
     PlotInteractionMixin,
     TracePanelMixin,

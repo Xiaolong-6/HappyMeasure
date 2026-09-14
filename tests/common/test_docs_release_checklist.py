@@ -17,14 +17,13 @@ def test_release_checklist_has_current_release_gates() -> None:
         "## 2. Automated core validation",
         "## 3. Map Reconstruction release gate",
         "## 4. Desktop simulator/UX smoke",
-        "## 5. Hardware safety gate",
-        "## 6. Windows portable package",
-        "## 7. Tag and GitHub Release",
+        "## 5. Hardware evidence",
+        "## 6. Windows portable packages",
+        "## 7. Human release-version decision",
         "## 8. Post-release",
     ):
         assert heading in text
-    assert "1.1b6" in text
-    assert "v1.1b6" in text
+    assert "check_version_sequence.py" in text
     assert ".[dev,map]" in text
     assert "QT_QPA_PLATFORM" in text
 
@@ -42,15 +41,15 @@ def test_docs_index_lists_current_owner_documents() -> None:
         "MAP_PROJECT_FORMAT.md",
         "RELEASE_CHECKLIST.md",
         "VALIDATION_STATUS.md",
-        "DOCS_AUDIT.md",
-        "RELEASE_NOTES_v1.1b6.md",
+        "VERSIONING.md",
+        "RELEASE_NOTES_NEXT.md",
     ]
     for doc_name in required_docs:
         assert doc_name in text
         assert (DOCS / doc_name).exists(), f"docs index references missing file: {doc_name}"
 
 
-def test_removed_diaries_migrations_and_superseded_notes_stay_removed() -> None:
+def test_obsolete_diaries_migrations_and_versioned_release_notes_are_removed() -> None:
     for doc_name in (
         "AGENT_HANDOFF.md",
         "TESTED_CURRENT.md",
@@ -58,52 +57,45 @@ def test_removed_diaries_migrations_and_superseded_notes_stay_removed() -> None:
         "HARDWARE_DRIVER_MIGRATION.md",
         "SETTINGS_MIGRATION.md",
         "RESTART_MECHANISM.md",
+        "DOCS_AUDIT.md",
+        "RELEASE_NOTES_v0.7a1.md",
+        "RELEASE_NOTES_v1.0b1.md",
+        "RELEASE_NOTES_v1.1b1.md",
+        "RELEASE_NOTES_v1.1b3.md",
+        "RELEASE_NOTES_v1.1b4.md",
+        "RELEASE_NOTES_v1.1b5.md",
+        "RELEASE_NOTES_v1.1b6.md",
     ):
         assert not (DOCS / doc_name).exists(), doc_name
 
 
-def test_docs_audit_records_ownership_and_cleanup_rationale() -> None:
-    text = _read(DOCS / "DOCS_AUDIT.md")
-    assert "## Owners" in text
-    assert "## 2026-09-11 cleanup decisions" in text
-    assert "VALIDATION_STATUS.md" in text
-    assert "SETTINGS_COMPATIBILITY.md" in text
-    assert "AGENT_HANDOFF.md" in text
-    assert "RESTART_MECHANISM.md" in text
+def test_current_docs_avoid_hardcoded_internal_build_identity() -> None:
+    for doc_name in (
+        "README.md",
+        "ARCHITECTURE_CURRENT.md",
+        "SETTINGS_COMPATIBILITY.md",
+        "HARDWARE_VALIDATION_PROTOCOL.md",
+        "RELEASE_CHECKLIST.md",
+        "VALIDATION_STATUS.md",
+    ):
+        text = _read(DOCS / doc_name) if doc_name != "README.md" else _read(ROOT / "README.md")
+        assert "current source candidate: **`1.1b" not in text.lower()
 
 
-def test_current_architecture_is_not_a_historical_ui_diary() -> None:
-    text = _read(DOCS / "ARCHITECTURE_CURRENT.md")
-    assert "HappyMeasure 1.1b6" in text
-    assert "## Historical UI/simulator refinement note" not in text
-    assert "## Historical theme/adaptive polish note" not in text
-    assert "## Historical visual responsiveness note" not in text
+def test_hardware_preflight_docs_match_com_only_gui_detection() -> None:
+    text = _read(DOCS / "HARDWARE_PREFLIGHT.md")
+    assert "Detect COM" in text
+    assert "send **no SCPI command**" in text
+    assert "never scans alternate baud rates" in text
+    assert ":OUTP?" in text
+    assert "does not source voltage/current" in text
 
 
-def test_settings_doc_matches_active_flat_runtime() -> None:
-    text = _read(DOCS / "SETTINGS_COMPATIBILITY.md")
-    assert "src/keith_ivt/data/settings.py" in text
-    assert "flat dataclass" in text
-    assert "not" in text and "settings_v2.py" in text
-
-
-def test_hardware_protocol_targets_current_release_and_test_layout() -> None:
-    text = _read(DOCS / "HARDWARE_VALIDATION_PROTOCOL.md")
-    assert "HappyMeasure 1.1b6" in text
-    assert "tests\\happymeasure\\test_pre_hardware_safety.py" in text
-    assert "v1.2b1 Fast release block" not in text
-
-
-def test_hardware_smoke_runner_targets_current_release() -> None:
-    text = _read(ROOT / "tools" / "hardware" / "keithley2400_smoke.py")
-    assert "1.1b6 Fast release block" in text
-    assert "v1.2b1" not in text
-
-
-def test_current_operator_docs_do_not_reintroduce_old_diary_language() -> None:
-    assert "during the alpha migration" not in _read(DOCS / "HARDWARE_DRY_RUN_GUIDE.md").lower()
-    assert "during tomorrow's test" not in _read(DOCS / "ERROR_RECOVERY.md").lower()
-    assert "future improvements for release" not in _read(DOCS / "TROUBLESHOOTING.md").lower()
+def test_versioning_policy_requires_commit_by_commit_increment() -> None:
+    text = _read(DOCS / "VERSIONING.md")
+    assert "Every commit must increment" in text
+    assert "beta serial by exactly one" in text
+    assert "human" in text.lower() and "public release" in text.lower()
 
 
 def test_stop_safety_copy_is_cooperative_not_emergency() -> None:
@@ -118,19 +110,11 @@ def test_stop_safety_copy_is_cooperative_not_emergency() -> None:
         assert "Emergency Stop" not in text
         assert "Emergency stop requested" not in text
     assert "cooperative" in _read(DOCS / "HARDWARE_DRY_RUN_GUIDE.md").lower()
-    assert "immediate physical output-off" in _read(
-        ROOT / "src" / "keith_ivt" / "ui" / "operator_bar.py"
-    )
 
 
-def test_preflight_docs_require_output_state_verification() -> None:
-    text = _read(DOCS / "HARDWARE_PREFLIGHT.md")
-    assert ":OUTP?" in text
-    assert "Require an OFF/0 state" in text
-    assert "does not issue READ?" in text
-
-
-def test_versioning_policy_does_not_reuse_published_beta() -> None:
-    text = _read(DOCS / "VERSIONING.md")
-    assert "1.1b6" in text
-    assert "Do not reuse a published version/tag" in text
+def test_settings_doc_covers_new_persistent_preferences() -> None:
+    text = _read(DOCS / "SETTINGS_COMPATIBILITY.md")
+    assert "auto_save_backup" in text
+    assert "record_log" in text
+    assert "Last N points" in text
+    assert "while a measurement is running" in text

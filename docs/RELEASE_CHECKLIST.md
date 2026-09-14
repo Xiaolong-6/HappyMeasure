@@ -1,38 +1,27 @@
-# Release Checklist — HappyMeasure 1.1b6
+# Release Checklist — HappyMeasure
 
-Use this checklist from a clean release branch after feature freeze. `v1.1b5` already exists publicly; this source line must use `1.1b6` / `v1.1b6`.
+Use this checklist from a clean release candidate after feature freeze. The public release version is selected by a human only after the internal build passes the release audit.
 
 ## 1. Identity and tree hygiene
-
-Expected identity:
-
-- prose: `1.1 beta 6`
-- package: `1.1b6`
-- tag: `v1.1b6`
-- artifacts (same release, two independent portable ZIPs sharing one version):
-  - `HappyMeasure-1.1b6-windows-portable.zip` (acquisition application)
-  - `MapReconstruction-1.1b6-windows-portable.zip` (standalone companion post-processing application; no separate version history)
 
 Before tagging:
 
 ```powershell
 git status --short
-git log --oneline -5
+git log --oneline -8
 ```
 
-No generated/runtime folders, local helper scripts, logs, hardware-smoke artifacts, `build/` or `dist/` may be committed.
+Confirm:
 
-Check version consistency in:
-
-- `src/keith_ivt/version.py`
-- `pyproject.toml`
-- `README.md`
-- `docs/CHANGELOG.md`
-- `docs/RELEASE_NOTES_v1.1b6.md`
+- `src/keith_ivt/version.py` and `pyproject.toml` report the same internal build;
+- every commit since the previous parent increments the internal beta serial by one;
+- no generated/runtime folders, local helper scripts, logs, hardware-smoke artifacts, `build/` or `dist/` are committed;
+- no workstation-specific absolute home paths, usernames or physical instrument serial numbers are present in tracked text;
+- `docs/RELEASE_NOTES_NEXT.md` describes the release draft without pretending the internal build number is already the public version.
 
 ## 2. Automated core validation
 
-Install the core developer dependencies:
+Install developer dependencies:
 
 ```powershell
 python -m pip install -e ".[dev]"
@@ -41,19 +30,18 @@ python -m pip install -e ".[dev]"
 Run:
 
 ```powershell
-python -m compileall -q src tests
-python -m black --check src tests
-python -m ruff check src tests
+python tools\release\check_version_sequence.py --base HEAD^ --head HEAD
+python -m compileall -q src tests tools\release
+python -m black --check src tests tools\release
+python -m ruff check src tests tools\release
 python -m mypy src/keith_ivt src/happymeasure
 python -m pytest -q tests/common tests/happymeasure
 python -m pytest tests/common tests/happymeasure --cov=keith_ivt --cov-report=term -q
 ```
 
-Coverage gate remains `>=95%` for the configured core scope. Do not lower it to close a release.
+Coverage gate remains `>=95%` for the configured core scope.
 
 ## 3. Map Reconstruction release gate
-
-This is mandatory for `1.1b6` because Map Reconstruction has substantial release-visible changes. Map dependencies remain optional for the normal HappyMeasure install, so the Qt suite is intentionally owned by its own gate rather than the core Python matrix.
 
 ```powershell
 python -m pip install -e ".[dev,map]"
@@ -63,9 +51,9 @@ python -m mypy src/map_reconstruction
 python -m pytest -q tests/map_reconstruction
 ```
 
-CI has a dedicated Windows/Python 3.12 job that installs `.[dev,map]`. A missing dependency must fail the job rather than silently skipping the Qt suite.
+CI owns a dedicated Windows/Python 3.12 job with real Qt dependencies. Dependency-driven skips do not count as a release-gate pass.
 
-For the complete local release validation after both dependency sets are installed, also run:
+For the complete local release environment:
 
 ```powershell
 python tests\run_full_validation.py
@@ -73,98 +61,51 @@ python tests\run_full_validation.py
 
 ## 4. Desktop simulator/UX smoke
 
-Follow `MANUAL_SMOKE_TESTS.md` plus the current list in `VALIDATION_STATUS.md`.
-
-Pay particular attention to:
+Follow `MANUAL_SMOKE_TESTS.md` and `UI_VISUAL_CHECKLIST.md`. Pay particular attention to:
 
 - repeated Start/Pause/Resume/Stop/restart;
-- short window / Windows scaling and scrollability;
-- Advanced Acquisition Standard/Fast/Custom state;
-- long Time plot smoothness and full completed trace;
+- live Time plot switching between All data and Last N while running;
+- Settings review/save, including Auto-save backup and Record log;
+- Developer Tools visibility and repeatable UI/Hardware Diagnostics buttons;
 - trace import/export/rename/delete;
-- Settings review preserving disabled update checks;
-- UI Diagnostics return path;
-- Map CSV replacement, project round-trip and maximized startup.
+- Map CSV replacement, project round-trip and normal/maximized window behavior.
 
-## 5. Hardware safety gate
+## 5. Hardware evidence
 
-Follow `HARDWARE_VALIDATION_PROTOCOL.md` in order. Never skip directly to a real DUT.
+The current release line already has MODEL 2401 no-DUT communication/control evidence recorded in `VALIDATION_STATUS.md`. Do not require another bench session unless later source changes touch serial I/O, source-output safety, acquisition sequencing or hardware cleanup.
 
-Record:
+If such behavior changes, rerun the relevant portion of `HARDWARE_VALIDATION_PROTOCOL.md` before release.
 
-- model/firmware from `*IDN?`;
-- port/baud/terminal/wiring;
-- compliance/range/profile;
-- output-off confirmation after normal completion, Stop, Abort/error and disconnect;
-- generated CSV/log artifacts.
-
-Hardware Diagnostics is communication/output-off only and must never enable output or issue a measurement read.
+Do not upgrade the claim beyond the recorded evidence: no passive-load quantitative accuracy or arbitrary DUT validation was performed in the current release-prep session.
 
 ## 6. Windows portable packages
 
-Build only after source gates pass. Build scripts use dedicated
-`.venv-build*` environments and never touch the developer `.venv`.
+Build only after source gates pass. Build scripts use dedicated build environments and must not depend on a developer workstation path.
 
-HappyMeasure acquisition application:
+HappyMeasure:
 
 ```powershell
 .\tools\build\Build_Portable_Windows_App.ps1
 ```
 
-or:
-
-```bat
-tools\build\Build_Portable_Windows_App.bat
-```
-
-Verify:
-
-- `dist\HappyMeasure\HappyMeasure.exe`
-- `dist\HappyMeasure\_internal`
-- required readme/safety/config files
-- versioned portable ZIP
-- packaged app launches and closes cleanly
-- simulator connect + short sweep works
-- About/update-check UI has no import error
-
-Map Reconstruction standalone companion (no Python, no HappyMeasure, no SMU needed):
+Map Reconstruction:
 
 ```powershell
 .\tools\build\Build_Portable_Map_Reconstruction.ps1
 ```
 
-or:
+Verify both packages launch without system Python and do not contain local logs, caches, source checkout paths or hardware-smoke artifacts. Record artifact size and SHA-256.
 
-```bat
-tools\build\Build_Portable_Map_Reconstruction.bat
-```
+## 7. Human release-version decision
 
-Verify:
+After all gates are green, a human chooses the public version/tag. Make runtime/package/artifact/tag identity consistent before publication. Never reuse an already published version for different source.
 
-- `dist\MapReconstruction\MapReconstruction.exe`
-- `dist\MapReconstruction\_internal`
-- `README_FIRST.txt` describing standalone use
-- versioned portable ZIP
-- packaged app launches and closes cleanly without system Python
-- a minimal HappyMeasure CSV imports and a `.hmmap` save/open smoke passes
-
-Record SHA-256 and package size of both ZIPs in the final release notes.
-
-## 7. Tag and GitHub Release
-
-Only after source + desktop + selected hardware gate passes:
-
-```powershell
-git tag v1.1b6
-git push origin main --tags
-```
-
-Create a prerelease named `HappyMeasure 1.1b6`, upload both verified portable ZIPs, and include the actual validation level. Do not reuse or replace the published `v1.1b5` asset/tag.
+Create the public release from the exact verified commit and upload only the freshly rebuilt artifacts.
 
 ## 8. Post-release
 
-- download the uploaded ZIP to a fresh folder and launch it;
-- verify GitHub exposes the expected SHA-256 digest metadata;
-- test update detection from the previous release;
+- download each uploaded artifact to a fresh folder and launch it;
+- verify hashes and version identity;
+- test update detection from the previous public release;
 - verify offline update-check failure is non-blocking;
-- update `VALIDATION_STATUS.md` / `CHANGELOG.md` with the final released state in the next normal source commit if needed.
+- keep final release evidence in the GitHub Release/changelog, not a workstation-specific path in source documentation.

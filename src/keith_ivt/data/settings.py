@@ -15,6 +15,8 @@ class AppSettings:
     """
 
     log_max_bytes: int = 1_000_000
+    auto_save_backup: bool = True
+    record_log: bool = True
     default_mode: str = "VOLT"
     default_start: float = -1.0
     default_stop: float = 1.0
@@ -61,6 +63,18 @@ DEFAULT_SETTINGS_PATH = Path("config") / "settings.json"
 
 _TRUE_STRINGS = {"1", "true", "yes", "y", "on"}
 _FALSE_STRINGS = {"0", "false", "no", "n", "off", ""}
+_RUNTIME_RECORD_LOG = True
+
+
+def _remember_runtime_preferences(settings: AppSettings) -> AppSettings:
+    global _RUNTIME_RECORD_LOG
+    _RUNTIME_RECORD_LOG = bool(settings.record_log)
+    return settings
+
+
+def record_log_enabled() -> bool:
+    """Return whether normal application event-log persistence is enabled."""
+    return bool(_RUNTIME_RECORD_LOG)
 
 
 def clamp_log_max_bytes(value: int) -> int:
@@ -186,6 +200,8 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         merged[key] = _coerce_float(merged.get(key), defaults[key], minimum=minimum)
 
     for key in (
+        "auto_save_backup",
+        "record_log",
         "cache_enabled",
         "default_autorange",
         "auto_source_range",
@@ -269,19 +285,20 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
 def load_settings(path: str | Path = DEFAULT_SETTINGS_PATH) -> AppSettings:
     path = Path(path)
     if not path.exists():
-        return AppSettings()
+        return _remember_runtime_preferences(AppSettings())
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
-        return AppSettings()
+        return _remember_runtime_preferences(AppSettings())
     if not isinstance(loaded, dict):
-        return AppSettings()
-    return AppSettings(**sanitize_settings_dict(loaded))
+        return _remember_runtime_preferences(AppSettings())
+    return _remember_runtime_preferences(AppSettings(**sanitize_settings_dict(loaded)))
 
 
 def save_settings(settings: AppSettings, path: str | Path = DEFAULT_SETTINGS_PATH) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = sanitize_settings_dict(asdict(settings))
+    _remember_runtime_preferences(AppSettings(**payload))
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return path

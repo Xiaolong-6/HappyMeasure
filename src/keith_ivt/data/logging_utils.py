@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from keith_ivt.data.settings import clamp_log_max_bytes
+from keith_ivt.data.settings import clamp_log_max_bytes, record_log_enabled
 
 
 class AppLog:
@@ -45,6 +45,11 @@ class AppLog:
     def write(self, message: str) -> str:
         stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         line = f"[{stamp}] {message}"
+        # Keep the live Log page useful even when persistent event logging is
+        # disabled.  Returning the formatted line lets the UI show the event,
+        # while no logs/log.txt append/rotation is performed.
+        if not record_log_enabled():
+            return line
         incoming = len((line + "\n").encode("utf-8"))
         self._rotate_if_needed(incoming)
         with self.path.open("a", encoding="utf-8") as f:

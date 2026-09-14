@@ -13,6 +13,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  version-policy:
+    name: Version policy
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Check push commit-by-commit version sequence
+        if: github.event_name == 'push'
+        run: python tools/release/check_version_sequence.py --base "${{ github.event.before }}" --head "${{ github.sha }}"
+      - name: Check pull-request commit-by-commit version sequence
+        if: github.event_name == 'pull_request'
+        run: python tools/release/check_version_sequence.py --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}"
+
   test:
     runs-on: windows-latest
     timeout-minutes: 30
@@ -30,11 +48,11 @@ jobs:
       - name: Install project and developer tools
         run: python -m pip install -e ".[dev]"
       - name: Compile sources and tests
-        run: python -m compileall -q src tests
+        run: python -m compileall -q src tests tools/release
       - name: Check formatting
-        run: python -m black --check --diff src tests
+        run: python -m black --check --diff src tests tools/release
       - name: Lint
-        run: python -m ruff check src tests
+        run: python -m ruff check src tests tools/release
       - name: Type check core HappyMeasure
         run: python -m mypy src/keith_ivt src/happymeasure
       - name: Run core test suite

@@ -211,17 +211,7 @@ class SettingsPanelMixin(UiMixinTyping):
                 int(getattr(self.settings, "ui_font_size", 10)),
                 "bold",
             ),
-        ).grid(row=3, column=0, columnspan=2, sticky="w")
-        ttk.Label(
-            dev_box,
-            text=(
-                "UI Diagnostics exercises Tk navigation and callbacks without touching hardware. "
-                "Hardware Diagnostics checks a real instrument behind an explicit no-DUT safety gate."
-            ),
-            style="Muted.TLabel",
-            wraplength=380,
-            justify="left",
-        ).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(4, 8))
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(0, 6))
 
         ui_button = ttk.Button(
             dev_box,
@@ -229,10 +219,10 @@ class SettingsPanelMixin(UiMixinTyping):
             command=self._show_ui_diagnostics,
             style="Soft.TButton",
         )
-        ui_button.grid(row=5, column=0, columnspan=2, sticky="ew")
+        ui_button.grid(row=4, column=0, columnspan=2, sticky="ew")
         add_tip(
             ui_button,
-            "Exercise real Tk navigation/control callbacks and create a shareable UI diagnostic report without connecting to hardware.",
+            "Exercise real Tk navigation/control callbacks and create a shareable diagnostic report. No hardware commands are sent.",
         )
 
         hardware_button = ttk.Button(
@@ -241,10 +231,10 @@ class SettingsPanelMixin(UiMixinTyping):
             command=self._show_hardware_diagnostics,
             style="Soft.TButton",
         )
-        hardware_button.grid(row=6, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        hardware_button.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         add_tip(
             hardware_button,
-            "Run communication and output-off safety checks on the selected real Keithley. No measurement is started and source output is never enabled.",
+            "Run real-instrument communication and OUTPUT-OFF safety checks. Requires explicit no-DUT confirmation and never enables source output.",
         )
 
 
