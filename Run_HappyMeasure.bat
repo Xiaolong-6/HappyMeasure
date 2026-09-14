@@ -16,6 +16,7 @@ set "EXITCODE=0"
 set "PROJECT_DIR=%CD%"
 set "VENV_PY=%PROJECT_DIR%\.venv\Scripts\python.exe"
 set "PYTHONPATH=%PROJECT_DIR%\src;%PYTHONPATH%"
+set "BOOTSTRAP_PY="
 
 echo ============================================
 echo HappyMeasure Launcher
@@ -23,12 +24,20 @@ echo Working directory: "%PROJECT_DIR%"
 echo ============================================
 echo.
 
-python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python 3.11 or newer is required ^(pyproject requires-python ^>=3.11^).
-    set "EXITCODE=1"
-    goto END
+rem Prefer an already-working project venv. Do not reject the launcher merely
+rem because the bare `python` command in PATH is old, missing, or a Store stub.
+if exist "%VENV_PY%" (
+    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+    if not errorlevel 1 (
+        for /f "delims=" %%V in ('"%VENV_PY%" --version 2^>^&1') do echo [INFO] Using existing virtual environment: %%V
+        goto VENV_READY
+    )
+    echo [INFO] Existing virtual environment is stale, broken, or uses Python older than 3.11. Recreating...
+    rmdir /s /q "%PROJECT_DIR%\.venv" 2>nul
 )
+
+call :FIND_BOOTSTRAP_PY
+if errorlevel 1 goto END
 
 if not exist "%VENV_PY%" (
     echo [INFO] Virtual environment not found. Creating...
@@ -46,14 +55,15 @@ if not exist "%PROJECT_DIR%\.venv\pyvenv.cfg" (
 rem A copied/synced venv can keep an absolute reference to another Windows user
 rem profile, e.g. C:\Users\carll\... . The python.exe file may exist but cannot
 rem start. Validate it before launch and rebuild if stale.
-"%VENV_PY%" -c "import sys; print(sys.executable)" >nul 2>nul
+"%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
 if errorlevel 1 (
-    echo [INFO] Existing virtual environment is stale or points to a missing base Python. Recreating...
+    echo [INFO] Existing virtual environment is stale or points to a missing/unsupported base Python. Recreating...
     rmdir /s /q "%PROJECT_DIR%\.venv" 2>nul
     call :CREATE_OR_REPAIR_VENV
     if errorlevel 1 goto END
 )
 
+:VENV_READY
 echo [1/3] Attempting to launch HappyMeasure...
 echo.
 "%VENV_PY%" -m happymeasure
@@ -85,6 +95,10 @@ if "%EXITCODE%"=="1" (
         move "%PROJECT_DIR%\.venv" "%PROJECT_DIR%\.venv.backup" >nul 2>&1
     )
 
+    if not defined BOOTSTRAP_PY (
+        call :FIND_BOOTSTRAP_PY
+        if errorlevel 1 goto END
+    )
     call :CREATE_OR_REPAIR_VENV
     if errorlevel 1 goto END
 
@@ -109,12 +123,12 @@ if "%EXITCODE%"=="1" (
     echo [ERROR] Repair attempt failed. Trying fallback method...
     echo.
 
-    echo [FALLBACK] Launching with direct PYTHONPATH no venv...
-    python -m happymeasure
+    echo [FALLBACK] Launching with compatible system Python and direct PYTHONPATH...
+    call %BOOTSTRAP_PY% -m happymeasure
     set "EXITCODE=%ERRORLEVEL%"
     if not "%EXITCODE%"=="0" (
         echo [INFO] Public happymeasure entry failed. Trying legacy keith_ivt entry...
-        python -m keith_ivt
+        call %BOOTSTRAP_PY% -m keith_ivt
         set "EXITCODE=%ERRORLEVEL%"
     )
 
@@ -134,17 +148,41 @@ echo.
 echo Troubleshooting steps:
 echo 1. Run tools\validation\Run_Full_Validation.bat for full diagnostics
 echo 2. Check logs\error.log for detailed error messages
-echo 3. Ensure Python 3.11+ is installed and in PATH
-echo 4. Verify pyproject.toml exists and is valid
+echo 3. Run `py -0p` to list installed Python interpreters
+echo 4. Ensure at least one Python 3.11+ interpreter is installed
 echo.
 goto END
 
+:FIND_BOOTSTRAP_PY
+set "BOOTSTRAP_PY="
+for %%V in (3.14 3.13 3.12 3.11) do (
+    if not defined BOOTSTRAP_PY (
+        py -%%V -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+        if not errorlevel 1 set "BOOTSTRAP_PY=py -%%V"
+    )
+)
+if not defined BOOTSTRAP_PY (
+    python -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+    if not errorlevel 1 set "BOOTSTRAP_PY=python"
+)
+if not defined BOOTSTRAP_PY (
+    echo [ERROR] No usable Python 3.11 or newer interpreter was found.
+    echo [INFO] Run `py -0p` in Command Prompt to see installed Python versions.
+    set "EXITCODE=1"
+    exit /b 1
+)
+for /f "delims=" %%V in ('call %BOOTSTRAP_PY% --version 2^>^&1') do echo [INFO] Bootstrap interpreter: %%V ^(%BOOTSTRAP_PY%^)
+exit /b 0
+
 :CREATE_OR_REPAIR_VENV
 echo Creating fresh virtual environment...
-python -m venv "%PROJECT_DIR%\.venv"
+if not defined BOOTSTRAP_PY (
+    call :FIND_BOOTSTRAP_PY
+    if errorlevel 1 exit /b 1
+)
+call %BOOTSTRAP_PY% -m venv "%PROJECT_DIR%\.venv"
 if errorlevel 1 (
-    echo [ERROR] Failed to create virtual environment.
-    echo Check that Python is installed and available in PATH.
+    echo [ERROR] Failed to create virtual environment with %BOOTSTRAP_PY%.
     set "EXITCODE=1"
     exit /b 1
 )

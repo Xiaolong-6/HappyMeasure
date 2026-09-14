@@ -13,7 +13,7 @@ def test_main_batch_launcher_quotes_project_paths():
         'set "PROJECT_DIR=%~dp0"',
         'cd /d "%PROJECT_DIR%"',
         'set "PYTHONPATH=%PROJECT_DIR%\\src;%PYTHONPATH%"',
-        'python -m venv "%PROJECT_DIR%\\.venv"',
+        'call %BOOTSTRAP_PY% -m venv "%PROJECT_DIR%\\.venv"',
         '"%VENV_PY%" -m pip install -e "%PROJECT_DIR%"',
         '"%VENV_PY%" -m happymeasure',
         '"%VENV_PY%" -m keith_ivt',
@@ -32,6 +32,22 @@ def test_main_powershell_launcher_uses_literal_paths():
         "& $VenvPy -m happymeasure",
     ):
         assert needle in text
+
+
+def test_main_launchers_prefer_existing_venv_and_probe_supported_python_versions():
+    batch = read("Run_HappyMeasure.bat")
+    assert 'if exist "%VENV_PY%"' in batch
+    assert '"%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"' in batch
+    assert "for %%V in (3.14 3.13 3.12 3.11) do" in batch
+    assert 'set "BOOTSTRAP_PY=python"' in batch
+    assert "No usable Python 3.11 or newer interpreter was found" in batch
+
+    powershell = read("Run_HappyMeasure.ps1")
+    assert "function Find-CompatiblePython" in powershell
+    for version in ("3.14", "3.13", "3.12", "3.11"):
+        assert f'@{{ Exe = "py"; Args = @("-{version}") }}' in powershell
+    assert '@{ Exe = "python"; Args = @() }' in powershell
+    assert "No usable Python 3.11 or newer interpreter was found" in powershell
 
 
 def test_tool_launchers_set_pythonpath_and_quote_paths():
@@ -60,8 +76,8 @@ def test_tool_launchers_set_pythonpath_and_quote_paths():
 def test_launchers_detect_stale_virtualenv_python():
     main_bat = read("Run_HappyMeasure.bat")
     assert "Existing virtual environment is stale" in main_bat
-    assert '"%VENV_PY%" -c "import sys; print(sys.executable)"' in main_bat
+    assert '"%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"' in main_bat
 
     main_ps1 = read("Run_HappyMeasure.ps1")
     assert "Existing .venv is stale" in main_ps1
-    assert '& $VenvPy -c "import sys; print(sys.executable)"' in main_ps1
+    assert "Test-CompatiblePython -Exe $VenvPy" in main_ps1
