@@ -100,7 +100,8 @@ class ShutdownSafetyMixin(UiMixinTyping):
         except Exception as dataset_exc:
             self.log_event(f"Partial dataset registration failed: {dataset_exc}")
 
-        if bool(getattr(self.settings, "auto_save_backup", True)):
+        settings = getattr(self, "settings", None)
+        if bool(getattr(settings, "auto_save_backup", True)):
             try:
                 backup_path = autosave_result(result)
                 setattr(self, "_last_backup_path", backup_path)
