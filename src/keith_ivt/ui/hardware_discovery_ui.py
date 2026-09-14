@@ -7,7 +7,7 @@ from keith_ivt.ui.widgets import add_tip
 
 
 class HardwareDiscoveryUiMixin(UiMixinTyping):
-    """Add an explicit hardware auto-detect control to the Hardware panel."""
+    """Add an explicit COM detection control to the Hardware panel."""
 
     def _build_hardware_panel(self, parent) -> None:
         super()._build_hardware_panel(parent)
@@ -16,11 +16,11 @@ class HardwareDiscoveryUiMixin(UiMixinTyping):
         row.columnconfigure(0, weight=1)
         row.columnconfigure(1, weight=1)
         self.connect_btn.grid_configure(row=0, column=1, sticky="ew", padx=(6, 0))
-        self.detect_btn = ttk.Button(row, text="Auto Detect", command=self.auto_detect_hardware)
+        self.detect_btn = ttk.Button(row, text="Detect COM", command=self.auto_detect_hardware)
         self.detect_btn.grid(row=0, column=0, sticky="ew")
         add_tip(
             self.detect_btn,
-            "Scan detected COM ports and supported baud rates using *IDN? only, then fill COM/Baud automatically.",
+            "Refresh Windows COM ports only. No SCPI is sent and baud is never auto-scanned. Select baud, then Connect to identify the instrument.",
         )
 
     def _update_run_button_states(self) -> None:

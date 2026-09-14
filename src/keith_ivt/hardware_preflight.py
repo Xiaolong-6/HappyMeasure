@@ -4,33 +4,36 @@ import argparse
 import sys
 
 from keith_ivt.services.hardware_preflight import run_keithley_preflight
-from keith_ivt.services.serial_discovery import (
-    APP_SUPPORTED_BAUD_RATES,
-    discover_supported_serial_hardware,
-)
+from keith_ivt.services.serial_discovery import discover_supported_serial_hardware
 
 PREFLIGHT_SAFETY_NOTE = (
-    "Safety: automatic discovery, when used, sends *IDN? only. The preflight "
-    "then forces and verifies OUTPUT OFF; it does not source voltage/current, "
-    "issue READ?, or run a sweep."
+    "Safety: automatic COM discovery, when used, probes detected COM ports only at the "
+    "selected --baud and sends *IDN? only. HappyMeasure never auto-scans alternate baud "
+    "rates. The preflight then forces and verifies OUTPUT OFF; it does not source "
+    "voltage/current, issue READ?, or run a sweep."
 )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="HappyMeasure Keithley serial preflight: auto-detect + output-off verification.",
+        description="HappyMeasure Keithley serial preflight: COM discovery + output-off verification.",
         epilog=PREFLIGHT_SAFETY_NOTE,
     )
     parser.add_argument(
         "port",
         nargs="?",
-        help="Serial port, e.g. COM3. Omit to auto-detect a supported Keithley.",
+        help=(
+            "Serial port, e.g. COM3. Omit to scan detected COM ports at the selected --baud."
+        ),
     )
     parser.add_argument("--baud", type=int, default=9600, help="Baud rate, default 9600")
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="Auto-detect a supported Keithley COM port and baud; an optional port is tried first.",
+        help=(
+            "Auto-detect a supported Keithley COM port using the selected --baud only. "
+            "Alternate baud rates are never scanned."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -45,19 +48,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         if match is None:
             print("FAIL hardware preflight")
-            print("Reason: no supported Keithley 2400-family serial instrument was auto-detected")
             print(
-                "Scanned HappyMeasure baud rates: "
-                + ", ".join(str(value) for value in APP_SUPPORTED_BAUD_RATES)
+                f"Reason: no supported Keithley 2400-family instrument responded at {baud} baud"
             )
             print(
-                "Action: keep the instrument output off, verify the RS-232 cable/adapter and "
-                "instrument serial settings, then retry or specify COM/baud manually."
+                "Action: keep the instrument output off, verify the Windows COM port and the "
+                "instrument RS-232 baud setting, then retry with --baud or specify COM manually."
             )
             return 1
         port = match.port
-        baud = match.baud_rate
-        print(f"Auto-detected Keithley {match.model} on {port} at {baud} baud")
+        print(f"Auto-detected Keithley {match.model} on {port} at selected baud {baud}")
 
     assert port is not None
     try:
@@ -68,7 +68,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Baud: {baud}")
         print(f"Reason: {exc}")
         print(
-            "Action: keep the instrument output off, verify cabling/resource name, then retry preflight before any real sweep."
+            "Action: keep the instrument output off, verify cabling/resource name and baud, "
+            "then retry preflight before any real sweep."
         )
         return 1
 

@@ -72,9 +72,6 @@ class _AutoDetectHarness(SerialAutoDetectMixin, _Delegate):
         if widget is not None:
             widget.configure(**kwargs)
 
-    def _refresh_port_choices(self) -> list[str]:
-        return [str(self.port.get())]
-
     def _update_run_button_states(self) -> None:
         pass
 
@@ -123,7 +120,7 @@ def test_probe_serial_identity_uses_one_short_read_only_session(monkeypatch) -> 
     assert captured["closed"] is True
 
 
-def test_discovery_prefers_current_selection_and_returns_supported_model() -> None:
+def test_discovery_prefers_current_port_at_selected_baud() -> None:
     calls: list[tuple[str, int]] = []
 
     def probe(port: str, baud: int) -> str:
@@ -136,7 +133,6 @@ def test_discovery_prefers_current_selection_and_returns_supported_model() -> No
         preferred_port="COM9",
         preferred_baud=57600,
         ports=["COM3", "COM9"],
-        baud_rates=[9600, 57600],
         probe=probe,
     )
 
@@ -149,27 +145,27 @@ def test_discovery_prefers_current_selection_and_returns_supported_model() -> No
     assert calls == [("COM9", 57600)]
 
 
-def test_discovery_skips_wrong_baud_and_unsupported_instrument() -> None:
-    replies = {
-        ("COM4", 9600): "TEKTRONIX,OTHER,123,1.0",
-        ("COM4", 19200): "KEITHLEY INSTRUMENTS INC.,MODEL 2450,123,1.0",
-        ("COM7", 9600): "KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0",
-    }
+def test_discovery_never_scans_alternate_baud_rates() -> None:
+    calls: list[tuple[str, int]] = []
 
     def probe(port: str, baud: int) -> str:
-        if (port, baud) not in replies:
-            raise TimeoutError("no response")
-        return replies[(port, baud)]
+        calls.append((port, baud))
+        if port == "COM7" and baud == 9600:
+            return "KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0"
+        return "TEKTRONIX,OTHER,123,1.0"
 
     result = discover_supported_serial_hardware(
+        preferred_baud=19200,
         ports=["COM4", "COM7"],
-        baud_rates=[9600, 19200],
         probe=probe,
     )
 
-    assert result is not None
-    assert (result.port, result.baud_rate, result.model) == ("COM7", 9600, "2400")
-    assert supported_2400_identity(replies[("COM4", 19200)]) == (False, "2450")
+    assert result is None
+    assert calls == [("COM4", 19200), ("COM7", 19200)]
+    assert supported_2400_identity("KEITHLEY INSTRUMENTS INC.,MODEL 2450,123,1.0") == (
+        False,
+        "2450",
+    )
 
 
 def test_discovery_uses_enumerated_ports_and_can_return_none(monkeypatch) -> None:
@@ -180,44 +176,42 @@ def test_discovery_uses_enumerated_ports_and_can_return_none(monkeypatch) -> Non
         calls.append((port, baud))
         return "NOT-KEITHLEY,OTHER,0,0"
 
-    result = discover_supported_serial_hardware(baud_rates=[9600], probe=probe)
+    result = discover_supported_serial_hardware(preferred_baud=9600, probe=probe)
 
     assert result is None
     assert calls == [("COM6", 9600)]
 
 
-def test_manual_auto_detect_updates_selectors_and_detected_model(monkeypatch) -> None:
+def test_detect_com_selects_only_port_without_changing_baud(monkeypatch) -> None:
     harness = _AutoDetectHarness()
-    match = SerialDiscoveryResult(
-        port="COM8",
-        baud_rate=38400,
-        idn="KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0",
-        model="2400",
-    )
-    monkeypatch.setattr(
-        serial_auto_detect,
-        "discover_supported_serial_hardware",
-        lambda **kwargs: match,
-    )
+    monkeypatch.setattr(serial_auto_detect, "available_serial_ports", lambda: ["COM8"])
 
     assert harness.auto_detect_hardware() is True
 
     assert harness.port.get() == "COM8"
-    assert harness.baud_rate.get() == 38400
-    assert harness.hardware_profile_text.get() == "Keithley 2400 — detected on COM8 @ 38400"
+    assert harness.baud_rate.get() == 9600
+    assert harness.port_combo.options["values"] == ["COM8"]
+    assert "Connect to identify model" in harness.hardware_profile_text.get()
     assert harness.root.update_calls == 1
-    assert harness.detect_btn.options["text"] == "Auto Detect"
-    assert any("Auto-detected Keithley 2400" in message for message in harness.logs)
+    assert harness.detect_btn.options["text"] == "Detect COM"
+    assert any("no SCPI sent" in message for message in harness.logs)
 
 
-def test_manual_auto_detect_reports_no_match_without_changing_selection(monkeypatch) -> None:
+def test_detect_com_keeps_existing_real_port_when_multiple_found(monkeypatch) -> None:
+    harness = _AutoDetectHarness()
+    monkeypatch.setattr(serial_auto_detect, "available_serial_ports", lambda: ["COM3", "COM8"])
+
+    assert harness.auto_detect_hardware() is True
+
+    assert harness.port.get() == "COM3"
+    assert harness.baud_rate.get() == 9600
+    assert "2 COM ports detected" in harness.hardware_profile_text.get()
+
+
+def test_detect_com_reports_no_ports(monkeypatch) -> None:
     harness = _AutoDetectHarness()
     warnings: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        serial_auto_detect,
-        "discover_supported_serial_hardware",
-        lambda **kwargs: None,
-    )
+    monkeypatch.setattr(serial_auto_detect, "available_serial_ports", lambda: [])
     monkeypatch.setattr(
         serial_auto_detect.messagebox,
         "showwarning",
@@ -228,55 +222,33 @@ def test_manual_auto_detect_reports_no_match_without_changing_selection(monkeypa
 
     assert harness.port.get() == "COM3"
     assert harness.baud_rate.get() == 9600
-    assert harness.hardware_profile_text.get() == "No supported Keithley detected"
-    assert warnings and warnings[0][0] == "Hardware not detected"
+    assert harness.hardware_profile_text.get() == "No serial COM ports detected"
+    assert warnings and warnings[0][0] == "No COM ports detected"
 
 
-def test_connect_auto_detect_updates_port_and_baud_before_delegate(monkeypatch) -> None:
+def test_connect_does_not_run_com_or_baud_discovery(monkeypatch) -> None:
     harness = _AutoDetectHarness()
-    match = SerialDiscoveryResult(
-        port="COM8",
-        baud_rate=38400,
-        idn="KEITHLEY INSTRUMENTS INC.,MODEL 2400,123,1.0",
-        model="2400",
-    )
-    monkeypatch.setattr(
-        serial_auto_detect,
-        "discover_supported_serial_hardware",
-        lambda **kwargs: match,
-    )
+
+    def unexpected_scan():
+        raise AssertionError("Connect must not scan COM ports or baud rates")
+
+    monkeypatch.setattr(serial_auto_detect, "available_serial_ports", unexpected_scan)
 
     harness.connect_or_disconnect()
 
-    assert harness.port.get() == "COM8"
-    assert harness.baud_rate.get() == 38400
     assert harness.delegate_calls == 1
-    assert any("Auto-detected Keithley 2400" in message for message in harness.logs)
-
-
-def test_connect_auto_detect_preserves_manual_fallback(monkeypatch) -> None:
-    harness = _AutoDetectHarness()
-    monkeypatch.setattr(
-        serial_auto_detect,
-        "discover_supported_serial_hardware",
-        lambda **kwargs: None,
-    )
-
-    harness.connect_or_disconnect()
-
     assert harness.port.get() == "COM3"
     assert harness.baud_rate.get() == 9600
-    assert harness.delegate_calls == 1
-    assert any("trying the selected COM/baud" in message for message in harness.logs)
 
 
-def test_preflight_cli_can_auto_detect_without_positional_port(monkeypatch, capsys) -> None:
+def test_preflight_cli_auto_detect_uses_selected_baud_only(monkeypatch, capsys) -> None:
     match = SerialDiscoveryResult(
         port="COM11",
         baud_rate=57600,
         idn="KEITHLEY INSTRUMENTS INC.,MODEL 2401,123,1.0",
         model="2401",
     )
+    discovery_calls: list[dict[str, object]] = []
 
     class Result:
         port = "COM11"
@@ -284,20 +256,22 @@ def test_preflight_cli_can_auto_detect_without_positional_port(monkeypatch, caps
         idn = match.idn
         output_off_confirmed = True
 
-    monkeypatch.setattr(
-        hardware_preflight,
-        "discover_supported_serial_hardware",
-        lambda **kwargs: match,
-    )
+    def discover(**kwargs):
+        discovery_calls.append(kwargs)
+        return match
+
+    monkeypatch.setattr(hardware_preflight, "discover_supported_serial_hardware", discover)
     monkeypatch.setattr(
         hardware_preflight,
         "run_keithley_preflight",
         lambda port, baud, logger=None: Result(),
     )
 
-    code = hardware_preflight.main([])
+    code = hardware_preflight.main(["--baud", "57600"])
     out = capsys.readouterr().out
 
     assert code == 0
-    assert "Auto-detected Keithley 2401 on COM11 at 57600 baud" in out
+    assert discovery_calls == [{"preferred_port": None, "preferred_baud": 57600}]
+    assert "Auto-detected Keithley 2401 on COM11 at selected baud 57600" in out
+    assert "never auto-scans alternate baud rates" in out
     assert "PASS hardware preflight" in out

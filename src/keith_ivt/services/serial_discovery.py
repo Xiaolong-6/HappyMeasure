@@ -7,7 +7,8 @@ from keith_ivt.drivers.base import instrument_model_from_idn
 from keith_ivt.instrument.serial_2400 import Keithley2400Serial
 from keith_ivt.services.serial_safety import SerialRetryPolicy
 
-# Keep discovery aligned with the baud choices currently exposed by HappyMeasure.
+# These are UI choices, not an automatic scan list. HappyMeasure never guesses
+# alternate baud rates during discovery; the operator-selected baud is used.
 APP_SUPPORTED_BAUD_RATES = (9600, 19200, 38400, 57600)
 SUPPORTED_2400_MODELS = frozenset({"2400", "2401", "2410", "2420", "2430", "2440"})
 DISCOVERY_TIMEOUT_S = 0.45
@@ -32,8 +33,8 @@ def available_serial_ports() -> list[str]:
         return []
 
 
-def _ordered_unique(values: Iterable[str | int], preferred: str | int | None) -> list:
-    ordered: list = []
+def _ordered_unique(values: Iterable[str], preferred: str | None) -> list[str]:
+    ordered: list[str] = []
     if preferred is not None:
         ordered.append(preferred)
     for value in values:
@@ -43,10 +44,10 @@ def _ordered_unique(values: Iterable[str | int], preferred: str | int | None) ->
 
 
 def probe_serial_identity(port: str, baud_rate: int) -> str:
-    """Perform one short, read-only SCPI identity probe.
+    """Perform one short SCPI identity probe at an explicitly chosen baud.
 
-    Discovery intentionally sends only ``*IDN?``. It does not reset the
-    instrument, alter source configuration, enable output, or acquire a reading.
+    The probe sends only ``*IDN?``. It does not reset the instrument, alter
+    source configuration, enable output, or acquire a reading.
     """
 
     retry_policy = SerialRetryPolicy(max_attempts=1, base_delay_s=0.0)
@@ -70,37 +71,32 @@ def discover_supported_serial_hardware(
     preferred_port: str | None = None,
     preferred_baud: int | None = None,
     ports: Iterable[str] | None = None,
-    baud_rates: Iterable[int] = APP_SUPPORTED_BAUD_RATES,
     probe: Callable[[str, int], str] = probe_serial_identity,
 ) -> SerialDiscoveryResult | None:
-    """Find the first supported Keithley 2400-family serial instrument.
+    """Find a supported Keithley at one operator-selected baud rate.
 
-    The current user selection is tried first so the normal fast path requires
-    only one identity query. Other detected COM ports and HappyMeasure-supported
-    baud rates are then scanned deterministically.
+    Only COM ports are scanned. HappyMeasure never tries alternative baud rates
+    automatically because wrong RS-232 settings can be interpreted by the
+    instrument as malformed SCPI and generate front-panel communication errors.
     """
 
     candidates = list(ports) if ports is not None else available_serial_ports()
     ordered_ports = _ordered_unique(candidates, preferred_port)
-    ordered_bauds = _ordered_unique(
-        [int(value) for value in baud_rates],
-        int(preferred_baud) if preferred_baud is not None else None,
-    )
+    baud_rate = int(preferred_baud) if preferred_baud is not None else 9600
 
     for port in ordered_ports:
         if not str(port).strip():
             continue
-        for baud_rate in ordered_bauds:
-            try:
-                idn = probe(str(port), int(baud_rate))
-            except Exception:
-                continue
-            supported, model = supported_2400_identity(idn)
-            if supported:
-                return SerialDiscoveryResult(
-                    port=str(port),
-                    baud_rate=int(baud_rate),
-                    idn=idn,
-                    model=model,
-                )
+        try:
+            idn = probe(str(port), baud_rate)
+        except Exception:
+            continue
+        supported, model = supported_2400_identity(idn)
+        if supported:
+            return SerialDiscoveryResult(
+                port=str(port),
+                baud_rate=baud_rate,
+                idn=idn,
+                model=model,
+            )
     return None
