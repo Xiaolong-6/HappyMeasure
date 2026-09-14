@@ -11,6 +11,8 @@ This file is intentionally concise. Git history preserves implementation detail;
 - Added persistent automatic-backup and log-recording preferences, defaulting to enabled.
 - Added live Time-history controls that can switch All data / Last N points while acquisition is running without truncating scientific data.
 - Cleaned stale documentation, removed workstation-specific path/serial identifiers, and added repository privacy/version-policy enforcement.
+- Added an automated Windows portable build/audit/smoke gate with SHA-256 artifact manifest generation and Map package-size regression limits.
+- Restored the README screenshot surface and made screenshot freshness part of release finalization.
 - Adopted per-commit internal beta serial increments; public release identity remains a human release decision.
 
 ## 1.1b6 — Time acquisition, Map Reconstruction, diagnostics and release hardening

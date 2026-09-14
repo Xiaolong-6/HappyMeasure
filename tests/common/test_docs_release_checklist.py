@@ -16,9 +16,9 @@ def test_release_checklist_has_current_release_gates() -> None:
         "## 1. Identity and tree hygiene",
         "## 2. Automated core validation",
         "## 3. Map Reconstruction release gate",
-        "## 4. Desktop simulator/UX smoke",
+        "## 4. Desktop simulator/UX and screenshots",
         "## 5. Hardware evidence",
-        "## 6. Windows portable packages",
+        "## 6. Windows portable package CI",
         "## 7. Human release-version decision",
         "## 8. Post-release",
     ):
@@ -26,6 +26,8 @@ def test_release_checklist_has_current_release_gates() -> None:
     assert "check_version_sequence.py" in text
     assert ".[dev,map]" in text
     assert "QT_QPA_PLATFORM" in text
+    assert "audit_portable_artifacts.py" in text
+    assert "release-artifacts.json" in text
 
 
 def test_docs_index_lists_current_owner_documents() -> None:
@@ -118,3 +120,20 @@ def test_settings_doc_covers_new_persistent_preferences() -> None:
     assert "record_log" in text
     assert "Last N points" in text
     assert "while a measurement is running" in text
+
+
+def test_readme_references_all_release_screenshots() -> None:
+    readme = _read(ROOT / "README.md")
+    screenshot_dir = DOCS / "screenshots"
+    names = (
+        "happymeasure-hardware.png",
+        "happymeasure-sweep-result.png",
+        "happymeasure-front-panel-popup.png",
+        "map-reconstruction-preparation.png",
+        "map-reconstruction-reconstruction.png",
+        "map-reconstruction-analysis.png",
+    )
+    assert "## Screenshots" in readme
+    for name in names:
+        assert f"docs/screenshots/{name}" in readme
+        assert (screenshot_dir / name).is_file(), name

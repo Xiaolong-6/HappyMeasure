@@ -53,54 +53,61 @@ python -m pytest -q tests/map_reconstruction
 
 CI owns a dedicated Windows/Python 3.12 job with real Qt dependencies. Dependency-driven skips do not count as a release-gate pass.
 
-For the complete local release environment:
+For the complete local source-validation environment:
 
 ```powershell
 python tests\run_full_validation.py
 ```
 
-## 4. Desktop simulator/UX smoke
+## 4. Desktop simulator/UX and screenshots
 
-Follow `MANUAL_SMOKE_TESTS.md` and `UI_VISUAL_CHECKLIST.md`. Pay particular attention to:
+Automated HappyMeasure UI regressions own state-flow, settings/diagnostics rebuild, live Time-history switching, trace/export behavior and simulator paths. Map UI regressions own the three-stage workflow and project/source replacement behavior.
 
-- repeated Start/Pause/Resume/Stop/restart;
-- live Time plot switching between All data and Last N while running;
-- Settings review/save, including Auto-save backup and Record log;
-- Developer Tools visibility and repeatable UI/Hardware Diagnostics buttons;
-- trace import/export/rename/delete;
-- Map CSV replacement, project round-trip and normal/maximized window behavior.
+Before public release, visually inspect the final packaged UI once and refresh any stale README screenshots under `docs/screenshots/`. The README currently owns these six release screenshots:
+
+- `happymeasure-hardware.png`
+- `happymeasure-sweep-result.png`
+- `happymeasure-front-panel-popup.png`
+- `map-reconstruction-preparation.png`
+- `map-reconstruction-reconstruction.png`
+- `map-reconstruction-analysis.png`
+
+A screenshot refresh is documentation maintenance, not hardware validation. Do not include usernames, private paths, physical serial numbers or unrelated desktop content in captures.
 
 ## 5. Hardware evidence
 
 The current release line already has MODEL 2401 no-DUT communication/control evidence recorded in `VALIDATION_STATUS.md`. Do not require another bench session unless later source changes touch serial I/O, source-output safety, acquisition sequencing or hardware cleanup.
 
-If such behavior changes, rerun the relevant portion of `HARDWARE_VALIDATION_PROTOCOL.md` before release.
+If such behavior changes, rerun only the relevant portion of `HARDWARE_VALIDATION_PROTOCOL.md` before release.
 
 Do not upgrade the claim beyond the recorded evidence: no passive-load quantitative accuracy or arbitrary DUT validation was performed in the current release-prep session.
 
-## 6. Windows portable packages
+## 6. Windows portable package CI
 
-Build only after source gates pass. Build scripts use dedicated build environments and must not depend on a developer workstation path.
+The `Windows portable package smoke (Python 3.12)` job runs on every push to `main` after the source/Map gates pass. It must be green on the exact commit selected for release. The job:
 
-HappyMeasure:
+1. builds HappyMeasure and Map Reconstruction from that commit;
+2. audits package structure, forbidden local/runtime content and private identifiers;
+3. enforces the Map Reconstruction package-size ceiling;
+4. smoke-launches both frozen executables without relying on the source entry points;
+5. generates `release-artifacts.json` with artifact sizes and SHA-256 values; and
+6. uploads both versioned ZIPs plus the manifest as a short-lived CI artifact.
+
+The local equivalent remains:
 
 ```powershell
 .\tools\build\Build_Portable_Windows_App.ps1
-```
-
-Map Reconstruction:
-
-```powershell
 .\tools\build\Build_Portable_Map_Reconstruction.ps1
+python tools\release\audit_portable_artifacts.py --dist dist --manifest dist\release-artifacts.json
 ```
 
-Verify both packages launch without system Python and do not contain local logs, caches, source checkout paths or hardware-smoke artifacts. Record artifact size and SHA-256.
+Never publish an older locally cached ZIP when a newer commit has been selected. Use artifacts built from the exact final commit.
 
 ## 7. Human release-version decision
 
-After all gates are green, a human chooses the public version/tag. Make runtime/package/artifact/tag identity consistent before publication. Never reuse an already published version for different source.
+After all automated gates are green and screenshots are current, a human chooses the public version/tag. Make runtime/package/artifact/tag identity consistent before publication. Never reuse an already published version for different source.
 
-Create the public release from the exact verified commit and upload only the freshly rebuilt artifacts.
+If the public version differs from the current internal build identity, perform the explicit release-finalization commit described in `VERSIONING.md`, rebuild/re-audit packages from that exact commit, and then publish.
 
 ## 8. Post-release
 

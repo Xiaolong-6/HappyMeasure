@@ -17,14 +17,28 @@ This file is the working release draft. It intentionally does not assign the fin
 ## Map Reconstruction
 
 - The staged Signal Preparation → Reconstruction → Map Analysis workflow and standalone package remain part of the release scope.
-- Existing package-size hardening is retained; final package size/hash must be regenerated from the selected release commit rather than copied from an older build record.
+- Existing package-size hardening is retained, with an automated release ceiling of 180 MiB extracted / 80 MiB ZIP to prevent regression toward the earlier oversized package.
+
+## Automated release packaging
+
+- Pushes to `main` now build both Windows portable applications after the source and Map gates pass.
+- The package gate audits structure, privacy, generated debris and Map dependency/size regressions.
+- Both frozen executables are smoke-launched on the Windows runner.
+- CI generates `release-artifacts.json` with exact ZIP size and SHA-256 values and uploads both audited ZIPs as short-lived workflow artifacts.
+- Release artifacts from an older commit are never treated as evidence for a newer commit.
 
 ## Validation/evidence scope
 
 - Full release CI must pass on the exact selected commit.
 - Existing Keithley MODEL 2401 no-DUT preflight/release-smoke evidence is retained for communication/control/safety behavior.
 - No passive-load quantitative accuracy test was performed in the current release-prep session; release wording must not imply otherwise.
-- Final Windows portable packages still require fresh build/smoke and SHA-256 recording.
+- A package rebuild alone does not require another hardware bench session unless hardware I/O/safety behavior changed.
+
+## README screenshots
+
+- Restored the README screenshot surface after it was accidentally removed during documentation consolidation.
+- Six screenshots under `docs/screenshots/` are release-controlled documentation assets covering HappyMeasure Hardware/sweep/front-panel views and the three Map Reconstruction workflow stages.
+- Any stale captures must be refreshed from the final Windows candidate before publication and must not expose usernames, workstation paths, physical instrument serial numbers or unrelated desktop content.
 
 ## Privacy/documentation cleanup
 

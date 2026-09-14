@@ -55,3 +55,21 @@ def test_application_icon_assets_and_portable_icon_are_declared():
     assert (ROOT / "src/map_reconstruction/assets/map_reconstruction.ico").is_file()
     spec = (ROOT / "packaging/HappyMeasure.spec").read_text(encoding="utf-8")
     assert "icon=str(HAPPYMEASURE_ICON)" in spec
+
+
+def test_release_artifact_audit_and_package_ci_are_wired():
+    audit = ROOT / "tools" / "release" / "audit_portable_artifacts.py"
+    assert audit.is_file()
+    text = audit.read_text(encoding="utf-8")
+    assert "MAP_ZIP_LIMIT" in text
+    assert "MAP_EXTRACTED_LIMIT" in text
+    assert "release-artifacts.json" in text
+    assert "sha256_file" in text
+
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "package-smoke:" in workflow
+    assert "Windows portable package smoke (Python 3.12)" in workflow
+    assert "audit_portable_artifacts.py" in workflow
+    assert "HappyMeasure.exe" in workflow
+    assert "MapReconstruction.exe" in workflow
+    assert "actions/upload-artifact@v6" in workflow

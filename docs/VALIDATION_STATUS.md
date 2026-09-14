@@ -4,7 +4,7 @@ This file records the validation scope that applies to the current development H
 
 ## Current release-prep decision
 
-The development line is in **release audit**. Publication requires the release CI gate to be green on the final selected commit and the Windows portable packages to be rebuilt from that same commit.
+The development line is in **release audit**. Publication requires all source/Qt/version/privacy jobs plus the Windows portable package job to be green on the final selected commit. README screenshots must also reflect the final visible UI before publication.
 
 ## Automated source gate
 
@@ -17,7 +17,7 @@ Required for release:
 - repository privacy regression preventing workstation-specific home paths and known real instrument serial identifiers from returning;
 - version/namespace/settings/export/safety regressions.
 
-A green CI badge validates source behavior only. It does not validate a packaged EXE or quantitative analog performance.
+A green source gate validates source behavior only. Package readiness additionally requires the package job below.
 
 ## Real-hardware evidence retained for this release line
 
@@ -39,21 +39,28 @@ Verified scope included:
 
 No passive-load resistor test was performed in this release-prep session. Therefore the repository must **not** claim quantitative source/readback accuracy, calibrated resistance accuracy, arbitrary DUT validation, or physical validation of every supported 2400-family model. Additional hardware testing is optional for this release unless later code changes materially alter hardware I/O/safety behavior.
 
-## Desktop/package gate
+## Automated Windows package gate
 
-Before publication, rebuild both portable packages from the final selected commit and verify:
+On pushes to `main`, `Windows portable package smoke (Python 3.12)` runs after the source and Map gates. For the exact commit it:
 
-1. HappyMeasure launches and closes cleanly on Windows;
-2. Settings/Developer Tools remain reachable and repeatable;
-3. live Time history can switch between All data and Last N during a run without truncating saved data;
-4. trace save/export/import works;
-5. Map Reconstruction launches and performs a minimal CSV/project round-trip;
-6. packaged artifact names, sizes and SHA-256 values are recorded in the final release record;
-7. no logs, caches, local absolute paths, hardware-smoke result folders or local user data are packaged unintentionally.
+1. clean-builds both portable applications;
+2. audits package structure and release contents;
+3. rejects tracked/private workstation identifiers in packaged text;
+4. rejects runtime logs/test/build/hardware-smoke debris;
+5. enforces Map Reconstruction ZIP/extracted size ceilings;
+6. smoke-launches both frozen executables; and
+7. emits audited ZIPs plus `release-artifacts.json` containing SHA-256 and size data.
+
+A package job from an older commit is not evidence for a newer commit.
+
+## Screenshot/documentation gate
+
+The six README screenshots under `docs/screenshots/` are part of the release documentation surface. When visible UI has changed, refresh them from the final Windows candidate before publication. Captures must not expose usernames, workstation paths, instrument serial numbers or unrelated desktop content.
 
 ## Status vocabulary
 
 - **SOURCE READY** — automated source/Qt/version/privacy gates pass on the exact commit.
-- **PACKAGE READY** — source gate plus fresh Windows package smoke passes.
+- **PACKAGE READY** — source gate plus the Windows portable package build/audit/smoke job passes on the exact commit.
 - **2401 NO-DUT VERIFIED** — the recorded communication/control/safety smoke above passed; this is deliberately narrower than analog/DUT validation.
+- **RELEASE CANDIDATE READY** — SOURCE READY + PACKAGE READY + current release screenshots/documentation.
 - **RELEASED** — a human selected the public version, tag/release/artifacts were published, and post-release download/update checks passed.

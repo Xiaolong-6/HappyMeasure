@@ -43,7 +43,7 @@ tools\build\Build_Portable_Map_Reconstruction.bat
 .\tools\build\Build_Portable_Map_Reconstruction.ps1
 ```
 
-This installs `.[map]` from `pyproject.toml` (the dependency owner) into `.venv-build-map`, then builds `packaging\MapReconstruction.spec` with Python 3.12 preferred. A successful build creates:
+This installs `.[map]` from `pyproject.toml` into `.venv-build-map`, then builds `packaging\MapReconstruction.spec` with Python 3.12 preferred. A successful build creates:
 
 ```text
 dist\MapReconstruction\MapReconstruction.exe
@@ -51,9 +51,7 @@ dist\MapReconstruction\_internal\
 dist\MapReconstruction-<version>-windows-portable.zip
 ```
 
-Smoke-test the packaged executable without system Python: launch and close it, import a minimal HappyMeasure CSV, and complete a `.hmmap` save/open round trip.
-
-## Deliverable
+## HappyMeasure deliverable
 
 A successful HappyMeasure build creates:
 
@@ -65,7 +63,7 @@ dist\HappyMeasure-<version>-windows-portable.zip
 
 Distribute the complete `dist\HappyMeasure\` folder or the versioned portable ZIP. Never distribute `HappyMeasure.exe` alone; the `_internal` directory is required by the onedir build.
 
-The portable package should include the maintained first-run/support files copied by the build scripts, including:
+The portable package includes maintained first-run/support files copied by the build scripts, including:
 
 ```text
 README_FIRST.txt
@@ -81,30 +79,42 @@ HARDWARE_DRY_RUN_GUIDE.md
 
 HappyMeasure uses Tkinter, Matplotlib, serial hardware access, and optional Map Reconstruction dependencies. A folder build is preferred because it is easier to inspect/debug, avoids onefile extraction overhead, and keeps packaged resources explicit.
 
-## Package smoke test
+## Automated package audit
 
-After building, test the actual packaged executable, not only the source checkout:
+After both portable builds, run:
 
-1. Launch `dist\HappyMeasure\HappyMeasure.exe` and close it cleanly.
-2. Run a short debug/simulator acquisition.
-3. Verify CSV export/import and log writing.
-4. Verify STOP/Pause/restart paths used by the current UI.
-5. Check About/update metadata UI for import/runtime errors.
-6. Separately launch `dist\MapReconstruction\MapReconstruction.exe` and close it cleanly (see Map standalone build above).
+```powershell
+python tools\release\audit_portable_artifacts.py --dist dist --manifest dist\release-artifacts.json
+```
 
-Record the final ZIP size and SHA-256 in the release notes/checklist evidence before publication.
+The audit checks:
 
-## Hardware safety after packaging
+- both versioned ZIPs and onedir folders exist;
+- required EXE, `_internal` and first-run files are present;
+- generated logs, caches, tests, build directories and hardware-smoke artifacts are not packaged;
+- packaged text contains no known private identifiers or workstation-specific home paths;
+- the Map Reconstruction package stays under the release size ceiling and does not regain excluded heavy optional dependency families; and
+- SHA-256, compressed size, extracted size and file count are written to `release-artifacts.json`.
 
-The packaged application requires its own staged hardware check:
+The Map release ceiling is intentionally stricter than the earlier 300 MiB escalation threshold: 180 MiB extracted and 80 MiB ZIP. The current hardened baseline is substantially below those limits, leaving room for dependency drift without accepting the old oversized package behavior.
 
-1. Simulator/package smoke.
-2. No-DUT communication/output-off preflight.
-3. Confirm physical Output OFF on the instrument front panel.
-4. Dummy resistor/load test with conservative compliance.
-5. Real DUT only after previous gates pass.
+## CI package gate
 
-Follow `HARDWARE_VALIDATION_PROTOCOL.md`; a successful package build is not hardware verification.
+On every push to `main`, the `Windows portable package smoke (Python 3.12)` job runs after all source and Map gates pass. It performs both builds, runs the artifact audit, smoke-launches the frozen HappyMeasure and Map Reconstruction executables, and uploads the two ZIPs plus `release-artifacts.json` as a short-lived workflow artifact.
+
+For release evidence, use the package job from the **exact final commit**. A green package job from an older commit does not validate a newer source tree.
+
+## Package smoke boundary
+
+The automated frozen-EXE smoke proves that both packaged applications can start and remain alive on the Windows runner. Source-level UI regression suites separately cover state flow, settings/diagnostics behavior, Time-history switching, trace/export behavior and Map workflow behavior.
+
+Before public release, visually inspect the final packaged UI once and refresh stale README screenshots. This visual/documentation check does not require another hardware bench session.
+
+## Hardware evidence after packaging
+
+A package rebuild does not invalidate already-recorded real-hardware evidence when the intervening source changes do not alter serial I/O, output safety, acquisition sequencing or hardware cleanup. The current retained MODEL 2401 no-DUT evidence is defined in `VALIDATION_STATUS.md`.
+
+If a later commit materially changes those hardware paths, rerun only the relevant staged hardware checks. Do not require a resistor/DUT session merely because the Windows artifact was rebuilt.
 
 ## Windows notes
 

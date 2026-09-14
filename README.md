@@ -31,6 +31,7 @@ Legacy `python -m keith_ivt` remains available for compatibility.
 - Developer-only UI and hardware diagnostics are grouped under **Show developer tools**; hardware diagnostics remain no-DUT/output-off-only.
 - Serial **Detect COM** only enumerates Windows COM ports. It does not guess baud rates or send SCPI; the operator selects baud before Connect.
 - Map Reconstruction provides Signal Preparation → Reconstruction → Map Analysis, self-contained `.hmmap` projects, processing/color controls, and a standalone portable build.
+- The main-branch release gate now builds and audits both Windows portable ZIPs, smoke-launches the frozen executables, records SHA-256 values, and uploads the exact audited candidates as CI artifacts.
 
 See `docs/RELEASE_NOTES_NEXT.md` for the current release draft and `docs/CHANGELOG.md` for historical releases.
 
@@ -74,6 +75,28 @@ Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. Hardwar
 
 The current development line has passed a real Keithley MODEL 2401 no-DUT communication/control smoke including output-off verification, Standard/Fast acquisition, pause/resume, Stop/restart and SCPI-order checks. This evidence does **not** claim quantitative analog accuracy, passive-load validation, arbitrary DUT validation, or validation of every 2400-family model.
 
+## Screenshots
+
+The images below are part of the release documentation surface. Whenever visible UI changes, refresh the corresponding file from the final Windows release candidate before publication. Screenshots are illustrative UI evidence only; they are not hardware-validation evidence.
+
+### HappyMeasure
+
+![HappyMeasure Hardware page](docs/screenshots/happymeasure-hardware.png)
+
+![HappyMeasure completed simulator sweep](docs/screenshots/happymeasure-sweep-result.png)
+
+![HappyMeasure Keithley-style front-panel popup](docs/screenshots/happymeasure-front-panel-popup.png)
+
+### Map Reconstruction
+
+The Map Reconstruction examples use a deterministic synthetic trace for illustration.
+
+![Map Reconstruction Signal Preparation](docs/screenshots/map-reconstruction-preparation.png)
+
+![Map Reconstruction Reconstruction stage](docs/screenshots/map-reconstruction-reconstruction.png)
+
+![Map Reconstruction Map Analysis stage](docs/screenshots/map-reconstruction-analysis.png)
+
 ## Documentation
 
 Start with `docs/README.md`. Important owner documents include:
@@ -93,6 +116,8 @@ After source validation passes:
 ```bat
 tools\build\Build_Portable_Windows_App.bat
 ```
+
+On `main`, CI also builds both Windows portable deliverables from the exact commit, audits package contents/privacy/size, smoke-launches both frozen executables, generates a SHA-256 manifest, and uploads the audited ZIPs as short-lived workflow artifacts.
 
 Do not publish `build/`, `dist/`, caches, logs, local helper scripts, hardware-smoke artifacts, or files containing workstation-specific absolute paths. Release artifacts are built from the final human-selected release commit.
 

@@ -4,7 +4,7 @@ This index is the documentation source of truth. Current behavior belongs in an 
 
 ## Start here
 
-- `../README.md` — product overview and launch instructions
+- `../README.md` — product overview, launch instructions and release screenshots
 - `../AGENTS.md` — machine/developer change discipline and safety invariants
 - `../CONTRIBUTING.md` — contribution, versioning and validation rules
 - `VALIDATION_STATUS.md` — current validation scope and release readiness definitions
@@ -37,15 +37,21 @@ Simulator/CI success is not proof of real-hardware compatibility. Existing MODEL
 ## Release and build
 
 - `VERSIONING.md` — internal per-commit build numbering and human release-version policy
-- `RELEASE_CHECKLIST.md` — release procedure
+- `RELEASE_CHECKLIST.md` — release procedure, automated package gate and screenshot refresh gate
 - `RELEASE_NOTES_NEXT.md` — current release draft
 - `CHANGELOG.md` — concise historical release record
-- `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build contract
+- `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build/audit contract
 - `WINDOWS_PYTHON314_BUILD.md` — Python 3.14 packaging exception
-- `MANUAL_SMOKE_TESTS.md` — desktop/operator smoke checks
+- `MANUAL_SMOKE_TESTS.md` — optional desktop/operator smoke checks
 - `UI_VISUAL_CHECKLIST.md` — visual/responsive checks
 - `UI_DIAGNOSTICS.md` — built-in diagnostics scope
 - `UI_STYLE_GUIDE.md` — UI styling conventions
+
+The automated `main` package job builds both portable ZIPs, audits package contents/privacy/Map size, smoke-launches the frozen executables, generates SHA-256 metadata, and uploads the audited candidates for the exact commit.
+
+## Release screenshots
+
+The six PNG files under `screenshots/` are referenced by the root README and are part of the release documentation surface. Refresh stale captures from the final Windows candidate whenever visible UI changes. Captures must not include usernames, private paths, physical instrument serial numbers or unrelated desktop content.
 
 Historical versioned release-note files were removed from the active tree. Git history and `CHANGELOG.md` retain release history without leaving stale operational instructions or workstation-specific paths in current documentation.
 
@@ -56,3 +62,4 @@ Historical versioned release-note files were removed from the active tree. Git h
 - Do not add chronological agent/test diaries.
 - Do not commit workstation usernames, home-directory paths, private local paths, or physical instrument serial numbers.
 - Release notes must use portable relative paths and sanitized hardware identifiers.
+- Do not publish a release with README screenshots that visibly contradict the final packaged UI.

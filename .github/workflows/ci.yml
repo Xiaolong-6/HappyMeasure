@@ -88,3 +88,53 @@ jobs:
         run: python -m mypy src/map_reconstruction
       - name: Run Map Reconstruction release gate
         run: python -m pytest -vv --durations=20 tests/map_reconstruction
+
+  package-smoke:
+    name: Windows portable package smoke (Python 3.12)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [version-policy, test, map-ui]
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build HappyMeasure portable
+        shell: pwsh
+        run: .\tools\build\Build_Portable_Windows_App.ps1
+      - name: Build Map Reconstruction portable
+        shell: pwsh
+        run: .\tools\build\Build_Portable_Map_Reconstruction.ps1
+      - name: Audit portable contents, size, privacy and hashes
+        run: python tools/release/audit_portable_artifacts.py --dist dist --manifest dist/release-artifacts.json
+      - name: Smoke frozen executables
+        shell: pwsh
+        run: |
+          function Assert-StaysAlive([string]$Path, [int]$Seconds = 6) {
+              Write-Host "Launching $Path"
+              $process = Start-Process -FilePath $Path -PassThru
+              Start-Sleep -Seconds $Seconds
+              if ($process.HasExited) {
+                  throw "$Path exited early with code $($process.ExitCode)."
+              }
+              Stop-Process -Id $process.Id -Force
+              $process.WaitForExit()
+              Write-Host "$Path stayed alive for $Seconds seconds."
+          }
+
+          Assert-StaysAlive "dist\HappyMeasure\HappyMeasure.exe"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          Assert-StaysAlive "dist\MapReconstruction\MapReconstruction.exe"
+      - name: Upload audited portable release candidates
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-portable-${{ github.sha }}
+          path: |
+            dist/HappyMeasure-*-windows-portable.zip
+            dist/MapReconstruction-*-windows-portable.zip
+            dist/release-artifacts.json
+          if-no-files-found: error
+          retention-days: 14
