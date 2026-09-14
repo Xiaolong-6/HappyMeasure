@@ -51,21 +51,23 @@ _HOME_PATH_PATTERNS = (
     re.compile(r"(?i)/home/(?!<|\{)[A-Za-z0-9._-]+/"),
     re.compile(r"(?i)/Users/(?!<|\{)[A-Za-z0-9._-]+/"),
 )
-_MAP_FORBIDDEN_RUNTIME = (
+_MAP_FORBIDDEN_SUBSTRINGS = (
     "qt6webengine",
     "qtwebengine",
     "qt6quick",
     "/qml/",
     "qtpdf",
     "qt6multimedia",
-    "matplotlib",
-    "scipy",
-    "pandas",
-    "sklearn",
-    "site-packages/pil/",
-    "cv2",
-    "numba",
 )
+_MAP_FORBIDDEN_COMPONENTS = {
+    "cv2",
+    "matplotlib",
+    "numba",
+    "pandas",
+    "pil",
+    "scipy",
+    "sklearn",
+}
 
 
 def project_version(root: Path) -> str:
@@ -112,6 +114,26 @@ def _text_failures(text: str, label: str) -> list[str]:
     return failures
 
 
+def _map_runtime_failures(names: list[str], label: str) -> list[str]:
+    failures: list[str] = []
+    for name in names:
+        normalized = name.replace("\\", "/").lower()
+        padded = f"/{normalized.strip('/')}"
+        for forbidden in _MAP_FORBIDDEN_SUBSTRINGS:
+            if forbidden in padded:
+                failures.append(
+                    f"{label}: unexpected Map runtime dependency matching {forbidden!r}"
+                )
+        for part in PurePosixPath(normalized).parts:
+            component = part.lower()
+            for package in _MAP_FORBIDDEN_COMPONENTS:
+                if component == package or component.startswith(f"{package}-"):
+                    failures.append(
+                        f"{label}: unexpected Map runtime package component {component!r}"
+                    )
+    return failures
+
+
 def audit_zip(path: Path, app_name: str) -> list[str]:
     failures: list[str] = []
     with zipfile.ZipFile(path) as archive:
@@ -128,18 +150,15 @@ def audit_zip(path: Path, app_name: str) -> list[str]:
         exe_suffix = f"{app_name}/{app_name}.exe".lower()
         if not any(name.replace("\\", "/").lower().endswith(exe_suffix) for name in names):
             failures.append(f"{path.name}: missing {app_name}.exe")
-        if not any("/_internal/" in f"/{name.replace(chr(92), '/').lower()}" for name in names):
+        if not any(
+            "/_internal/" in f"/{name.replace(chr(92), '/').lower()}" for name in names
+        ):
             failures.append(f"{path.name}: missing _internal runtime directory")
         if not any(name.lower().endswith("/readme_first.txt") for name in names):
             failures.append(f"{path.name}: missing README_FIRST.txt")
 
         if app_name == "MapReconstruction":
-            joined = "\n".join(name.replace("\\", "/").lower() for name in names)
-            for forbidden in _MAP_FORBIDDEN_RUNTIME:
-                if forbidden in joined:
-                    failures.append(
-                        f"{path.name}: unexpected Map runtime dependency matching {forbidden!r}"
-                    )
+            failures.extend(_map_runtime_failures(names, path.name))
     return failures
 
 
@@ -155,7 +174,11 @@ def audit_folder(path: Path, app_name: str) -> list[str]:
     for item in path.rglob("*"):
         rel = item.relative_to(path).as_posix()
         failures.extend(_name_failures(rel, str(path)))
-        if item.is_file() and item.suffix.lower() in _TEXT_SUFFIXES and item.stat().st_size <= 2 * MIB:
+        if (
+            item.is_file()
+            and item.suffix.lower() in _TEXT_SUFFIXES
+            and item.stat().st_size <= 2 * MIB
+        ):
             text = item.read_text(encoding="utf-8", errors="replace")
             failures.extend(_text_failures(text, f"{path}:{rel}"))
     return failures
