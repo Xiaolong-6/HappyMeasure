@@ -8,10 +8,8 @@ The output folder will be:
     dist\HappyMeasure\HappyMeasure.exe
 """
 
-from PyInstaller.utils.hooks import collect_all
 from pathlib import Path
 
-matplotlib_datas, matplotlib_binaries, matplotlib_hiddenimports = collect_all("matplotlib")
 PROJECT_ROOT = Path(SPECPATH).parent
 HAPPYMEASURE_ICON = PROJECT_ROOT / "src" / "keith_ivt" / "assets" / "happymeasure.ico"
 
@@ -21,10 +19,9 @@ block_cipher = None
 a = Analysis(
     ["happymeasure_entry.py"],
     pathex=["src"],
-    binaries=matplotlib_binaries,
-    datas=matplotlib_datas + [(str(HAPPYMEASURE_ICON.with_suffix(".png")), "keith_ivt/assets")],
-    hiddenimports=matplotlib_hiddenimports
-    + [
+    binaries=[],
+    datas=[(str(HAPPYMEASURE_ICON.with_suffix(".png")), "keith_ivt/assets")],
+    hiddenimports=[
         "serial",
         "serial.tools.list_ports",
         "tkinter",
@@ -34,7 +31,16 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["pytest", "pytest_cov", "black", "ruff", "mypy"],
+    excludes=[
+        "pytest",
+        "pytest_cov",
+        "black",
+        "ruff",
+        "mypy",
+        "matplotlib.tests",
+        "matplotlib.testing",
+        "matplotlib.sphinxext",
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

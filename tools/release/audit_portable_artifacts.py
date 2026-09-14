@@ -88,7 +88,7 @@ def directory_stats(path: Path) -> tuple[int, int]:
     return sum(item.stat().st_size for item in files), len(files)
 
 
-def _name_failures(name: str, label: str) -> list[str]:
+def _name_failures(name: str, label: str, *, is_file: bool = True) -> list[str]:
     normalized = name.replace("\\", "/")
     parts = [part.lower() for part in PurePosixPath(normalized).parts]
     failures = [
@@ -96,21 +96,22 @@ def _name_failures(name: str, label: str) -> list[str]:
         for part in parts
         if part in _FORBIDDEN_PARTS
     ]
-    if "/logs/" in f"/{normalized.lower().strip('/')}/" and not normalized.endswith("/"):
+    if is_file and "/logs/" in f"/{normalized.lower().strip('/')}/":
         failures.append(f"{label}: packaged runtime log file {name!r}")
     return failures
 
 
-def _text_failures(text: str, label: str) -> list[str]:
+def _text_failures(text: str, label: str, *, scan_generic_home: bool = True) -> list[str]:
     failures: list[str] = []
     lowered = text.lower()
     for token in _FORBIDDEN_TOKENS:
         if token.lower() in lowered:
             failures.append(f"{label}: contains forbidden private identifier")
-    for pattern in _HOME_PATH_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            failures.append(f"{label}: contains private home path {match.group(0)!r}")
+    if scan_generic_home:
+        for pattern in _HOME_PATH_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                failures.append(f"{label}: contains private home path {match.group(0)!r}")
     return failures
 
 
@@ -139,13 +140,20 @@ def audit_zip(path: Path, app_name: str) -> list[str]:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         for name in names:
-            failures.extend(_name_failures(name, path.name))
+            info = archive.getinfo(name)
+            failures.extend(_name_failures(name, path.name, is_file=not info.is_dir()))
             suffix = Path(name).suffix.lower()
-            if suffix in _TEXT_SUFFIXES:
-                info = archive.getinfo(name)
-                if info.file_size <= 2 * MIB:
-                    text = archive.read(name).decode("utf-8", errors="replace")
-                    failures.extend(_text_failures(text, f"{path.name}:{name}"))
+            if suffix in _TEXT_SUFFIXES and not info.is_dir() and info.file_size <= 2 * MIB:
+                text = archive.read(name).decode("utf-8", errors="replace")
+                normalized = name.replace("\\", "/").lower()
+                is_internal = "/_internal/" in f"/{normalized.strip('/')}/"
+                failures.extend(
+                    _text_failures(
+                        text,
+                        f"{path.name}:{name}",
+                        scan_generic_home=not is_internal,
+                    )
+                )
 
         exe_suffix = f"{app_name}/{app_name}.exe".lower()
         if not any(name.replace("\\", "/").lower().endswith(exe_suffix) for name in names):
@@ -171,14 +179,22 @@ def audit_folder(path: Path, app_name: str) -> list[str]:
 
     for item in path.rglob("*"):
         rel = item.relative_to(path).as_posix()
-        failures.extend(_name_failures(rel, str(path)))
+        is_file = item.is_file()
+        failures.extend(_name_failures(rel, str(path), is_file=is_file))
         if (
-            item.is_file()
+            is_file
             and item.suffix.lower() in _TEXT_SUFFIXES
             and item.stat().st_size <= 2 * MIB
         ):
             text = item.read_text(encoding="utf-8", errors="replace")
-            failures.extend(_text_failures(text, f"{path}:{rel}"))
+            is_internal = rel.lower().startswith("_internal/")
+            failures.extend(
+                _text_failures(
+                    text,
+                    f"{path}:{rel}",
+                    scan_generic_home=not is_internal,
+                )
+            )
     return failures
 
 

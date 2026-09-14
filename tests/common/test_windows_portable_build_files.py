@@ -43,6 +43,15 @@ def test_map_spec_uses_narrow_runtime_collection():
     assert (ROOT / "packaging" / "hooks" / "hook-PySide6.QtGui.py").is_file()
 
 
+def test_happymeasure_spec_avoids_matplotlib_development_tree():
+    spec = (ROOT / "packaging" / "HappyMeasure.spec").read_text(encoding="utf-8")
+    assert "collect_all" not in spec
+    assert '"matplotlib.backends.backend_tkagg"' in spec
+    assert '"matplotlib.tests"' in spec
+    assert '"matplotlib.testing"' in spec
+    assert '"matplotlib.sphinxext"' in spec
+
+
 def test_portable_build_docs_exist():
     assert (ROOT / "docs/WINDOWS_PORTABLE_BUILD.md").exists()
     assert (ROOT / "packaging/README_FIRST_PORTABLE.txt").exists()
