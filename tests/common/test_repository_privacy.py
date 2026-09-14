@@ -66,5 +66,7 @@ def test_tracked_text_has_no_private_workstation_or_instrument_identifiers() -> 
         for pattern in _HOME_PATH_PATTERNS:
             match = pattern.search(text)
             if match:
-                failures.append(f"{rel}: contains workstation-specific home path {match.group(0)!r}")
+                failures.append(
+                    f"{rel}: contains workstation-specific home path {match.group(0)!r}"
+                )
     assert not failures, "\n".join(failures)

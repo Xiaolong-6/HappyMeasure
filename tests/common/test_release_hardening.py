@@ -60,7 +60,9 @@ def test_update_check_preference_survives_current_settings_snapshot() -> None:
 
 
 def test_update_check_preference_does_not_require_live_tk_variable() -> None:
-    assert _SettingsHarnessWithoutLiveVar(False)._current_settings().check_updates_on_startup is False
+    assert (
+        _SettingsHarnessWithoutLiveVar(False)._current_settings().check_updates_on_startup is False
+    )
     assert _SettingsHarnessWithoutLiveVar(True)._current_settings().check_updates_on_startup is True
 
 

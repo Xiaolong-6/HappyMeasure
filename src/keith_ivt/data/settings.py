@@ -163,7 +163,10 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
         _coerce_int(merged.get("log_max_bytes"), defaults["log_max_bytes"])
     )
     merged["default_baud_rate"] = _coerce_int(
-        merged.get("default_baud_rate"), defaults["default_baud_rate"], minimum=1200, maximum=115200
+        merged.get("default_baud_rate"),
+        defaults["default_baud_rate"],
+        minimum=1200,
+        maximum=115200,
     )
     merged["cache_interval_points"] = _coerce_int(
         merged.get("cache_interval_points"), defaults["cache_interval_points"], minimum=1
@@ -234,7 +237,8 @@ def sanitize_settings_dict(data: dict[str, Any] | None = None) -> dict[str, Any]
     merged["default_plot_layout"] = _coerce_choice(
         merged.get("default_plot_layout"),
         defaults["default_plot_layout"],
-        {"Auto", "1x1", "1x2", "2x1", "2x2"},
+        {"Auto", "Horizontal", "Vertical"},
+        aliases={"1X1": "Auto", "1X2": "Horizontal", "2X1": "Vertical", "2X2": "Auto"},
     )
     merged["time_plot_marker_mode"] = _coerce_choice(
         merged.get("time_plot_marker_mode"),

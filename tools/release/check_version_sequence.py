@@ -55,9 +55,7 @@ def _assert_identity_consistent(ref: str) -> str:
     runtime = _version_at(ref)
     package = _package_version_at(ref)
     if runtime != package:
-        raise RuntimeError(
-            f"{ref}: runtime VERSION {runtime!r} != pyproject version {package!r}"
-        )
+        raise RuntimeError(f"{ref}: runtime VERSION {runtime!r} != pyproject version {package!r}")
     return runtime
 
 
@@ -73,8 +71,32 @@ def _commit_message(commit: str) -> str:
     return _git("show", "-s", "--format=%B", commit)
 
 
+def _resolved_base(base: str, head: str) -> str:
+    """Use the common ancestor when a force-push makes event.before non-ancestral."""
+    probe = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base, head],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if probe.returncode == 0:
+        return base
+    merge_base = _git("merge-base", base, head)
+    if not merge_base:
+        raise RuntimeError(f"No common ancestor found for {base} and {head}")
+    print(
+        f"Version policy: supplied base {base[:8]} is not an ancestor of {head[:8]}; "
+        f"checking rewritten range from merge-base {merge_base[:8]}."
+    )
+    return merge_base
+
+
 def check_range(base: str, head: str) -> None:
-    commits = [line for line in _git("rev-list", "--reverse", f"{base}..{head}").splitlines() if line]
+    base = _resolved_base(base, head)
+    commits = [
+        line for line in _git("rev-list", "--reverse", f"{base}..{head}").splitlines() if line
+    ]
     if not commits:
         _assert_identity_consistent(head)
         print(f"Version policy: no new commits in {base}..{head}; HEAD identity is consistent.")
@@ -87,7 +109,9 @@ def check_range(base: str, head: str) -> None:
         message = _commit_message(commit)
 
         if _RELEASE_OVERRIDE_MARKER in message:
-            print(f"Version policy: {commit[:8]} explicit human release-version override -> {current}")
+            print(
+                f"Version policy: {commit[:8]} explicit human release-version override -> {current}"
+            )
             continue
 
         prev_beta = _beta_tuple(previous)

@@ -22,9 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "port",
         nargs="?",
-        help=(
-            "Serial port, e.g. COM3. Omit to scan detected COM ports at the selected --baud."
-        ),
+        help=("Serial port, e.g. COM3. Omit to scan detected COM ports at the selected --baud."),
     )
     parser.add_argument("--baud", type=int, default=9600, help="Baud rate, default 9600")
     parser.add_argument(
@@ -48,9 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if match is None:
             print("FAIL hardware preflight")
-            print(
-                f"Reason: no supported Keithley 2400-family instrument responded at {baud} baud"
-            )
+            print(f"Reason: no supported Keithley 2400-family instrument responded at {baud} baud")
             print(
                 "Action: keep the instrument output off, verify the Windows COM port and the "
                 "instrument RS-232 baud setting, then retry with --baud or specify COM manually."

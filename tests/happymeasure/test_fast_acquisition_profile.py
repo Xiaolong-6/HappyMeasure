@@ -271,9 +271,7 @@ def test_custom_source_write_each_sample_writes_exactly_once_per_sample() -> Non
 
 
 def test_fast_support_identity_matrix() -> None:
-    assert supports_fast_acquisition_for_idn(
-        "KEITHLEY INSTRUMENTS INC.,MODEL 2401,TESTSERIAL,B02"
-    )
+    assert supports_fast_acquisition_for_idn("KEITHLEY INSTRUMENTS INC.,MODEL 2401,TESTSERIAL,B02")
     # Only MODEL 2401 is validated for Fast in this release; other 2400-series
     # remain Standard-only until explicitly re-validated.
     assert not supports_fast_acquisition_for_idn("Keithley Instruments Inc., Model 2400")
