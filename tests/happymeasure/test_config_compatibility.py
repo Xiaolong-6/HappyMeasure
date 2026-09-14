@@ -4,7 +4,12 @@ import json
 from pathlib import Path
 
 from keith_ivt.data.presets import PRESET_SCHEMA_VERSION, load_presets, save_preset
-from keith_ivt.data.settings import AppSettings, load_settings, save_settings
+from keith_ivt.data.settings import (
+    AppSettings,
+    load_settings,
+    sanitize_settings_dict,
+    save_settings,
+)
 
 
 def write_json(path: Path, data) -> None:
@@ -52,6 +57,33 @@ def test_load_settings_sanitizes_legacy_string_values(tmp_path: Path) -> None:
     assert settings.ui_theme == "Dark"
     assert settings.ui_font_size == 18
     assert settings.log_max_bytes == AppSettings().log_max_bytes
+
+
+def test_settings_sanitizer_exercises_safe_fallback_branches(tmp_path: Path) -> None:
+    # A first-run/missing settings file must stay a valid default configuration.
+    assert load_settings(tmp_path / "missing.json") == AppSettings()
+
+    sanitized = sanitize_settings_dict(
+        {
+            # Unknown strings fall back instead of becoming truthy accidentally.
+            "default_debug": "not-a-boolean",
+            # Numeric legacy values retain the documented boolean coercion.
+            "cache_enabled": 1,
+            # Unexpected object types also fall back to the field default.
+            "auto_source_range": object(),
+            # Empty user-editable labels/fonts/logic are repaired to safe defaults.
+            "default_device_name": "   ",
+            "ui_font_family": "",
+            "default_adaptive_logic": "   ",
+        }
+    )
+    defaults = AppSettings()
+    assert sanitized["default_debug"] is defaults.default_debug
+    assert sanitized["cache_enabled"] is True
+    assert sanitized["auto_source_range"] is defaults.auto_source_range
+    assert sanitized["default_device_name"] == defaults.default_device_name
+    assert sanitized["ui_font_family"] == defaults.ui_font_family
+    assert sanitized["default_adaptive_logic"] == defaults.default_adaptive_logic
 
 
 def test_save_settings_writes_sanitized_payload(tmp_path: Path) -> None:
