@@ -19,7 +19,7 @@ def test_release_checklist_has_current_release_gates() -> None:
         "## 4. Desktop simulator/UX and screenshots",
         "## 5. Hardware evidence",
         "## 6. Windows portable package CI",
-        "## 7. Human release-version decision",
+        "## 7. Release publication",
         "## 8. Post-release",
     ):
         assert heading in text
@@ -93,11 +93,12 @@ def test_hardware_preflight_docs_match_com_only_gui_detection() -> None:
     assert "does not source voltage/current" in text
 
 
-def test_versioning_policy_requires_commit_by_commit_increment() -> None:
+def test_versioning_policy_covers_development_increments_and_release_freeze() -> None:
     text = _read(DOCS / "VERSIONING.md")
-    assert "Every commit must increment" in text
+    assert "Every normal development commit increments" in text
     assert "beta serial by exactly one" in text
-    assert "human" in text.lower() and "public release" in text.lower()
+    assert "release freeze" in text.lower()
+    assert "1.2b" in text
 
 
 def test_stop_safety_copy_is_cooperative_not_emergency() -> None:

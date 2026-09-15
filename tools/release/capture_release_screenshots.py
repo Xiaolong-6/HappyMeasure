@@ -88,7 +88,9 @@ def _capture_happymeasure(scratch: Path) -> None:
 
     app = SimpleKeithIVtApp()
     try:
-        app.root.geometry("1360x820+24+24")
+        # GitHub's Windows desktop is about 1024x768. Keep the entire client
+        # area above the taskbar so release captures contain application UI only.
+        app.root.geometry("1000x650+10+10")
         app.root.update()
         app.show_front_panel_on_start.set(False)
 
@@ -131,7 +133,8 @@ def _capture_happymeasure(scratch: Path) -> None:
         app.root.update_idletasks()
         root_x = app.root.winfo_rootx()
         root_y = app.root.winfo_rooty()
-        popup.geometry(f"920x520+{root_x + 360}+{root_y + 140}")
+        # Keep the full popup inside the main-window capture rectangle.
+        popup.geometry(f"860x500+{root_x + 110}+{root_y + 60}")
         app.root.update()
         popup.lift()
         popup.update()

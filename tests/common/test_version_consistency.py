@@ -7,12 +7,19 @@ from pathlib import Path
 from keith_ivt import version
 
 ROOT = Path(__file__).resolve().parents[2]
+FREEZE_MARKER = ROOT / "tools" / "release" / "RELEASE_FREEZE_MARKER"
 
 
 def test_runtime_version_is_pep440_beta_and_matches_pyproject() -> None:
-    assert re.fullmatch(r"\d+\.\d+b\d+", version.VERSION)
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert data["project"]["version"] == version.VERSION
+
+    if FREEZE_MARKER.exists():
+        frozen = FREEZE_MARKER.read_text(encoding="utf-8").strip()
+        assert frozen == version.VERSION
+        assert re.fullmatch(r"\d+\.\d+b(?:\d+)?", version.VERSION)
+    else:
+        assert re.fullmatch(r"\d+\.\d+b\d+", version.VERSION)
 
 
 def test_validation_script_reads_runtime_version_not_stale_literal() -> None:
@@ -20,12 +27,13 @@ def test_validation_script_reads_runtime_version_not_stale_literal() -> None:
     assert "version.VERSION" in text
 
 
-def test_docs_describe_dynamic_internal_version_and_namespace_policy() -> None:
+def test_docs_describe_version_freeze_and_namespace_policy() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     versioning = (ROOT / "docs" / "VERSIONING.md").read_text(encoding="utf-8")
-    assert "internal build identity" in readme
-    assert "Every commit must increment" in versioning
-    assert "human" in versioning.lower() and "public release" in versioning.lower()
+    assert "release-candidate identity" in readme
+    assert "Every normal development commit increments" in versioning
+    assert "release freeze" in versioning.lower()
+    assert "human release owner" in versioning.lower()
 
     naming = (ROOT / "docs" / "NAMING.md").read_text(encoding="utf-8")
     assert "Public Python package/CLI namespace: `happymeasure`" in naming
