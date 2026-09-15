@@ -4,7 +4,7 @@ HappyMeasure is a Windows-friendly Tkinter + Matplotlib measurement application 
 
 The public product/package names are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains supported as the internal/compatibility namespace.
 
-The current release-candidate identity is frozen at **1.2b** through final screenshots, packaging, documentation, and release-only fixes so the version shown in the UI/screenshots matches the intended release. See `docs/VERSIONING.md`.
+The current development identity is **1.2b1**. Public prerelease **v1.2b** is published and immutable; post-release development has resumed under the normal per-commit beta-serial policy. See `docs/VERSIONING.md`.
 
 ## Start HappyMeasure
 
@@ -31,9 +31,9 @@ Legacy `python -m keith_ivt` remains available for compatibility.
 - Developer-only UI and hardware diagnostics are grouped under **Show developer tools**; hardware diagnostics remain no-DUT/output-off-only.
 - Serial **Detect COM** only enumerates Windows COM ports. It does not guess baud rates or send SCPI; the operator selects baud before Connect.
 - Map Reconstruction provides Signal Preparation → Reconstruction → Map Analysis, self-contained `.hmmap` projects, processing/color controls, and a standalone portable build.
-- The main-branch release gate now builds and audits both Windows portable ZIPs, smoke-launches the frozen executables, records SHA-256 values, and uploads the exact audited candidates as CI artifacts.
+- The main-branch release gate builds and audits both Windows portable ZIPs, smoke-launches the frozen executables, records SHA-256 values, and uploads the exact audited candidates as CI artifacts.
 
-See `docs/RELEASE_NOTES_NEXT.md` for the current release draft and `docs/CHANGELOG.md` for historical releases.
+See `docs/RELEASE_NOTES_NEXT.md` for the next release draft and `docs/CHANGELOG.md` for published release history.
 
 ## Standalone Map Reconstruction
 
@@ -73,11 +73,11 @@ Before using real hardware, read `docs/HARDWARE_VALIDATION_PROTOCOL.md`. Hardwar
 
 ## Hardware evidence scope
 
-The current development line has passed a real Keithley MODEL 2401 no-DUT communication/control smoke including output-off verification, Standard/Fast acquisition, pause/resume, Stop/restart and SCPI-order checks. This evidence does **not** claim quantitative analog accuracy, passive-load validation, arbitrary DUT validation, or validation of every 2400-family model.
+The published v1.2b baseline passed a real Keithley MODEL 2401 no-DUT communication/control smoke including output-off verification, Standard/Fast acquisition, pause/resume, Stop/restart and SCPI-order checks. That evidence remains applicable while later changes do not alter the hardware I/O or safety boundary. It does **not** claim quantitative analog accuracy, passive-load validation, arbitrary DUT validation, or validation of every 2400-family model.
 
 ## Screenshots
 
-The images below are part of the release documentation surface. Whenever visible UI changes, refresh the corresponding file from the frozen 1.2b source GUI before publication. Screenshots are illustrative UI evidence only; they are not hardware-validation evidence.
+The current screenshots document the published v1.2b UI. Whenever visible UI changes for a future release, refresh the corresponding files from the exact final source candidate before publication. Screenshots are illustrative UI evidence only; they are not hardware-validation evidence.
 
 ### HappyMeasure
 

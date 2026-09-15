@@ -1,8 +1,8 @@
 # Changelog
 
-This file is intentionally concise. Git history preserves implementation detail; `RELEASE_NOTES_NEXT.md` is the current release draft.
+This file is intentionally concise. Git history preserves implementation detail; `RELEASE_NOTES_NEXT.md` is the draft for the next public release.
 
-## 1.2b — release candidate
+## 1.2b — released 2026-09-15
 
 - Made serial detection COM-focused and removed automatic baud scanning from the GUI workflow.
 - Fixed hardware-preflight circular import startup failure.
@@ -13,7 +13,8 @@ This file is intentionally concise. Git history preserves implementation detail;
 - Cleaned stale documentation, removed workstation-specific path/serial identifiers, and added repository privacy/version-policy enforcement.
 - Added an automated Windows portable build/audit/smoke gate with SHA-256 artifact manifest generation and Map package-size regression limits.
 - Restored and refreshed the six README screenshots from the frozen 1.2b source GUI; visual review is complete.
-- Froze runtime/package identity at **1.2b** for final screenshots, documentation, packaging and release-only fixes until publication completes.
+- Froze runtime/package identity at **1.2b** for the final screenshot, documentation and packaging pass.
+- Published prerelease `v1.2b` from commit `111337bb1aeb1927ab97922c616f767daf005a6e`; both CI-produced portable ZIPs matched their byte sizes and SHA-256 hashes after independent re-download.
 
 ## 1.1b6 — Time acquisition, Map Reconstruction, diagnostics and release hardening
 
