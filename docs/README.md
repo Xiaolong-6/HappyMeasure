@@ -38,7 +38,7 @@ Simulator/CI success is not proof of real-hardware compatibility. Existing MODEL
 
 - `VERSIONING.md` — internal per-commit build numbering and human release-version policy
 - `RELEASE_CHECKLIST.md` — release procedure, automated package gate and screenshot refresh gate
-- `RELEASE_NOTES_NEXT.md` — current release draft
+- `RELEASE_NOTES_NEXT.md` — next public release draft
 - `CHANGELOG.md` — concise historical release record
 - `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build/audit contract
 - `WINDOWS_PYTHON314_BUILD.md` — Python 3.14 packaging exception
@@ -51,7 +51,7 @@ The automated `main` package job builds both portable ZIPs, audits package conte
 
 ## Release screenshots
 
-The six PNG files under `screenshots/` are referenced by the root README and are part of the release documentation surface. Refresh stale captures from the final Windows candidate whenever visible UI changes. Captures must not include usernames, private paths, physical instrument serial numbers or unrelated desktop content.
+The six PNG files under `screenshots/` are referenced by the root README and are part of the release documentation surface. Refresh stale captures from the exact final source candidate whenever visible UI changes before a future release. Captures must not include usernames, private paths, physical instrument serial numbers or unrelated desktop content.
 
 Historical versioned release-note files were removed from the active tree. Git history and `CHANGELOG.md` retain release history without leaving stale operational instructions or workstation-specific paths in current documentation.
 

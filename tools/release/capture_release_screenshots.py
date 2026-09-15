@@ -1,8 +1,9 @@
-"""Generate the six README screenshots from the frozen source GUI.
+"""Generate the six README screenshots from the current source GUI.
 
 This script is release-documentation automation only. It uses HappyMeasure's
 debug simulator and a deterministic synthetic Map Reconstruction trace; it
-never opens real hardware.
+never opens real hardware. When a release freeze is active, the marker must
+match the runtime identity before capture proceeds.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from PIL import Image, ImageGrab
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 SCREENSHOTS = ROOT / "docs" / "screenshots"
+FREEZE_MARKER = ROOT / "tools" / "release" / "RELEASE_FREEZE_MARKER"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
@@ -32,7 +34,14 @@ from keith_ivt.ui.simple_app import SimpleKeithIVtApp  # noqa: E402
 from keith_ivt.version import __version__  # noqa: E402
 from map_reconstruction.ui.main_window import MapReconstructionWindow  # noqa: E402
 
-EXPECTED_VERSION = "1.2b"
+
+def _expected_version() -> str:
+    if not FREEZE_MARKER.exists():
+        return __version__
+    value = FREEZE_MARKER.read_text(encoding="utf-8").strip()
+    if not value:
+        raise RuntimeError("Release freeze marker is empty")
+    return value
 
 
 def _wait_until(app: SimpleKeithIVtApp, predicate, timeout_s: float = 12.0) -> None:
@@ -78,7 +87,7 @@ def _capture_happymeasure(scratch: Path) -> None:
     update_controller.check_github_release = lambda *_args, **_kwargs: {
         "status": "current",
         "message": "Release screenshot capture",
-        "latest_version": EXPECTED_VERSION,
+        "latest_version": _expected_version(),
         "release_url": None,
         "asset_name": None,
         "asset_download_url": None,
@@ -264,9 +273,11 @@ def _capture_map_reconstruction(scratch: Path) -> None:
 
 
 def main() -> int:
-    if __version__ != EXPECTED_VERSION:
+    expected_version = _expected_version()
+    if __version__ != expected_version:
         raise RuntimeError(
-            f"Screenshot capture is frozen to {EXPECTED_VERSION}, source reports {__version__}."
+            f"Screenshot capture expects {expected_version} from the active release identity, "
+            f"source reports {__version__}."
         )
     SCREENSHOTS.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="happymeasure-release-screenshots-") as temp_dir:

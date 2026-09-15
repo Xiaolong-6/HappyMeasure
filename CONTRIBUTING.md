@@ -17,7 +17,7 @@ During normal development, every commit increments the internal beta serial by e
 
 Example: `1.2b1` → `1.2b2` on the very next normal-development commit, even when the commit only changes docs/tests. CI checks commit-by-commit history, not just final HEAD.
 
-An explicit release freeze is the exception. While `tools/release/RELEASE_FREEZE_MARKER` exists, release-only fixes, documentation, screenshots and packaging commits preserve the frozen runtime/package identity instead of incrementing it. The current release cycle is frozen at **1.2b** until publication completes. See `docs/VERSIONING.md`.
+An explicit release freeze is the exception. While `tools/release/RELEASE_FREEZE_MARKER` exists, release-only fixes, documentation, screenshots and packaging commits preserve the marker's frozen runtime/package identity instead of incrementing the beta serial. After publication, the first post-release transition removes the marker and, when necessary, uses `[release-version]` once to bridge a non-serial public identity back to a numbered development identity. See `docs/VERSIONING.md`.
 
 ## Privacy/repository hygiene
 

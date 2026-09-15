@@ -27,10 +27,10 @@ def test_validation_script_reads_runtime_version_not_stale_literal() -> None:
     assert "version.VERSION" in text
 
 
-def test_docs_describe_version_freeze_and_namespace_policy() -> None:
+def test_docs_describe_development_and_release_freeze_policy() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     versioning = (ROOT / "docs" / "VERSIONING.md").read_text(encoding="utf-8")
-    assert "release-candidate identity" in readme
+    assert "current development identity" in readme.lower()
     assert "Every normal development commit increments" in versioning
     assert "release freeze" in versioning.lower()
     assert "human release owner" in versioning.lower()
