@@ -1,10 +1,10 @@
 # Current Validation Status
 
-This file records the validation scope that applies to the current development HEAD. The authoritative automated result is the GitHub Actions status for that exact commit; do not copy old run IDs forward as though they validate newer source.
+This file records the validation scope that applies to the current 1.2b release candidate. The authoritative automated result is the GitHub Actions status for the exact selected commit; do not copy old run IDs forward as though they validate newer source.
 
 ## Current release-prep decision
 
-The development line is in **release audit**. Publication requires all source/Qt/version/privacy jobs plus the Windows portable package job to be green on the final selected commit. README screenshots must also reflect the final visible UI before publication.
+The public/runtime/package identity is frozen at **1.2b** until publication completes. The six README screenshots were regenerated from the frozen 1.2b source GUI and visually approved. Publication still requires all source/Qt/version/privacy jobs plus the Windows portable package job to be green on the exact final selected commit.
 
 ## Automated source gate
 
@@ -13,7 +13,7 @@ Required for release:
 - Windows Python 3.11/3.12/3.13/3.14: compileall, Black, Ruff, mypy and core pytest;
 - Python 3.14 configured core coverage `>=95%`;
 - dedicated Windows/Python 3.12 Map Reconstruction job with real PySide6/pyqtgraph dependencies and offscreen Qt tests;
-- per-commit internal version sequence check;
+- active release-freeze/version-policy check;
 - repository privacy regression preventing workstation-specific home paths and known real instrument serial identifiers from returning;
 - version/namespace/settings/export/safety regressions.
 
@@ -51,16 +51,16 @@ On pushes to `main`, `Windows portable package smoke (Python 3.12)` runs after t
 6. smoke-launches both frozen executables; and
 7. emits audited ZIPs plus `release-artifacts.json` containing SHA-256 and size data.
 
-A package job from an older commit is not evidence for a newer commit.
+A package job from an older commit is not evidence for a newer commit. Release artifacts must come from the exact commit that is tagged and published.
 
 ## Screenshot/documentation gate
 
-The six README screenshots under `docs/screenshots/` are part of the release documentation surface. When visible UI has changed, refresh them from the final Windows candidate before publication. Captures must not expose usernames, workstation paths, instrument serial numbers or unrelated desktop content.
+The six README screenshots under `docs/screenshots/` are part of the release documentation surface. They were refreshed from the frozen 1.2b source GUI and visually approved during this release-prep cycle. Captures contain no usernames, workstation paths, instrument serial numbers or unrelated desktop content.
 
 ## Status vocabulary
 
 - **SOURCE READY** — automated source/Qt/version/privacy gates pass on the exact commit.
 - **PACKAGE READY** — source gate plus the Windows portable package build/audit/smoke job passes on the exact commit.
 - **2401 NO-DUT VERIFIED** — the recorded communication/control/safety smoke above passed; this is deliberately narrower than analog/DUT validation.
-- **RELEASE CANDIDATE READY** — SOURCE READY + PACKAGE READY + current release screenshots/documentation.
-- **RELEASED** — a human selected the public version, tag/release/artifacts were published, and post-release download/update checks passed.
+- **RELEASE CANDIDATE READY** — SOURCE READY + PACKAGE READY + approved current release screenshots/documentation.
+- **RELEASED** — the frozen 1.2b commit/tag/release/artifacts were published and post-release download/update checks passed.

@@ -8,16 +8,16 @@ Every change must either update the owner documentation or explicitly state why 
 
 Do not create date-by-date handoff/test diary documents. Remove superseded instructions after preserving still-current contracts in their owner document.
 
-## Internal version rule
+## Version rule
 
-Every commit must increment the internal beta serial by exactly one and keep these two files consistent:
+During normal development, every commit increments the internal beta serial by exactly one and keeps these two files consistent:
 
 - `src/keith_ivt/version.py`
 - `pyproject.toml`
 
-Example: `1.1b7` → `1.1b8` on the very next commit, even when the commit only changes docs/tests. CI checks commit-by-commit history, not just final HEAD. See `docs/VERSIONING.md`.
+Example: `1.2b1` → `1.2b2` on the very next normal-development commit, even when the commit only changes docs/tests. CI checks commit-by-commit history, not just final HEAD.
 
-The public release version/tag is a separate human decision made after release validation.
+An explicit release freeze is the exception. While `tools/release/RELEASE_FREEZE_MARKER` exists, release-only fixes, documentation, screenshots and packaging commits preserve the frozen runtime/package identity instead of incrementing it. The current release cycle is frozen at **1.2b** until publication completes. See `docs/VERSIONING.md`.
 
 ## Privacy/repository hygiene
 

@@ -2,7 +2,7 @@
 
 This file is intentionally concise. Git history preserves implementation detail; `RELEASE_NOTES_NEXT.md` is the current release draft.
 
-## Unreleased — release-prep hardening
+## 1.2b — release candidate
 
 - Made serial detection COM-focused and removed automatic baud scanning from the GUI workflow.
 - Fixed hardware-preflight circular import startup failure.
@@ -12,8 +12,8 @@ This file is intentionally concise. Git history preserves implementation detail;
 - Added live Time-history controls that can switch All data / Last N points while acquisition is running without truncating scientific data.
 - Cleaned stale documentation, removed workstation-specific path/serial identifiers, and added repository privacy/version-policy enforcement.
 - Added an automated Windows portable build/audit/smoke gate with SHA-256 artifact manifest generation and Map package-size regression limits.
-- Restored the README screenshot surface and made screenshot freshness part of release finalization.
-- Adopted per-commit internal beta serial increments; public release identity remains a human release decision.
+- Restored and refreshed the six README screenshots from the frozen 1.2b source GUI; visual review is complete.
+- Froze runtime/package identity at **1.2b** for final screenshots, documentation, packaging and release-only fixes until publication completes.
 
 ## 1.1b6 — Time acquisition, Map Reconstruction, diagnostics and release hardening
 

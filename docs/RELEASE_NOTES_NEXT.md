@@ -1,6 +1,6 @@
 # HappyMeasure 1.2b — Release Draft
 
-The public release identity is now frozen at **1.2b** for final screenshots, packaging, documentation, and release-only fixes. The exact version shown in the UI/screenshots will therefore match the intended release identity.
+The public release identity is frozen at **1.2b** for final screenshots, packaging, documentation, and release-only fixes. The exact version shown in the UI/screenshots therefore matches the intended release identity.
 
 ## HappyMeasure
 
@@ -37,8 +37,8 @@ The public release identity is now frozen at **1.2b** for final screenshots, pac
 ## README screenshots
 
 - Six screenshots under `docs/screenshots/` are release-controlled documentation assets covering HappyMeasure Hardware/sweep/front-panel views and the three Map Reconstruction workflow stages.
-- The final refresh is generated from the 1.2b source GUI so the visible version identity matches the release.
-- Captures must not expose usernames, workstation paths, physical instrument serial numbers or unrelated desktop content.
+- The final refresh was generated from the frozen 1.2b source GUI, and the complete set has been visually approved for release documentation.
+- Captures do not expose usernames, workstation paths, physical instrument serial numbers or unrelated desktop content.
 
 ## Privacy/documentation cleanup
 
