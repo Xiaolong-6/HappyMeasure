@@ -144,9 +144,7 @@ def check_range(base: str, head: str) -> None:
                 print(f"Version policy: {commit[:8]} release freeze keeps {current} OK")
                 continue
             if _RELEASE_OVERRIDE_MARKER in message:
-                print(
-                    f"Version policy: {commit[:8]} enters/changes release freeze -> {current}"
-                )
+                print(f"Version policy: {commit[:8]} enters/changes release freeze -> {current}")
                 continue
             raise RuntimeError(
                 f"{commit[:8]}: entering/changing release freeze requires "

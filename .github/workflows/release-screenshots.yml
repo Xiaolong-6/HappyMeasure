@@ -30,6 +30,13 @@ jobs:
         run: python -m pip install -e ".[dev,map]"
       - name: Capture release screenshots
         run: python tools/release/capture_release_screenshots.py
+      - name: Upload captured screenshots for review
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-screenshots-${{ github.sha }}
+          path: docs/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 7
       - name: Commit refreshed screenshots
         shell: pwsh
         run: |
