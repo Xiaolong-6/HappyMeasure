@@ -9,6 +9,7 @@ _VERSION_RE = re.compile(r'^VERSION\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 _PYPROJECT_RE = re.compile(r'^version\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 _BETA_RE = re.compile(r"^(\d+)\.(\d+)b(\d+)$")
 _RELEASE_OVERRIDE_MARKER = "[release-version]"
+_FREEZE_PATH = "tools/release/RELEASE_FREEZE_MARKER"
 
 
 def _git(*args: str) -> str:
@@ -28,6 +29,19 @@ def _file_at(ref: str, path: str) -> str:
     return _git("show", f"{ref}:{path}")
 
 
+def _optional_file_at(ref: str, path: str) -> str | None:
+    result = subprocess.run(
+        ["git", "show", f"{ref}:{path}"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
 def _version_at(ref: str) -> str:
     text = _file_at(ref, "src/keith_ivt/version.py")
     match = _VERSION_RE.search(text)
@@ -44,6 +58,16 @@ def _package_version_at(ref: str) -> str:
     return match.group(1)
 
 
+def _freeze_version_at(ref: str) -> str | None:
+    text = _optional_file_at(ref, _FREEZE_PATH)
+    if text is None:
+        return None
+    value = text.strip()
+    if not value:
+        raise RuntimeError(f"{ref}: {_FREEZE_PATH} is empty")
+    return value
+
+
 def _beta_tuple(version: str) -> tuple[int, int, int] | None:
     match = _BETA_RE.fullmatch(version)
     if not match:
@@ -56,6 +80,11 @@ def _assert_identity_consistent(ref: str) -> str:
     package = _package_version_at(ref)
     if runtime != package:
         raise RuntimeError(f"{ref}: runtime VERSION {runtime!r} != pyproject version {package!r}")
+    freeze = _freeze_version_at(ref)
+    if freeze is not None and runtime != freeze:
+        raise RuntimeError(
+            f"{ref}: release freeze requires version {freeze!r}, got runtime/package {runtime!r}"
+        )
     return runtime
 
 
@@ -107,6 +136,22 @@ def check_range(base: str, head: str) -> None:
         parent = _first_parent(commit)
         previous = _assert_identity_consistent(parent)
         message = _commit_message(commit)
+        freeze = _freeze_version_at(commit)
+        parent_freeze = _freeze_version_at(parent)
+
+        if freeze is not None:
+            if parent_freeze == freeze and previous == current:
+                print(f"Version policy: {commit[:8]} release freeze keeps {current} OK")
+                continue
+            if _RELEASE_OVERRIDE_MARKER in message:
+                print(
+                    f"Version policy: {commit[:8]} enters/changes release freeze -> {current}"
+                )
+                continue
+            raise RuntimeError(
+                f"{commit[:8]}: entering/changing release freeze requires "
+                f"{_RELEASE_OVERRIDE_MARKER} in the commit message."
+            )
 
         if _RELEASE_OVERRIDE_MARKER in message:
             print(
@@ -135,7 +180,7 @@ def check_range(base: str, head: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Verify HappyMeasure commit-by-commit internal beta version increments."
+        description="Verify HappyMeasure development increments or an active release-version freeze."
     )
     parser.add_argument("--base", required=True, help="Git base/ref before the commits to check")
     parser.add_argument("--head", required=True, help="Git head/ref to check")

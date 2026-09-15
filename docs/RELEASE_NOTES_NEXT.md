@@ -1,6 +1,6 @@
-# Next Release Draft
+# HappyMeasure 1.2b — Release Draft
 
-This file is the working release draft. It intentionally does not assign the final public version; the human release owner selects that after the release audit is green.
+The public release identity is now frozen at **1.2b** for final screenshots, packaging, documentation, and release-only fixes. The exact version shown in the UI/screenshots will therefore match the intended release identity.
 
 ## HappyMeasure
 
@@ -21,7 +21,7 @@ This file is the working release draft. It intentionally does not assign the fin
 
 ## Automated release packaging
 
-- Pushes to `main` now build both Windows portable applications after the source and Map gates pass.
+- Pushes to `main` build both Windows portable applications after the source and Map gates pass.
 - The package gate audits structure, privacy, generated debris and Map dependency/size regressions.
 - Both frozen executables are smoke-launched on the Windows runner.
 - CI generates `release-artifacts.json` with exact ZIP size and SHA-256 values and uploads both audited ZIPs as short-lived workflow artifacts.
@@ -36,12 +36,12 @@ This file is the working release draft. It intentionally does not assign the fin
 
 ## README screenshots
 
-- Restored the README screenshot surface after it was accidentally removed during documentation consolidation.
 - Six screenshots under `docs/screenshots/` are release-controlled documentation assets covering HappyMeasure Hardware/sweep/front-panel views and the three Map Reconstruction workflow stages.
-- Any stale captures must be refreshed from the final Windows candidate before publication and must not expose usernames, workstation paths, physical instrument serial numbers or unrelated desktop content.
+- The final refresh is generated from the 1.2b source GUI so the visible version identity matches the release.
+- Captures must not expose usernames, workstation paths, physical instrument serial numbers or unrelated desktop content.
 
 ## Privacy/documentation cleanup
 
 - Removed stale versioned release-note files from the active tree; Git history and `CHANGELOG.md` preserve history.
 - Removed workstation-specific absolute paths and physical instrument serial identifiers from tracked tests/docs.
-- Added a repository privacy regression and explicit documentation policy against committing those identifiers.
+- Added repository/privacy/package regressions to prevent those identifiers and runtime debris from returning.

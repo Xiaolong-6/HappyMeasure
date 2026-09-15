@@ -1,6 +1,6 @@
 # Release Checklist — HappyMeasure
 
-Use this checklist from a clean release candidate after feature freeze. The public release version is selected by a human only after the internal build passes the release audit.
+Use this checklist from a clean release candidate after feature freeze. The public release identity for this cycle is frozen at **1.2b** until publication completes.
 
 ## 1. Identity and tree hygiene
 
@@ -13,11 +13,11 @@ git log --oneline -8
 
 Confirm:
 
-- `src/keith_ivt/version.py` and `pyproject.toml` report the same internal build;
-- every commit since the previous parent increments the internal beta serial by one;
+- `src/keith_ivt/version.py`, `pyproject.toml`, and `tools/release/RELEASE_FREEZE_MARKER` all resolve to `1.2b`;
+- while the freeze marker exists, screenshot/documentation/packaging/release-only commits preserve `1.2b` instead of incrementing the beta serial;
 - no generated/runtime folders, local helper scripts, logs, hardware-smoke artifacts, `build/` or `dist/` are committed;
 - no workstation-specific absolute home paths, usernames or physical instrument serial numbers are present in tracked text;
-- `docs/RELEASE_NOTES_NEXT.md` describes the release draft without pretending the internal build number is already the public version.
+- `docs/RELEASE_NOTES_NEXT.md` describes the 1.2b release scope accurately.
 
 ## 2. Automated core validation
 
@@ -63,7 +63,7 @@ python tests\run_full_validation.py
 
 Automated HappyMeasure UI regressions own state-flow, settings/diagnostics rebuild, live Time-history switching, trace/export behavior and simulator paths. Map UI regressions own the three-stage workflow and project/source replacement behavior.
 
-Before public release, visually inspect the final packaged UI once and refresh any stale README screenshots under `docs/screenshots/`. The README currently owns these six release screenshots:
+Before public release, refresh the README screenshots under `docs/screenshots/` from the frozen 1.2b source GUI and visually inspect them. The README owns these six release screenshots:
 
 - `happymeasure-hardware.png`
 - `happymeasure-sweep-result.png`
@@ -103,11 +103,11 @@ python tools\release\audit_portable_artifacts.py --dist dist --manifest dist\rel
 
 Never publish an older locally cached ZIP when a newer commit has been selected. Use artifacts built from the exact final commit.
 
-## 7. Human release-version decision
+## 7. Release publication
 
-After all automated gates are green and screenshots are current, a human chooses the public version/tag. Make runtime/package/artifact/tag identity consistent before publication. Never reuse an already published version for different source.
+The public identity is already selected: **1.2b**. After all automated gates are green and screenshots are current, tag and publish that exact commit with runtime/package/artifact/tag identity kept consistent. Never reuse an already published version for different source.
 
-If the public version differs from the current internal build identity, perform the explicit release-finalization commit described in `VERSIONING.md`, rebuild/re-audit packages from that exact commit, and then publish.
+Do not change the version again during this release-finalization window. Remove the release-freeze marker only after 1.2b has been published and normal development resumes.
 
 ## 8. Post-release
 

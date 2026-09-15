@@ -1,10 +1,10 @@
 # Versioning policy
 
-HappyMeasure separates the **internal source-build identity** from the **public release decision**.
+HappyMeasure separates normal development build numbering from an explicit human release freeze.
 
-## Internal build version
+## Normal development builds
 
-During active development the runtime/package version uses a PEP 440 beta serial such as:
+Outside a release freeze, the runtime/package version uses a PEP 440 beta serial such as:
 
 ```text
 1.1b7
@@ -12,22 +12,25 @@ During active development the runtime/package version uses a PEP 440 beta serial
 1.1b9
 ```
 
-Every commit must increment the beta serial by exactly one relative to its first parent. `src/keith_ivt/version.py` and `pyproject.toml` must match in the same commit.
-
-Examples:
-
-- parent `1.1b6` → next commit `1.1b7`;
-- parent `1.1b7` → next commit `1.1b8`;
-- a bug-fix-only commit still increments the internal build number;
-- documentation-only commits also increment it.
+Every normal development commit increments the beta serial by exactly one relative to its first parent. `src/keith_ivt/version.py` and `pyproject.toml` must match in the same commit.
 
 The CI version-policy gate checks the whole pushed/PR commit range, not just final HEAD, so multiple unnumbered commits cannot be hidden behind one final bump.
 
-## Public release version
+## Active 1.2b release freeze
 
-The public release name/tag is chosen deliberately by a human after release validation. Internal build serials are not themselves a promise that a build will be published.
+The human release owner selected **1.2b** before the final screenshot/package pass. While `tools/release/RELEASE_FREEZE_MARKER` exists, its value is the required runtime/package identity for every commit.
 
-If release finalization intentionally changes the version line rather than continuing the current beta serial, that decision must be explicit in the release-finalization commit and the runtime/package/tag/artifact identity must be made consistent before publication. Do not silently rename a build after artifacts are produced.
+For the current release window:
+
+```text
+1.2b
+```
+
+remains fixed across screenshot refreshes, documentation changes, packaging adjustments, and release-only fixes. This keeps the version shown in screenshots identical to the intended public release identity.
+
+Entering or changing a release freeze requires `[release-version]` in that commit message. Once a freeze is active, subsequent commits must preserve the exact frozen version; they do not increment a beta serial.
+
+The freeze ends only after that release is published. The first post-release development commit removes `tools/release/RELEASE_FREEZE_MARKER` and resumes the normal per-commit beta serial sequence on the next development line.
 
 ## Published releases
 
@@ -40,6 +43,5 @@ If release finalization intentionally changes the version line rather than conti
 
 - runtime identity: `src/keith_ivt/version.py`
 - package identity: `pyproject.toml`
+- active release freeze: `tools/release/RELEASE_FREEZE_MARKER`
 - policy enforcement: `tools/release/check_version_sequence.py` and CI
-
-Current operational docs intentionally avoid hardcoding the latest internal serial so they do not become stale on every commit.

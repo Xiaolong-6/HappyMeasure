@@ -4,7 +4,7 @@ HappyMeasure is a Windows-friendly Tkinter + Matplotlib measurement application 
 
 The public product/package names are **HappyMeasure** / `happymeasure`. The historical `keith_ivt` namespace remains supported as the internal/compatibility namespace.
 
-The app title and package metadata use the internal build identity from `src/keith_ivt/version.py`. Internal beta serials advance on every commit; the public release version/tag is chosen by a human during release finalization. See `docs/VERSIONING.md`.
+The current release-candidate identity is frozen at **1.2b** through final screenshots, packaging, documentation, and release-only fixes so the version shown in the UI/screenshots matches the intended release. See `docs/VERSIONING.md`.
 
 ## Start HappyMeasure
 
@@ -77,7 +77,7 @@ The current development line has passed a real Keithley MODEL 2401 no-DUT commun
 
 ## Screenshots
 
-The images below are part of the release documentation surface. Whenever visible UI changes, refresh the corresponding file from the final Windows release candidate before publication. Screenshots are illustrative UI evidence only; they are not hardware-validation evidence.
+The images below are part of the release documentation surface. Whenever visible UI changes, refresh the corresponding file from the frozen 1.2b source GUI before publication. Screenshots are illustrative UI evidence only; they are not hardware-validation evidence.
 
 ### HappyMeasure
 
@@ -119,7 +119,7 @@ tools\build\Build_Portable_Windows_App.bat
 
 On `main`, CI also builds both Windows portable deliverables from the exact commit, audits package contents/privacy/size, smoke-launches both frozen executables, generates a SHA-256 manifest, and uploads the audited ZIPs as short-lived workflow artifacts.
 
-Do not publish `build/`, `dist/`, caches, logs, local helper scripts, hardware-smoke artifacts, or files containing workstation-specific absolute paths. Release artifacts are built from the final human-selected release commit.
+Do not publish `build/`, `dist/`, caches, logs, local helper scripts, hardware-smoke artifacts, or files containing workstation-specific absolute paths. Release artifacts are built from the final release commit.
 
 ## Attribution
 
