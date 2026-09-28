@@ -19,17 +19,6 @@ def run(cmd: list[str]) -> None:
         raise SystemExit(completed.returncode)
 
 
-def require_map_dependencies() -> None:
-    try:
-        import PySide6  # noqa: F401
-        import pyqtgraph  # noqa: F401
-    except ModuleNotFoundError:
-        print("Full validation requires Map dependencies, but PySide6/pyqtgraph are missing.")
-        print("Install them first, then rerun:")
-        print('    python -m pip install -e ".[dev,map]"')
-        raise SystemExit(2)
-
-
 def main() -> None:
     print(f"Full validation for HappyMeasure {version.VERSION} ({version.RELEASE_STAGE})")
     ok = compileall.compile_dir(str(SRC), quiet=1)
@@ -41,13 +30,6 @@ def main() -> None:
     for domain in ("common", "happymeasure"):
         run([sys.executable, "-m", "pytest", f"tests/{domain}", "-q"])
 
-    require_map_dependencies()
-    run([sys.executable, "-m", "pytest", "tests/map_reconstruction", "-q"])
-
-    # Map Reconstruction is an independent Qt gate.  Keep the 95% coverage
-    # threshold scoped to the HappyMeasure core, whose release contract owns
-    # that threshold; combining the optional Map UI/core would lower the
-    # aggregate percentage without changing either gate's result.
     run(
         [
             sys.executable,
@@ -60,7 +42,7 @@ def main() -> None:
             "-q",
         ]
     )
-    print("PASS core/Map domain tests and core coverage gate")
+    print("PASS core domain tests and core coverage gate")
 
 
 if __name__ == "__main__":

@@ -32,8 +32,7 @@ After packaging, manually verify at least:
 2. Debug simulator acquisition works.
 3. CSV export and log writing work.
 4. STOP returns the UI to a safe state.
-5. Map Reconstruction launches if included by the package.
-6. Hardware preflight is run before any real DUT is connected.
+5. Hardware preflight is run before any real DUT is connected.
 
 ## Temp-directory workaround
 

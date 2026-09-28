@@ -14,7 +14,6 @@ Run this manually on Windows before handing the release candidate to another use
 10. Right-click a Time plot and confirm Time display settings are in the plot context, not the Traces-column gear.
 11. Confirm the Traces gear controls trace-table columns only.
 12. Open `Log`; controls remain at the top and log text fills the available panel with its own scrollbar.
-13. Launch Map Reconstruction; confirm maximized startup, usable restored size, visible three-stage workflow, and reachable Map Analysis color controls including **Flip color**.
-14. Load a second Map CSV after a reconstruction and visually confirm the workflow returns to Signal Preparation without stale old map/QC content.
+13. Open the HappyMeasure Pages hub at desktop and mobile widths; the primary actions remain visible, cards do not overflow, and both browser analysis links are clear.
 
 For automated gates, follow `RELEASE_CHECKLIST.md`; do not treat this visual checklist as a substitute for CI or hardware validation.

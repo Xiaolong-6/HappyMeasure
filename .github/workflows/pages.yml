@@ -1,0 +1,99 @@
+name: HappyMeasure Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - "tools/web/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - "tools/web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate static project hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Check static site
+        run: python tools/web/check_static_site.py
+
+  review-artifact:
+    name: Build PR review artifact
+    if: github.event_name == 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Add preview instructions
+        shell: bash
+        run: |
+          cat > web/REVIEW_PREVIEW.txt <<'EOF'
+          HappyMeasure Pages PR preview
+
+          1. Extract this artifact.
+          2. Open index.html in a browser.
+          3. Review desktop and mobile widths before merging.
+
+          This is the exact static web/ tree from the pull-request commit.
+          It does not deploy or modify the production GitHub Pages site.
+          EOF
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: happymeasure-pages-pr-${{ github.event.pull_request.number }}
+          path: web
+          if-no-files-found: error
+          retention-days: 14
+      - name: Write review instructions
+        shell: bash
+        run: |
+          {
+            echo "## HappyMeasure Pages review"
+            echo
+            echo "A review artifact was generated for PR #${{ github.event.pull_request.number }}."
+            echo
+            echo "Download **happymeasure-pages-pr-${{ github.event.pull_request.number }}** from this workflow run, extract it, and open `index.html`."
+            echo
+            echo "Production Pages is intentionally unchanged until merge."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy project hub
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

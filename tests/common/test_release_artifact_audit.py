@@ -16,26 +16,6 @@ def _load_audit_module() -> ModuleType:
     return module
 
 
-def test_map_runtime_audit_allows_numpy_openblas_name() -> None:
-    audit = _load_audit_module()
-    names = [
-        "MapReconstruction/_internal/numpy.libs/libscipy_openblas64_abc123.dll",
-        "MapReconstruction/_internal/PySide6/Qt6Core.dll",
-    ]
-    assert audit._map_runtime_failures(names, "artifact.zip") == []
-
-
-def test_map_runtime_audit_rejects_real_optional_packages() -> None:
-    audit = _load_audit_module()
-    names = [
-        "MapReconstruction/_internal/scipy/signal/_peak_finding.py",
-        "MapReconstruction/_internal/PySide6/Qt6WebEngineCore.dll",
-    ]
-    failures = audit._map_runtime_failures(names, "artifact.zip")
-    assert any("scipy" in failure.lower() for failure in failures)
-    assert any("webengine" in failure.lower() for failure in failures)
-
-
 def test_name_audit_allows_empty_logs_directory_but_rejects_log_files() -> None:
     audit = _load_audit_module()
     assert audit._name_failures("logs", "portable", is_file=False) == []
@@ -51,3 +31,9 @@ def test_internal_dependency_text_keeps_exact_privacy_checks_without_generic_hom
     private_identifier = "instrument serial: " + "461" + "2952"
     failures = audit._text_failures(private_identifier, "dependency", scan_generic_home=False)
     assert any("private identifier" in failure for failure in failures)
+
+
+def test_audit_targets_happymeasure_only() -> None:
+    text = AUDIT_PATH.read_text(encoding="utf-8")
+    assert 'app_name = "HappyMeasure"' in text
+    assert "MapReconstruction" not in text

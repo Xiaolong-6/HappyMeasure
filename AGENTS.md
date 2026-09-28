@@ -6,6 +6,8 @@ HappyMeasure is hardware-facing measurement software. Changes must prioritize me
 
 The public namespace is `happymeasure`. The historical internal/compatibility namespace is `keith_ivt`; do not rename it opportunistically.
 
+The repository owns the HappyMeasure desktop measurement application and its static project hub. Browser analysis tools such as Map Reconstruction and IV Fitter are separate repositories and must not be reintroduced here as bundled desktop applications.
+
 ## Read first
 
 For non-trivial work, read the owner documents relevant to the change:
@@ -33,7 +35,7 @@ Keep these ownership boundaries intact unless the task explicitly requires an ar
 - `src/keith_ivt/services/measurement_service.py`: driver/service boundary.
 - `src/keith_ivt/models.py`: sweep configuration/value generation/validation.
 - `src/keith_ivt/data/dataset_store.py`: authoritative trace registry.
-- `src/map_reconstruction/project_io.py`: `.hmmap` persistence contract.
+- `web/`: static project hub only; scientific analysis implementations live in their dedicated repositories.
 
 ## Safety invariants
 
@@ -53,7 +55,7 @@ Keep these ownership boundaries intact unless the task explicitly requires an ar
 
 For each bug fix, reproduce the failure where practical, fix the root cause, run focused tests and then the broader gate appropriate to the touched boundary.
 
-A release candidate requires the full source suite plus the dedicated Map Qt gate described in `docs/RELEASE_CHECKLIST.md`. Do not count dependency-driven `importorskip` as a passed Map release gate.
+A release candidate requires the source suite, package smoke gate and any hardware evidence required by `docs/RELEASE_CHECKLIST.md`.
 
 Do not weaken coverage thresholds or delete meaningful regressions merely to make CI green.
 

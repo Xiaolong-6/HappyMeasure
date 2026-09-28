@@ -100,12 +100,13 @@ def test_hardware_diagnostic_model_check_uses_actual_idn_model_field() -> None:
     assert not _supported_identity("KEITHLEY 2401")
 
 
-def test_ci_has_non_skipping_map_qt_and_version_policy_gates() -> None:
+def test_ci_has_core_and_version_policy_gates_without_desktop_map() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert 'pip install -e ".[dev,map]"' in ci
-    assert "QT_QPA_PLATFORM: offscreen" in ci
-    assert "import PySide6, pyqtgraph" in ci
-    assert "python -m mypy src/map_reconstruction" in ci
-    assert "tests/map_reconstruction" in ci
+    assert 'pip install -e ".[dev]"' in ci
+    assert "python -m mypy src/keith_ivt src/happymeasure" in ci
+    assert "tests/common tests/happymeasure" in ci
     assert "check_version_sequence.py" in ci
     assert "fetch-depth: 0" in ci
+    assert "src/map_reconstruction" not in ci
+    assert "tests/map_reconstruction" not in ci
+    assert "PySide6" not in ci

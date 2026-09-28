@@ -20,7 +20,7 @@ Confirm:
 - no workstation-specific absolute home paths, usernames or physical instrument serial numbers are present in tracked text;
 - `docs/RELEASE_NOTES_NEXT.md` describes the selected release scope accurately.
 
-## 2. Automated core validation
+## 2. Automated source validation
 
 Install developer dependencies:
 
@@ -38,44 +38,24 @@ python -m ruff check src tests tools\release
 python -m mypy src/keith_ivt src/happymeasure
 python -m pytest -q tests/common tests/happymeasure
 python -m pytest tests/common tests/happymeasure --cov=keith_ivt --cov-report=term -q
+python tests\run_full_validation.py
 ```
 
 Coverage gate remains `>=95%` for the configured core scope.
 
-## 3. Map Reconstruction release gate
+## 3. Desktop simulator/UX and screenshots
 
-```powershell
-python -m pip install -e ".[dev,map]"
-$env:QT_QPA_PLATFORM="offscreen"
-python -c "import PySide6, pyqtgraph"
-python -m mypy src/map_reconstruction
-python -m pytest -q tests/map_reconstruction
-```
+Automated HappyMeasure UI regressions own state-flow, settings/diagnostics rebuild, live Time-history switching, trace/export behavior and simulator paths.
 
-CI owns a dedicated Windows/Python 3.12 job with real Qt dependencies. Dependency-driven skips do not count as a release-gate pass.
-
-For the complete local source-validation environment:
-
-```powershell
-python tests\run_full_validation.py
-```
-
-## 4. Desktop simulator/UX and screenshots
-
-Automated HappyMeasure UI regressions own state-flow, settings/diagnostics rebuild, live Time-history switching, trace/export behavior and simulator paths. Map UI regressions own the three-stage workflow and project/source replacement behavior.
-
-Before public release, refresh the README screenshots under `docs/screenshots/` from the exact final source candidate and visually inspect them. The README owns these six release screenshots:
+Before public release, refresh the README screenshots under `docs/screenshots/` from the exact final source candidate and visually inspect them:
 
 - `happymeasure-hardware.png`
 - `happymeasure-sweep-result.png`
 - `happymeasure-front-panel-popup.png`
-- `map-reconstruction-preparation.png`
-- `map-reconstruction-reconstruction.png`
-- `map-reconstruction-analysis.png`
 
 A screenshot refresh is documentation maintenance, not hardware validation. Do not include usernames, private paths, physical serial numbers or unrelated desktop content in captures.
 
-## 5. Hardware evidence
+## 4. Hardware evidence
 
 Existing release-line hardware evidence is recorded in `VALIDATION_STATUS.md`. Do not require another bench session unless later source changes touch serial I/O, source-output safety, acquisition sequencing or hardware cleanup.
 
@@ -83,34 +63,32 @@ If such behavior changes, rerun only the relevant portion of `HARDWARE_VALIDATIO
 
 Do not upgrade the claim beyond the recorded evidence: no passive-load quantitative accuracy or arbitrary DUT validation was performed in the retained MODEL 2401 session.
 
-## 6. Windows portable package CI
+## 5. Windows portable package CI
 
-The `Windows portable package smoke (Python 3.12)` job runs on every push to `main` after the source/Map gates pass. It must be green on the exact commit selected for release. The job:
+The `Windows portable package smoke (Python 3.12)` job runs on every push to `main` after the source gates pass. It must be green on the exact commit selected for release. The job:
 
-1. builds HappyMeasure and Map Reconstruction from that commit;
+1. builds the HappyMeasure portable application from that commit;
 2. audits package structure, forbidden local/runtime content and private identifiers;
-3. enforces the Map Reconstruction package-size ceiling;
-4. smoke-launches both frozen executables without relying on the source entry points;
-5. generates `release-artifacts.json` with artifact sizes and SHA-256 values; and
-6. uploads both versioned ZIPs plus the manifest as a short-lived CI artifact.
+3. smoke-launches the frozen executable without relying on the source entry point;
+4. generates `release-artifacts.json` with artifact size and SHA-256; and
+5. uploads the versioned ZIP plus manifest as a short-lived CI artifact.
 
-The local equivalent remains:
+The local equivalent is:
 
 ```powershell
 .\tools\build\Build_Portable_Windows_App.ps1
-.\tools\build\Build_Portable_Map_Reconstruction.ps1
 python tools\release\audit_portable_artifacts.py --dist dist --manifest dist\release-artifacts.json
 ```
 
 Never publish an older locally cached ZIP when a newer commit has been selected. Use artifacts built from the exact final commit.
 
-## 7. Release publication
+## 6. Release publication
 
 After all automated gates are green and screenshots are current, tag and publish the exact selected commit with runtime/package/artifact/tag identity kept consistent. Never reuse an already published version for different source and never replace an existing release asset with a different binary while pretending it is the same build.
 
 If a release freeze is active, keep the marker until publication and post-download verification are complete.
 
-## 8. Post-release
+## 7. Post-release
 
 - download each uploaded artifact to a fresh folder and verify filename, byte size, SHA-256 and version identity;
 - test update detection from the previous public release;

@@ -1,4 +1,4 @@
-"""Audit freshly built Windows portable artifacts before release publication."""
+"""Audit the freshly built HappyMeasure Windows portable artifact before release."""
 
 from __future__ import annotations
 
@@ -13,8 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 MIB = 1024 * 1024
-MAP_ZIP_LIMIT = 80 * MIB
-MAP_EXTRACTED_LIMIT = 180 * MIB
 
 _TEXT_SUFFIXES = {
     ".cfg",
@@ -35,7 +33,6 @@ _FORBIDDEN_PARTS = {
     ".ruff_cache",
     ".venv",
     ".venv-build",
-    ".venv-build-map",
     "__pycache__",
     "build",
     "hardware_smoke_results",
@@ -51,23 +48,6 @@ _HOME_PATH_PATTERNS = (
     re.compile(r"(?i)/home/(?!<|\{)[A-Za-z0-9._-]+/"),
     re.compile(r"(?i)/Users/(?!<|\{)[A-Za-z0-9._-]+/"),
 )
-_MAP_FORBIDDEN_SUBSTRINGS = (
-    "qt6webengine",
-    "qtwebengine",
-    "qt6quick",
-    "/qml/",
-    "qtpdf",
-    "qt6multimedia",
-)
-_MAP_FORBIDDEN_COMPONENTS = {
-    "cv2",
-    "matplotlib",
-    "numba",
-    "pandas",
-    "pil",
-    "scipy",
-    "sklearn",
-}
 
 
 def project_version(root: Path) -> str:
@@ -115,26 +95,6 @@ def _text_failures(text: str, label: str, *, scan_generic_home: bool = True) -> 
     return failures
 
 
-def _map_runtime_failures(names: list[str], label: str) -> list[str]:
-    failures: list[str] = []
-    for name in names:
-        normalized = name.replace("\\", "/").lower()
-        padded = f"/{normalized.strip('/')}"
-        for forbidden in _MAP_FORBIDDEN_SUBSTRINGS:
-            if forbidden in padded:
-                failures.append(
-                    f"{label}: unexpected Map runtime dependency matching {forbidden!r}"
-                )
-        for part in PurePosixPath(normalized).parts:
-            component = part.lower()
-            for package in _MAP_FORBIDDEN_COMPONENTS:
-                if component == package or component.startswith(f"{package}-"):
-                    failures.append(
-                        f"{label}: unexpected Map runtime package component {component!r}"
-                    )
-    return failures
-
-
 def audit_zip(path: Path, app_name: str) -> list[str]:
     failures: list[str] = []
     with zipfile.ZipFile(path) as archive:
@@ -162,9 +122,6 @@ def audit_zip(path: Path, app_name: str) -> list[str]:
             failures.append(f"{path.name}: missing _internal runtime directory")
         if not any(name.lower().endswith("/readme_first.txt") for name in names):
             failures.append(f"{path.name}: missing README_FIRST.txt")
-
-        if app_name == "MapReconstruction":
-            failures.extend(_map_runtime_failures(names, path.name))
     return failures
 
 
@@ -209,32 +166,19 @@ def main(argv: list[str] | None = None) -> int:
     failures: list[str] = []
     artifacts: list[dict[str, object]] = []
 
-    for app_name in ("HappyMeasure", "MapReconstruction"):
-        folder = dist / app_name
-        archive = dist / f"{app_name}-{version}-windows-portable.zip"
-        if not folder.is_dir():
-            failures.append(f"missing portable folder: {folder}")
-            continue
-        if not archive.is_file():
-            failures.append(f"missing portable ZIP: {archive}")
-            continue
+    app_name = "HappyMeasure"
+    folder = dist / app_name
+    archive = dist / f"{app_name}-{version}-windows-portable.zip"
 
+    if not folder.is_dir():
+        failures.append(f"missing portable folder: {folder}")
+    elif not archive.is_file():
+        failures.append(f"missing portable ZIP: {archive}")
+    else:
         failures.extend(audit_folder(folder, app_name))
         failures.extend(audit_zip(archive, app_name))
         extracted_size, file_count = directory_stats(folder)
         zip_size = archive.stat().st_size
-        if app_name == "MapReconstruction":
-            if extracted_size > MAP_EXTRACTED_LIMIT:
-                failures.append(
-                    "MapReconstruction extracted size exceeded release ceiling: "
-                    f"{extracted_size / MIB:.2f} MiB > {MAP_EXTRACTED_LIMIT / MIB:.0f} MiB"
-                )
-            if zip_size > MAP_ZIP_LIMIT:
-                failures.append(
-                    "MapReconstruction ZIP size exceeded release ceiling: "
-                    f"{zip_size / MIB:.2f} MiB > {MAP_ZIP_LIMIT / MIB:.0f} MiB"
-                )
-
         artifacts.append(
             {
                 "name": archive.name,
@@ -252,10 +196,6 @@ def main(argv: list[str] | None = None) -> int:
         "commit": os.environ.get("GITHUB_SHA", ""),
         "created_utc": datetime.now(timezone.utc).isoformat(),
         "artifacts": artifacts,
-        "map_size_limits_mib": {
-            "zip": MAP_ZIP_LIMIT // MIB,
-            "extracted": MAP_EXTRACTED_LIMIT // MIB,
-        },
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

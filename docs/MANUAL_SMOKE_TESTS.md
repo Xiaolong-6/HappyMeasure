@@ -72,17 +72,9 @@ Expected:
 - review/save does not silently reset unrelated preferences;
 - diagnostics do not invoke hardware actions.
 
-## Map Reconstruction
+## Project hub
 
-With `.[dev,map]` installed:
-
-1. Launch Map Reconstruction and confirm it starts maximized.
-2. Open CSV A, prepare, reconstruct, and enter Map Analysis.
-3. Open CSV B and exercise Save/Discard/Cancel replacement behavior.
-4. Confirm accepted CSV B returns the workflow to Signal Preparation and no CSV A result/QC/processed map remains active.
-5. Reconstruct CSV B.
-6. Save and reopen an `.hmmap` project.
-7. Confirm manual min/max, percentile wording, palette and **Flip color** controls are visible and responsive.
+Open the deployed HappyMeasure Pages site and confirm the HappyMeasure release link, Map Reconstruction Web link and IV Fitter Web link resolve to their intended destinations.
 
 ## Update flow
 

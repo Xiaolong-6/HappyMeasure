@@ -4,12 +4,12 @@ This document owns current runtime boundaries and invariants. Historical UI/refa
 
 ## Repository applications
 
-The repository contains two user-facing applications:
+The repository contains one desktop application plus a lightweight static web entry point:
 
 - **HappyMeasure** — Tkinter + Matplotlib measurement application under `src/keith_ivt/`, exposed through the public `happymeasure` package/entry point while retaining `keith_ivt` as the compatibility/internal namespace.
-- **Map Reconstruction** — optional PySide6 + PyQtGraph application under `src/map_reconstruction/`, installed with `.[map]`.
+- **HappyMeasure Project Hub** — static files under `web/` that link users to HappyMeasure releases and independently deployed browser analysis tools.
 
-The applications exchange scientific data through documented file formats. Map Reconstruction must not depend on HappyMeasure UI/application state/serial internals.
+Map Reconstruction and IV Fitter are separate repositories. Their scientific/frontend implementations, dependencies, tests and deployment pipelines are not owned by the HappyMeasure desktop repository.
 
 ## HappyMeasure runtime layers
 
@@ -51,26 +51,18 @@ The active persistence owner is the flat `keith_ivt.data.settings.AppSettings` d
 
 The GUI **Detect COM** action only enumerates OS-reported COM ports. It does not send SCPI and never scans baud rates. Connect/model identification uses the user-selected COM + baud. CLI preflight may probe candidate COM ports at one selected baud only.
 
-## Map Reconstruction boundary
+## Web project-hub boundary
 
-`src/map_reconstruction/` is an independent optional application. Its dependency direction is:
-
-```text
-UI -> preparation/reconstruction/processing/QC/project IO -> NumPy
-```
-
-The UI exposes Signal Preparation → Reconstruction → Map Analysis. Imported source arrays remain authoritative; preprocessing/reconstruction/display layers must not silently overwrite source scientific data.
-
-`project_io.py` owns the versioned `.hmmap` ZIP/JSON format, embedded source bytes, metadata and hash verification.
+`web/` is presentation/navigation only. It may describe HappyMeasure and link to the externally deployed Map Reconstruction and IV Fitter applications, but it must not duplicate their scientific engines or create a second bundled desktop-analysis runtime.
 
 ## Extension boundaries
 
 - hardware-specific SCPI belongs in instrument/driver implementations, not Tk widgets;
 - sweep generation belongs in planning/core logic, not UI widgets;
 - persisted settings require backward-compatible defaults and round-trip tests;
-- public file/schema changes require updates to `TRACE_SCHEMA.md` or `MAP_PROJECT_FORMAT.md` plus compatibility tests;
+- public HappyMeasure CSV/schema changes require updates to `TRACE_SCHEMA.md` plus compatibility tests;
 - composition roots should remain small.
 
 ## Release validation boundary
 
-Automated source validation does not equal hardware validation. Core tests, the Map Qt gate, portable packaging and the recorded no-DUT hardware scope are separate evidence layers described in `RELEASE_CHECKLIST.md`, `VALIDATION_STATUS.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.
+Automated source validation does not equal hardware validation. Core tests, portable packaging and the recorded no-DUT hardware scope are separate evidence layers described in `RELEASE_CHECKLIST.md`, `VALIDATION_STATUS.md` and `HARDWARE_VALIDATION_PROTOCOL.md`.
