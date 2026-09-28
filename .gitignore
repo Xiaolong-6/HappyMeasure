@@ -13,7 +13,6 @@ htmlcov/
 .venv/
 .venv.backup/
 .venv-build/
-.venv-build-map/
 .venv-build-314/
 venv/
 env/

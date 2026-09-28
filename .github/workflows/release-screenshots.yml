@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   capture:
-    name: Capture current source GUI release screenshots
+    name: Capture current HappyMeasure GUI screenshots
     runs-on: windows-latest
     timeout-minutes: 30
 
@@ -23,13 +23,13 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install source GUI dependencies
-        run: python -m pip install -e ".[dev,map]"
+        run: python -m pip install -e ".[dev]"
       - name: Capture release screenshots
         run: python tools/release/capture_release_screenshots.py
       - name: Upload captured screenshots for review
         uses: actions/upload-artifact@v6
         with:
           name: release-screenshots-${{ github.sha }}
-          path: docs/screenshots/*.png
+          path: docs/screenshots/happymeasure-*.png
           if-no-files-found: error
           retention-days: 7

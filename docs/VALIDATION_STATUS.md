@@ -4,7 +4,9 @@ This file records validation scope for the current development HEAD. The authori
 
 ## Current development decision
 
-HappyMeasure **v1.2b** was published and independently verified from commit `111337bb1aeb1927ab97922c616f767daf005a6e` on 2026-09-15. Development has resumed at **1.2b1** with no active release freeze. This post-release transition changes version/release-process metadata only and does not alter measurement or hardware behavior.
+HappyMeasure **v1.2b** was published and independently verified from commit `111337bb1aeb1927ab97922c616f767daf005a6e` on 2026-09-15. Development has resumed at **1.2b2** with no active release freeze.
+
+The current tree retires the former desktop Map Reconstruction application from HappyMeasure. Browser Map Reconstruction is now maintained and deployed independently through `Xiaolong-6/HM-Map-Reconstruction`.
 
 ## Automated source gate
 
@@ -12,10 +14,10 @@ Required on current development commits and again for any future release candida
 
 - Windows Python 3.11/3.12/3.13/3.14: compileall, Black, Ruff, mypy and core pytest;
 - Python 3.14 configured core coverage `>=95%`;
-- dedicated Windows/Python 3.12 Map Reconstruction job with real PySide6/pyqtgraph dependencies and offscreen Qt tests;
 - commit-by-commit version-policy check;
 - repository privacy regression preventing workstation-specific home paths and known real instrument serial identifiers from returning;
-- version/namespace/settings/export/safety regressions.
+- version/namespace/settings/export/safety regressions;
+- static project-hub validation for Pages-related changes.
 
 A green source gate validates source behavior only. Package readiness additionally requires the package job below.
 
@@ -41,28 +43,27 @@ No passive-load resistor test was performed in that session. Therefore the repos
 
 ## Automated Windows package gate
 
-On pushes to `main`, `Windows portable package smoke (Python 3.12)` runs after the source and Map gates. For the exact commit it:
+On pushes to `main`, `Windows portable package smoke (Python 3.12)` runs after the source gates. For the exact commit it:
 
-1. clean-builds both portable applications;
+1. clean-builds the HappyMeasure portable application;
 2. audits package structure and release contents;
 3. rejects tracked/private workstation identifiers in packaged text;
 4. rejects runtime logs/test/build/hardware-smoke debris;
-5. enforces Map Reconstruction ZIP/extracted size ceilings;
-6. smoke-launches both frozen executables; and
-7. emits audited ZIPs plus `release-artifacts.json` containing SHA-256 and size data.
+5. smoke-launches the frozen HappyMeasure executable; and
+6. emits the audited ZIP plus `release-artifacts.json` containing SHA-256 and size data.
 
 A package job from an older commit is not evidence for a newer commit. Release artifacts must come from the exact commit that is tagged and published.
 
 ## Screenshot/documentation gate
 
-The six README screenshots under `docs/screenshots/` document the published v1.2b UI. If visible UI changes before a future release, refresh the affected captures from the exact final source candidate and review them before publication. Captures must not expose usernames, workstation paths, instrument serial numbers or unrelated desktop content.
+The three active README screenshots under `docs/screenshots/` document the HappyMeasure desktop UI. If visible UI changes before a future release, refresh the affected captures from the exact final source candidate and review them before publication. Captures must not expose usernames, workstation paths, instrument serial numbers or unrelated desktop content.
 
 ## Status vocabulary
 
-- **SOURCE READY** — automated source/Qt/version/privacy gates pass on the exact commit.
+- **SOURCE READY** — automated source/version/privacy gates pass on the exact commit.
 - **PACKAGE READY** — source gate plus the Windows portable package build/audit/smoke job passes on the exact commit.
 - **2401 NO-DUT VERIFIED** — the recorded communication/control/safety smoke above passed; this is deliberately narrower than analog/DUT validation.
 - **RELEASE CANDIDATE READY** — SOURCE READY + PACKAGE READY + approved current release screenshots/documentation.
 - **RELEASED** — the selected commit/tag/release/artifacts were published and post-release download/update checks passed.
 
-Published `v1.2b` satisfies **RELEASED**, including independent post-download filename, byte-size and SHA-256 verification of both portable ZIPs.
+Published `v1.2b` satisfies **RELEASED** for its historical two-artifact package set. Future releases from the current tree contain the HappyMeasure desktop portable artifact only.

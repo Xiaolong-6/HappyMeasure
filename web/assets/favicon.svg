@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">HappyMeasure</title>
+  <rect width="64" height="64" rx="16" fill="#111827"/>
+  <path d="M12 38h9l5-16 8 28 6-18 4 6h8" fill="none" stroke="#70a8ff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

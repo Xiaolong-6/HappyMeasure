@@ -113,7 +113,7 @@ python -c "import keith_ivt; from keith_ivt.ui.simple_app import main; import ma
 Assert-LastCommand "Import smoke check"
 
 Write-Step "Automated validation is a packaging precondition, not part of this script."
-Write-Step "Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate."
+Write-Step "Run the owned gates first: tests/common + tests/happymeasure."
 
 Write-Step "Running PyInstaller..."
 New-Item -ItemType Directory -Force -Path "build" | Out-Null

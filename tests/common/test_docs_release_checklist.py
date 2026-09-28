@@ -14,18 +14,15 @@ def test_release_checklist_has_current_release_gates() -> None:
     text = _read(DOCS / "RELEASE_CHECKLIST.md")
     for heading in (
         "## 1. Identity and tree hygiene",
-        "## 2. Automated core validation",
-        "## 3. Map Reconstruction release gate",
-        "## 4. Desktop simulator/UX and screenshots",
-        "## 5. Hardware evidence",
-        "## 6. Windows portable package CI",
-        "## 7. Release publication",
-        "## 8. Post-release",
+        "## 2. Automated source validation",
+        "## 3. Desktop simulator/UX and screenshots",
+        "## 4. Hardware evidence",
+        "## 5. Windows portable package CI",
+        "## 6. Release publication",
+        "## 7. Post-release",
     ):
         assert heading in text
     assert "check_version_sequence.py" in text
-    assert ".[dev,map]" in text
-    assert "QT_QPA_PLATFORM" in text
     assert "audit_portable_artifacts.py" in text
     assert "release-artifacts.json" in text
 
@@ -40,7 +37,6 @@ def test_docs_index_lists_current_owner_documents() -> None:
         "TRACE_SCHEMA.md",
         "SETTINGS_COMPATIBILITY.md",
         "HARDWARE_VALIDATION_PROTOCOL.md",
-        "MAP_PROJECT_FORMAT.md",
         "RELEASE_CHECKLIST.md",
         "VALIDATION_STATUS.md",
         "VERSIONING.md",
@@ -130,11 +126,9 @@ def test_readme_references_all_release_screenshots() -> None:
         "happymeasure-hardware.png",
         "happymeasure-sweep-result.png",
         "happymeasure-front-panel-popup.png",
-        "map-reconstruction-preparation.png",
-        "map-reconstruction-reconstruction.png",
-        "map-reconstruction-analysis.png",
     )
     assert "## Screenshots" in readme
     for name in names:
         assert f"docs/screenshots/{name}" in readme
         assert (screenshot_dir / name).is_file(), name
+    assert not list(screenshot_dir.glob("map-reconstruction-*.png"))

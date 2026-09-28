@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://xiaolong-6.github.io/HappyMeasure/sitemap.xml

@@ -60,7 +60,7 @@ python -c "import keith_ivt; from keith_ivt.ui.simple_app import main; import ma
 if errorlevel 1 goto :fail
 
 call :log Automated validation is a packaging precondition, not part of this script.
-call :log Run the owned gates first: tests/common + tests/happymeasure, then the Map Qt gate.
+call :log Run the owned gates first: tests/common + tests/happymeasure.
 
 call :log Running PyInstaller...
 if not exist "build" mkdir "build"

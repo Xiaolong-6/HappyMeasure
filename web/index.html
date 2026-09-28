@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HappyMeasure · Measurement and analysis tools</title>
+  <meta name="description" content="HappyMeasure is an open-source toolkit for electrical measurement, map reconstruction, and I–V fitting.">
+  <meta name="theme-color" content="#f7f9fc">
+  <link rel="canonical" href="https://xiaolong-6.github.io/HappyMeasure/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="HappyMeasure">
+  <meta property="og:title" content="HappyMeasure · Measurement and analysis tools">
+  <meta property="og:description" content="Measure with HappyMeasure, then continue in browser-based Map Reconstruction or IV Fitter tools.">
+  <meta property="og:url" content="https://xiaolong-6.github.io/HappyMeasure/">
+  <meta name="twitter:card" content="summary">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="nav-shell">
+      <a class="brand" href="./" aria-label="HappyMeasure home">
+        <span class="brand-mark" aria-hidden="true">HM</span>
+        <span>HappyMeasure</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="#measure">Measure</a>
+        <a href="#analyze">Analyze</a>
+        <a href="https://github.com/Xiaolong-6/HappyMeasure">Source</a>
+      </nav>
+      <a class="nav-action" href="https://github.com/Xiaolong-6/HappyMeasure/releases">Downloads</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero shell" aria-labelledby="hero-title">
+      <p class="eyebrow">Open-source scientific tools</p>
+      <h1 id="hero-title">Measure. Reconstruct. Fit.</h1>
+      <p class="hero-copy">
+        HappyMeasure connects laboratory electrical measurements with focused browser tools for
+        spatial reconstruction and I–V model fitting.
+      </p>
+      <div class="hero-actions" aria-label="Primary actions">
+        <a class="button button-primary" href="https://github.com/Xiaolong-6/HappyMeasure/releases">Download HappyMeasure</a>
+        <a class="button button-secondary" href="#analyze">Analyze data</a>
+      </div>
+    </section>
+
+    <section id="measure" class="shell section" aria-labelledby="measure-title">
+      <div class="section-heading">
+        <p class="section-index">01 · Measure</p>
+        <h2 id="measure-title">HappyMeasure Desktop</h2>
+        <p>Windows-first measurement software for Keithley-style source-measure workflows.</p>
+      </div>
+
+      <article class="desktop-panel">
+        <div>
+          <span class="tool-label">Desktop application</span>
+          <h3>Acquire IV and time-domain data</h3>
+          <p>
+            Run voltage/current sweeps and time measurements with safety-oriented instrument
+            control, autosave, import/export, diagnostics, and portable Windows builds.
+          </p>
+        </div>
+        <div class="desktop-actions">
+          <a class="button button-primary" href="https://github.com/Xiaolong-6/HappyMeasure/releases">Get the app</a>
+          <a class="text-link" href="https://github.com/Xiaolong-6/HappyMeasure/tree/main/docs">Documentation <span aria-hidden="true">↗</span></a>
+        </div>
+      </article>
+    </section>
+
+    <section id="analyze" class="shell section" aria-labelledby="analyze-title">
+      <div class="section-heading">
+        <p class="section-index">02 · Analyze</p>
+        <h2 id="analyze-title">Choose an analysis tool</h2>
+        <p>Open the workflow you need. Each tool is developed and deployed independently.</p>
+      </div>
+
+      <div class="tool-grid">
+        <article class="tool-card">
+          <div class="tool-topline">
+            <span class="tool-label">Browser app</span>
+            <span class="tool-number" aria-hidden="true">MR</span>
+          </div>
+          <h3>Map Reconstruction</h3>
+          <p>
+            Import measurement data, prepare the signal, reconstruct spatial maps, and inspect
+            the result in a dedicated analysis workspace.
+          </p>
+          <ol class="workflow" aria-label="Map Reconstruction workflow">
+            <li>Import data</li>
+            <li>Prepare signal</li>
+            <li>Reconstruct</li>
+            <li>Analyze map</li>
+          </ol>
+          <div class="card-actions">
+            <a class="button button-primary" href="https://xiaolong-6.github.io/HM-Map-Reconstruction/">Open Map Reconstruction</a>
+            <a class="text-link" href="https://github.com/Xiaolong-6/HM-Map-Reconstruction">Source <span aria-hidden="true">↗</span></a>
+          </div>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-topline">
+            <span class="tool-label">Browser app</span>
+            <span class="tool-number" aria-hidden="true">IV</span>
+          </div>
+          <h3>IV Fitter</h3>
+          <p>
+            Import I–V traces, build an equivalent-circuit model, run the fit, inspect residuals
+            and parameters, then review the report.
+          </p>
+          <ol class="workflow" aria-label="IV Fitter workflow">
+            <li>Import data</li>
+            <li>Model builder</li>
+            <li>Fit</li>
+            <li>Report</li>
+          </ol>
+          <div class="card-actions">
+            <a class="button button-primary" href="https://xiaolong-6.github.io/HM-IV-Fitter/">Open IV Fitter</a>
+            <a class="text-link" href="https://github.com/Xiaolong-6/HM-IV-Fitter">Source <span aria-hidden="true">↗</span></a>
+          </div>
+        </article>
+      </div>
+
+      <p class="local-note">
+        Browser tools are designed around local scientific workflows. Review imported units,
+        model assumptions, fit diagnostics, and reconstructed results before reporting them.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-row">
+      <div>
+        <strong>HappyMeasure</strong>
+        <span>Measurement and analysis tools.</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Xiaolong-6/HappyMeasure">GitHub</a>
+        <a href="https://github.com/Xiaolong-6/HappyMeasure/issues">Issues</a>
+        <a href="https://github.com/Xiaolong-6/HappyMeasure/releases">Releases</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

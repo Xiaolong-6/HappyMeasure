@@ -4,7 +4,7 @@ This index is the documentation source of truth. Current behavior belongs in an 
 
 ## Start here
 
-- `../README.md` — product overview, launch instructions and release screenshots
+- `../README.md` — product overview, launch instructions, project-hub links and release screenshots
 - `../AGENTS.md` — machine/developer change discipline and safety invariants
 - `../CONTRIBUTING.md` — contribution, versioning and validation rules
 - `VALIDATION_STATUS.md` — current validation scope and release readiness definitions
@@ -28,32 +28,30 @@ This index is the documentation source of truth. Current behavior belongs in an 
 
 Simulator/CI success is not proof of real-hardware compatibility. Existing MODEL 2401 no-DUT evidence is recorded in `VALIDATION_STATUS.md` without publishing the instrument serial number.
 
-## Map Reconstruction
-
-- `MAP_PROJECT_FORMAT.md` — authoritative `.hmmap` archive contract
-- `PHASE_WINDOW_RECONSTRUCTION.md` — phase-window reconstruction method
-- `MAP_PACKAGING_SIZE_AUDIT.md` — packaging dependency/size rationale
-
 ## Release and build
 
 - `VERSIONING.md` — internal per-commit build numbering and human release-version policy
 - `RELEASE_CHECKLIST.md` — release procedure, automated package gate and screenshot refresh gate
 - `RELEASE_NOTES_NEXT.md` — next public release draft
 - `CHANGELOG.md` — concise historical release record
-- `WINDOWS_PORTABLE_BUILD.md` — common Windows portable build/audit contract
+- `WINDOWS_PORTABLE_BUILD.md` — Windows portable build/audit contract
 - `WINDOWS_PYTHON314_BUILD.md` — Python 3.14 packaging exception
 - `MANUAL_SMOKE_TESTS.md` — optional desktop/operator smoke checks
 - `UI_VISUAL_CHECKLIST.md` — visual/responsive checks
 - `UI_DIAGNOSTICS.md` — built-in diagnostics scope
 - `UI_STYLE_GUIDE.md` — UI styling conventions
 
-The automated `main` package job builds both portable ZIPs, audits package contents/privacy/Map size, smoke-launches the frozen executables, generates SHA-256 metadata, and uploads the audited candidates for the exact commit.
+The automated `main` package job builds the HappyMeasure portable ZIP, audits package contents/privacy, smoke-launches the frozen executable, generates SHA-256 metadata, and uploads the audited candidate for the exact commit.
+
+## Browser analysis tools
+
+The HappyMeasure Pages hub links to the independently maintained **HM-Map-Reconstruction** and **HM-IV-Fitter** repositories. Their implementation documentation and deployment status belong in those repositories, not here.
 
 ## Release screenshots
 
-The six PNG files under `screenshots/` are referenced by the root README and are part of the release documentation surface. Refresh stale captures from the exact final source candidate whenever visible UI changes before a future release. Captures must not include usernames, private paths, physical instrument serial numbers or unrelated desktop content.
+The three PNG files under `screenshots/` referenced by the root README are the active HappyMeasure desktop release screenshots. Refresh stale captures from the exact final source candidate whenever visible desktop UI changes before a future release.
 
-Historical versioned release-note files were removed from the active tree. Git history and `CHANGELOG.md` retain release history without leaving stale operational instructions or workstation-specific paths in current documentation.
+Historical desktop Map Reconstruction documentation and screenshots remain available in Git history and published release records, but are not part of the current source tree.
 
 ## Documentation policy
 

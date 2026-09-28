@@ -23,7 +23,7 @@ python -m pip install -e ".[dev]"
 python -m pytest -q tests/common tests/happymeasure
 ```
 
-Map Reconstruction has a separate Qt gate and is not required merely to perform the no-DUT hardware dry run. For the complete release validation environment, follow `RELEASE_CHECKLIST.md`.
+For the complete release validation environment, follow `RELEASE_CHECKLIST.md`.
 
 ## Step 2 — hardware preflight
 

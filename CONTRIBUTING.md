@@ -8,6 +8,8 @@ Every change must either update the owner documentation or explicitly state why 
 
 Do not create date-by-date handoff/test diary documents. Remove superseded instructions after preserving still-current contracts in their owner document.
 
+Browser Map Reconstruction and IV Fitter are maintained in separate repositories; HappyMeasure owns only the project-hub links to those tools.
+
 ## Version rule
 
 During normal development, every commit increments the internal beta serial by exactly one and keeps these two files consistent:
@@ -42,20 +44,6 @@ python -m ruff check src tests tools\release
 ```
 
 Run focused regressions for changed behavior. Shared hardware, state, settings, packaging or release changes require the broader validation in `docs/RELEASE_CHECKLIST.md`.
-
-## Map Reconstruction
-
-For Map-only changes install optional GUI dependencies and run the owned offscreen Qt domain:
-
-```powershell
-python -m pip install -e ".[dev,map]"
-$env:QT_QPA_PLATFORM="offscreen"
-python -c "import PySide6, pyqtgraph"
-python -m mypy src/map_reconstruction
-python -m pytest -q tests/map_reconstruction
-```
-
-A release candidate must run this gate with real Qt dependencies; a dependency-driven skip is not a release-gate pass.
 
 ## Regression-test discipline
 
